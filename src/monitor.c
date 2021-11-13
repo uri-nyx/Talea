@@ -146,8 +146,8 @@ void render_stack()
 }
 
 void render_output(){
-    int x = 90;
-    int y = 54;
+    int x = 81;
+    int y = 12;
 
     for (size_t i = 0; i < 0xe; i++)
     {
@@ -159,8 +159,8 @@ void render_output(){
 }
 
 void render_input(){
-    int x = 90;
-    int y = 70;
+    int x = 81;
+    int y = 28;
 
     for (size_t i = 0x100; i < 0x10b; i++)
     {
