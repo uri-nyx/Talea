@@ -149,9 +149,9 @@ void render_output(){
     int x = 90;
     int y = 54;
 
-    for (size_t i = 0x200; i < 0x20e; i++)
+    for (size_t i = 0; i < 0xe; i++)
     {
-        tb_printf(x, y, 23, 2, "%.2x [%c]", memory[i], memory[i]);
+        tb_printf(x, y, 23, 2, "%.2x [%c]", memory[i + 0x200], memory[i + 0x200]);
         y ++;
     }
     
