@@ -484,7 +484,7 @@ struct instr decode(byte_t instruction)
         }
         decoded.op = lea_p;
         break;
-        
+
     case branch_n:
         switch (instruction & 0x3)
         {
@@ -600,7 +600,8 @@ struct instr decode(byte_t instruction)
             decoded.type = ZP;
             decoded.reg = instruction & 0x7;
             decoded.addrL = memory[regs.pc + 1];
-            decoded.addrH = 0;   
+            decoded.addrH = 0;
+        } 
         else {
             decoded.type = HL;
             decoded.reg = instruction & 0x7;
