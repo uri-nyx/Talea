@@ -4,7 +4,7 @@
 #include "lib/talea.h"
 #include "lib/termbox/termbox.h"
 #include "tui/tui.h"
-#include "devices.h"
+#include "lib/devices.h"
 
 //100x41 characters
 int buff_count;
