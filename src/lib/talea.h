@@ -15,6 +15,8 @@
 #define RA 4
 #define RL 5
 #define RR 6
+#define ZP 7
+#define HL 8
 
 /**
  * @brief This constants convey the bit position fo the flags in the status register
@@ -129,7 +131,11 @@ enum
 
     branch_n,
 
-    noargs_n
+    noargs_n,
+
+    zerop_n,
+    zldr_n,
+    zstr_n
 };
 
 /* INSTRUCTIONS POINTERS IN VECTOR */
@@ -343,8 +349,14 @@ int cycle()
 
     if (ins.op == ldr_p)
     {
-        inc_pc(3);
-    }
+        if (ins.type == ZP) {
+            inc_pc(2);
+        } else {
+            inc_pc(3);
+        }
+    } else if (ins.type == ZP) {
+        inc_pc(2);
+    } 
     else
     {
         inc_pc(ins.type);
@@ -458,11 +470,24 @@ struct instr decode(byte_t instruction)
         break;
 
     case lea_n:
+        switch (instruction & 0x8)
+        {
+        case 0:
+            decoded.type = GAMMA;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = memory[regs.pc + 2];
+            break;
+        
+        case 1:
+            // LDI ZP
+            decoded.op = ldi_p;
+            decoded.type = ZP;
+            decoded.reg = instruction & 0x7;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
+        }
         decoded.op = lea_p;
-        decoded.type = GAMMA;
-        decoded.addrL = memory[regs.pc + 1];
-        decoded.addrH = memory[regs.pc + 2];
-        break;
     case branch_n:
         switch (instruction & 0x3)
         {
@@ -529,6 +554,86 @@ struct instr decode(byte_t instruction)
         }
 
         decoded.type = ALPHA;
+        break;
+    
+    case zerop_n:
+        switch (instruction & 0xf)
+        {
+        case 0x0:
+            decoded.op = and_p;
+            break;
+        case 0x1:
+            decoded.op = xor_p;
+            break;
+        case 0x2:
+            decoded.op = add_p;
+            break;
+        case 0x3:
+            decoded.op = adc_p;
+            break;
+        case 0x4:
+            decoded.op = xor_p;
+            break;
+        case 0x5:
+            decoded.op = bnz_p;
+            break;
+        case 0x6:
+            decoded.op = bez_p;
+            break;
+        case 0x7:
+            decoded.op = ben_p;
+            break;
+        case 0x8:
+            decoded.op = call_p;
+            break;
+        case 0x9:
+            decoded.op = lea_p;
+            break;
+        }
+
+        decoded.type = ZP;
+        decoded.addrL = memory[regs.pc + 1];
+        decoded.addrH = 0;
+        break;
+    
+    case zldr_n:
+        decoded.op = ldr_p;
+        switch (instruction & 0x8)
+        {
+        case 0:
+            decoded.type = ZP;
+            decoded.reg = instruction & 0x7;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
+        
+        case 1:
+            decoded.type = HL;
+            decoded.reg = instruction & 0x7;
+            decoded.addrL = regs.general[lx];
+            decoded.addrH = regs.general[hx];
+            break;
+        }
+        break;
+
+    case zstr_n:
+        
+        switch (instruction & 0x8)
+        {
+        case 0:
+            decoded.op = str_p;
+            break;
+        
+        case 1:
+            decoded.op = sti_p;
+
+            break;
+        }
+            decoded.type = ZP;
+            decoded.reg = instruction & 0x7;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+
         break;
 
     default:
@@ -600,18 +705,50 @@ byte_t pop(struct stack *s)
 
 void and_o(struct instr ins)
 {
-    regs.general[acc] &= (ins.type == ALPHA) ? regs.general[ins.reg] : (ins.type == BETA) ? ins.litt
-                                                                                          :
-                                                                                          /* GAMMA */ memory[(ins.addrH << 8) | ins.addrL];
+    byte_t arg;
+    switch (ins.type)
+    {
+    case ALPHA:
+        arg = regs.general[ins.reg];
+        break;
+    case BETA:
+        arg = ins.litt;
+        break;
+    case GAMMA:
+        arg = memory[(ins.addrH << 8) | ins.addrL];
+        break;
+    case ZP:
+        arg = memory[ins.addrL];
+        break;
+    default:
+        break;
+    }
+    regs.general[acc] &= arg;
 
     set_status(regs.general[acc]);
 }
 
 void xor_o(struct instr ins)
 {
-    regs.general[acc] ^= (ins.type == ALPHA) ? regs.general[ins.reg] : (ins.type == BETA) ? ins.litt
-                                                                                          :
-                                                                                          /* GAMMA */ memory[(ins.addrH << 8) | ins.addrL];
+    byte_t arg;
+    switch (ins.type)
+    {
+    case ALPHA:
+        arg = regs.general[ins.reg];
+        break;
+    case BETA:
+        arg = ins.litt;
+        break;
+    case GAMMA:
+        arg = memory[((word_t)ins.addrH << 8) | ins.addrL];
+        break;
+    case ZP:
+        arg = memory[ins.addrL];
+        break;
+    default:
+        break;
+    }
+    regs.general[acc] ^= arg;
 
     set_status(regs.general[acc]);
 }
@@ -632,6 +769,9 @@ void add_o(struct instr ins)
 
     case GAMMA:
         arg = memory[((word_t)ins.addrH << 8) | ins.addrL];
+        break;
+    case ZP:
+        arg = memory[ins.addrL];
         break;
     }
 
@@ -678,6 +818,9 @@ void adc_o(struct instr ins)
     case GAMMA:
         arg = memory[((word_t)ins.addrH << 8) | ins.addrL];
         break;
+    case ZP:
+        arg = memory[ins.addrL];
+        break;
     }
 
     word_t result = regs.general[acc] + arg + (regs.status & 0x1);
@@ -720,6 +863,9 @@ void subb_o(struct instr ins)
 
     case GAMMA:
         arg = memory[((word_t)ins.addrH << 8) | ins.addrL];
+        break;
+    case ZP:
+        arg = memory[ins.addrL];
         break;
     }
 
@@ -792,6 +938,9 @@ void ldr_o(struct instr ins)
     case RA:
         regs.general[ins.reg] = memory[((word_t)ins.addrH << 8) | ins.addrL];
         break;
+    case ZP:
+        regs.general[ins.reg]; = memory[ins.addrL];
+        break;
     }
 
     set_status(regs.general[ins.reg]);
@@ -808,6 +957,9 @@ void str_o(struct instr ins)
     case GAMMA:
         memory[((word_t)ins.addrH << 8) | ins.addrL] = regs.general[ins.reg];
         break;
+    case ZP:
+        memory[ins.addrL] = regs.general[ins.reg];
+        break;
     }
 }
 
@@ -823,6 +975,9 @@ void sti_o(struct instr ins)
 
     case GAMMA:
         addr = ((word_t)ins.addrH << 8) | ins.addrL;
+        break;
+    case ZP:
+        addr = ins.addrL;
         break;
     }
     memory[((word_t)memory[addr + 1] << 8) | memory[addr]] = regs.general[ins.reg];
@@ -845,8 +1000,18 @@ void ldi_o(struct instr ins)
 
 void lea_o(struct instr ins)
 {
-    regs.general[hx] = ins.addrH;
-    regs.general[lx] = ins.addrL;
+    switch (ins.type)
+    {
+    case GAMMA:
+        regs.general[hx] = ins.addrH;
+        regs.general[lx] = ins.addrL;
+        break;
+    
+    case ZP:
+        regs.general[lx] = ins.addrL;
+        regs.general[hx] = 0;
+        break;
+    }
     // WETHER set_status MUST BE INVOKED, I DO NOT KNOW
 }
 
@@ -865,6 +1030,9 @@ void bnz_o(struct instr ins)
         case GAMMA:
             regs.pc = ((word_t)ins.addrH << 8) | ins.addrL;
             break;
+        case ZP:
+            regs.pc = ins.addrL;
+            break;
         }
     }
 }
@@ -882,6 +1050,9 @@ void bez_o(struct instr ins)
         case GAMMA:
             regs.pc = ((word_t)ins.addrH << 8) | ins.addrL;
             break;
+        case ZP:
+            regs.pc = ins.addrL;
+            break;
         }
     }
 }
@@ -898,6 +1069,9 @@ void ben_o(struct instr ins)
 
         case GAMMA:
             regs.pc = ((word_t)ins.addrH << 8) | ins.addrL;
+            break;
+        case ZP:
+            regs.pc = ins.addrL;
             break;
         }
     }
@@ -920,6 +1094,9 @@ void call_o(struct instr ins)
     case GAMMA:
         regs.pc = ((word_t)ins.addrH << 8) | ins.addrL;
         break;
+    case ZP:
+            regs.pc = ins.addrL;
+            break;
     }
 }
 
