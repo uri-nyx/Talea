@@ -1,3 +1,41 @@
+/**
+ * @file tui.h
+ * @author Uri Nyx (urinyxr@gmail.com)
+ * @brief Some helper headers to render the Monitor
+ * @version 0.1
+ * @date 2021-11-13
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
+
+typedef struct Widget {
+    int x;
+    int y;
+    char* fmt;
+} widg;
+
+/**
+ * @brief diferent widgets for the layout of the TUI
+ * 
+ */
+widg reg_w = {2, 2, " %.2x      %.2x      %.2x      %.2x      %.2x      %.2x      %.2x      %.2x"};
+widg pc_w = {69, 2, "%.4x"};
+widg current_w = {77, 2, "%s"};
+widg buff_w = {2, 42, ""};
+widg flags_w = {69, 5, ""};
+widg memory_cursor_w = {0, 0, ""}; //track memory cursor
+
+uint8_t memory_w[33][16];
+uint16_t memory_w_row[32];
+uint16_t row_counter;
+uint8_t stack_w[256];
+uint32_t buffer[256];
+uint16_t prev_pc;
+
+///FUNCTION DECLARATIONS
+
+void update_debug_console();
 
 char tui[105][305] = 
 { 
