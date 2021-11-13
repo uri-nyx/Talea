@@ -44,9 +44,32 @@ void teletype(byte_t* in_port, byte_t* status_port, char * path){
  * @param out_port a pointer to an output port of Talea
  * @param options_port a pointer to an output port of Talea
  * @param status_port a pointer to an input port of Talea
- * @param fd a file descriptor to print the formatted byte
+ * @param path a path to a file to print the formatted byte
  */
-void printer(byte_t* out_port, byte_t* options_port, byte_t* status_port, FILE* fd) {
+void printer(byte_t* out_port, byte_t* options_port, byte_t* status_port, char * path) {
+    #define MODE_d 0x01;
+    #define MODE_c 0x02;
+    
+    int fd;
+    char formatted[5];
+    byte_t to_print = *out_port;
+
+    *status_port = 0xfe; //printing
+    switch (*options_port)
+    {
+    case MODE_d:
+        sprintf(formatted, "%d", to_print);
+        break;
+    
+    case MODE_c:
+        sprintf(formatted, "%c", to_print);
+        break;
+    }
+    fd = open(path, O_APPEND);
+    write(fd, formatted, 5);
+    close(fd);
+
+    *status_port = 0x00; //ready
 
 }
 
