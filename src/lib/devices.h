@@ -12,16 +12,30 @@
  */
 #include <stdio.h>
 #include "talea.h"
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /**
  * @brief Gets a keystroke and feeds it into in_port, and posts its status to status_port
  * 
  * @param in_port a pointer to an input port on Talea
  * @param status_port a pointer to an input port on Talea
- * @param fd a file descriptor from which to read the keystroke
+ * @param path a path from which to read the keystroke
  */
-void teletype(byte_t* in_port, byte_t* status_port, FILE* fd){
+void teletype(byte_t* in_port, byte_t* status_port, char * path){
+    int fd;
+    unsigned char in[2];
 
+    fd = open(path, O_RDONLY | O_NONBLOCK);
+    read(fd, &in, 2);
+    if (in[1] == 0xff)
+    {
+        *in_port = in[0];
+        *status_port = in[1];
+    }
+    
 }
 
 /**

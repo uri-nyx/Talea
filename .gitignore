@@ -1,3 +1,4 @@
 .vscode
 src/monitor
 src/lib/termbox/termbox.o
+src/tele

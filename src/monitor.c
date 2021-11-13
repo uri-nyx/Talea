@@ -361,10 +361,13 @@ void debugger_step_back()
 
 int monitor_loop()
 {
+    struct tb_event ev;
+    
     while (1)
     {
-        struct tb_event ev;
-        tb_poll_event(&ev);
+        teletype(&memory[0x100], &memory[0x101], "/tmp/fifo");
+        update_debug_console();
+        tb_peek_event(&ev, 100);
 
         switch (ev.key)
         {
@@ -408,7 +411,7 @@ int monitor_loop()
         default:
             break;
         }
-    }
+        }
 }
 
 int main()
