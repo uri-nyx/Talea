@@ -139,8 +139,8 @@ void render_stack(){
     }
 
     ///tracking sp
-    tb_set_cell(x, 6 + st.pointer, '>', 23, 0);
-    tb_set_cell(x, 6 + st.pointer + 2, '<', 23, 0); 
+    tb_set_cell(x - 1, 7 + st.pointer, '>', 23, 0);
+    tb_set_cell(x + 2, 7 + st.pointer, '<', 23, 0); 
 
 } 
 
