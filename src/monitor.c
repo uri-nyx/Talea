@@ -1,7 +1,7 @@
 /* FRONTEND FOR TALEA VM */
 #include <stdio.h>
 #include <stdlib.h>
-#include "lib/talea.h"
+//#include "lib/talea.h"
 #include "lib/termbox/termbox.h"
 #include "tui/tui.h"
 #include "lib/devices.h"
