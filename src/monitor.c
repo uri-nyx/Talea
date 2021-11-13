@@ -4,6 +4,7 @@
 #include "lib/talea.h"
 #include "lib/termbox/termbox.h"
 #include "tui/tui.h"
+#include "devices.h"
 
 //100x41 characters
 int buff_count;
@@ -414,6 +415,7 @@ int main()
 {
 
     st.pointer = 0;
+    rom_loader("test.hex");
 
     for (uint16_t i = 0; i < 32; i++)
     {
