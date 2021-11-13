@@ -663,7 +663,7 @@ struct instr decode(byte_t instruction)
             decoded.addrH = 0;
         } 
         else {
-            decoded.op = str_p;
+            decoded.op = sti_p;
             decoded.type = ZP;
             decoded.reg = instruction & 0x7;
             decoded.addrL = memory[regs.pc + 1];

@@ -39,29 +39,29 @@ It's main purpose was, opposed to that of the Machine of the Archive of Arkade, 
 
 ### ISA
 
-+ x0 and    r,$,#: acc &= arg (a,b,g)
-+ x1 xor    r,$,#: acc ^= arg (a,b,g)
-+ x2 add    r,$,#: acc += arg (a,b,g)
-+ x3 adc    r,$,#: acc += arg + carry (a,b,g)
-+ x4 subc   r,$,#: acc -= arg - carry (a,b,g)
++ x0 and    r,$,#,zp: acc &= arg (a,b,g)
++ x1 xor    r,$,#,zp: acc ^= arg (a,b,g)
++ x2 add    r,$,#,zp: acc += arg (a,b,g)
++ x3 adc    r,$,#,zp: acc += arg + carry (a,b,g)
++ x4 subc   r,$,#,zp: acc -= arg - carry (a,b,g)
 
 + x5 push   r: stack[sp++] = r
 + x5 pop    r: r = stack[sp]; sp--
 + x6 shiftl r: r = r << 1
    - shiftr r: r = r >> 1 (fill with N)
 
-+ x7 ldr    r;r,$,#: r = arg
++ x7 ldr    r;r,$,#,zp: r = arg
 
-+ x8 str    r;$,(hl): mem[arg] = r
-+ x9 sti    r;$,(hl): mem[mem[arg]] = r
++ x8 str    r;$,zp,(hl): mem[arg] = r
++ x9 sti    r;$,zp,(hl): mem[mem[arg]] = r
 
-+ xA ldi    r;$,(hl): r = mem[mem[arg]]
-+ xB lea    $: hl = $ 
++ xA ldi    r;$,zp,(hl): r = mem[mem[arg]]
++ xB lea    $.zp: hl = $ 
 
-+ xC bnz    $,(hl): Z != 0 ? pc = arg : pc++
-   - bez    $,(hl): Z == 0 ? pc = arg : pc++
-   - ben    $,(hl): N == 1 ? pc = arg : pc++
-   - call   $,(hl): push(pc); pc = arg
++ xC bnz    $,zp,(hl): Z != 0 ? pc = arg : pc++
+   - bez    $,zp,(hl): Z == 0 ? pc = arg : pc++
+   - ben    $,zp,(hl): N == 1 ? pc = arg : pc++
+   - call   $,zp,(hl): push(pc); pc = arg
 
 + xD jmp    (hl): push(pc); pc = mem[arg]
    - ret    : pc = pop 16 bytes from stack
@@ -71,5 +71,6 @@ It's main purpose was, opposed to that of the Machine of the Archive of Arkade, 
    - psp    : push sp    
    - ssp    : set sp
    - not    : acc = ~(acc)∫
-   - nop
    - sec    : set carry
+   - clc    : clear carry
+   - nop
