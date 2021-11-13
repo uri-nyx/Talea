@@ -137,7 +137,7 @@ void render_stack(){
         tb_printf(x, y, 23, 2, "%.2x", st.stack[i]);
         y++;       
     }
-    tb_set_cell(x, 7 + st.pointer, *st.stack[st.pointer], 0, 23); 
+    tb_set_cell(x, 7 + st.pointer, st.stack[st.pointer], 0, 23); 
 
 } 
 
@@ -219,7 +219,7 @@ void track_pc_cursor(uint16_t pc) {
 
 }
 
-void get_command(uint32_t* buff, widg wb){
+int get_command(uint32_t* buff, widg wb){
     struct tb_event input;
     
     tb_print(wb.x, wb.y, 23, 2, "> ");
