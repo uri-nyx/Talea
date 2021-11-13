@@ -470,24 +470,21 @@ struct instr decode(byte_t instruction)
         break;
 
     case lea_n:
-        switch (instruction & 0x8)
+        if ((instruction & 0x8) == 0)
         {
-        case 0:
             decoded.type = GAMMA;
             decoded.addrL = memory[regs.pc + 1];
             decoded.addrH = memory[regs.pc + 2];
-            break;
-        
-        case 1:
+        } else {
             // LDI ZP
             decoded.op = ldi_p;
             decoded.type = ZP;
             decoded.reg = instruction & 0x7;
             decoded.addrL = memory[regs.pc + 1];
-            decoded.addrH = 0;
-            break;
         }
         decoded.op = lea_p;
+        break;
+        
     case branch_n:
         switch (instruction & 0x3)
         {
@@ -598,36 +595,27 @@ struct instr decode(byte_t instruction)
     
     case zldr_n:
         decoded.op = ldr_p;
-        switch (instruction & 0x8)
+        if ((instruction & 0x8) == 0)
         {
-        case 0:
             decoded.type = ZP;
             decoded.reg = instruction & 0x7;
             decoded.addrL = memory[regs.pc + 1];
-            decoded.addrH = 0;
-            break;
-        
-        case 1:
+            decoded.addrH = 0;   
+        else {
             decoded.type = HL;
             decoded.reg = instruction & 0x7;
             decoded.addrL = regs.general[lx];
             decoded.addrH = regs.general[hx];
-            break;
         }
         break;
 
     case zstr_n:
         
-        switch (instruction & 0x8)
+        if ((instruction & 0x8) == 0)
         {
-        case 0:
             decoded.op = str_p;
-            break;
-        
-        case 1:
+        } else {
             decoded.op = sti_p;
-
-            break;
         }
             decoded.type = ZP;
             decoded.reg = instruction & 0x7;
