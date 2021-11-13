@@ -545,6 +545,20 @@ struct instr decode(byte_t instruction)
         case 0xa:
             decoded.op = nop_p;
             break;
+        case 0xb:
+            decoded.op = str_p;
+            decoded.type = ZP;
+            decoded.reg = lx;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
+        case 0xc:
+        decoded.op = str_p;
+            decoded.type = ZP;
+            decoded.reg = hx;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
         default:
             decoded.op = undefined_p;
             break;
@@ -569,7 +583,7 @@ struct instr decode(byte_t instruction)
             decoded.op = adc_p;
             break;
         case 0x4:
-            decoded.op = xor_p;
+            decoded.op = subb_p;
             break;
         case 0x5:
             decoded.op = bnz_p;
@@ -586,6 +600,52 @@ struct instr decode(byte_t instruction)
         case 0x9:
             decoded.op = lea_p;
             break;
+        case 0xa:
+            decoded.op = str_p;
+            decoded.type = ZP;
+            decoded.reg = acc;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
+        case 0xb:
+            decoded.op = str_p;
+            decoded.type = ZP;
+            decoded.reg = bcc;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
+        case 0xc:
+        decoded.op = str_p;
+            decoded.type = ZP;
+            decoded.reg = r1;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
+        case 0xd:
+        decoded.op = str_p;
+            decoded.type = ZP;
+            decoded.reg = r2;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
+        case 0xe:
+        decoded.op = str_p;
+            decoded.type = ZP;
+            decoded.reg = r3;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
+        case 0xf:
+            decoded.op = str_p;
+            decoded.type = ZP;
+            decoded.reg = r4;
+            decoded.addrL = memory[regs.pc + 1];
+            decoded.addrH = 0;
+            break;
+
+        default:
+            decoded.op = undefined_p;
+            break;
         }
 
         decoded.type = ZP;
@@ -594,35 +654,21 @@ struct instr decode(byte_t instruction)
         break;
     
     case zldr_n:
-        decoded.op = ldr_p;
         if ((instruction & 0x8) == 0)
         {
+            decoded.op = ldr_p;
             decoded.type = ZP;
             decoded.reg = instruction & 0x7;
             decoded.addrL = memory[regs.pc + 1];
             decoded.addrH = 0;
         } 
         else {
-            decoded.type = HL;
-            decoded.reg = instruction & 0x7;
-            decoded.addrL = regs.general[lx];
-            decoded.addrH = regs.general[hx];
-        }
-        break;
-
-    case zstr_n:
-        
-        if ((instruction & 0x8) == 0)
-        {
             decoded.op = str_p;
-        } else {
-            decoded.op = sti_p;
-        }
             decoded.type = ZP;
             decoded.reg = instruction & 0x7;
             decoded.addrL = memory[regs.pc + 1];
             decoded.addrH = 0;
-
+        }
         break;
 
     default:
@@ -983,6 +1029,9 @@ void ldi_o(struct instr ins)
     case GAMMA:
         regs.general[ins.reg] = memory[memory[((word_t)ins.addrH << 8) | ins.addrL]];
         break;
+    case ZP:
+        regs.general[ins.reg] = memory[memory[ins.addrL]];
+
     }
     set_status(regs.general[ins.reg]);
 }
