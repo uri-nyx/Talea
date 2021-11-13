@@ -415,12 +415,7 @@ int monitor_loop()
         }
 }
 
-int main()
-{
-
-    st.pointer = 0;
-    rom_loader("test.hex");
-
+void initialize_memory(){
     for (uint16_t i = 0; i < 32; i++)
     {
         memory_w_row[i] = i;
@@ -430,8 +425,23 @@ int main()
         }
     }
 
-    regs.status = 0x2;
+}
 
+int main(int argc, char *argv[])
+{
+    if (argc != 2)
+    {
+        printf("Usage: %s <rom-image>\n", argv[0]);
+        return 1;
+    }
+    
+    st.pointer = 0;
+    regs.status = 0x2;
+    regs.pc = 0x300;
+
+    rom_loader(argv[1]);
+
+    initialize_memory();
     initialize();
     update_debug_console();
     monitor_loop();
