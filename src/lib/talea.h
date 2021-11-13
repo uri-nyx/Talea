@@ -939,7 +939,7 @@ void ldr_o(struct instr ins)
         regs.general[ins.reg] = memory[((word_t)ins.addrH << 8) | ins.addrL];
         break;
     case ZP:
-        regs.general[ins.reg]; = memory[ins.addrL];
+        regs.general[ins.reg] = memory[ins.addrL];
         break;
     }
 
