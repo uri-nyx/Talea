@@ -366,7 +366,7 @@ int monitor_loop()
     while (1)
     {
         teletype(&memory[0x100], &memory[0x101], "/tmp/fifo");
-        printer(&memory[0x200], &memory[0x201], &memory[0x102], "printed.txt");
+        printer(&memory[0x200], &memory[0x201], &memory[0x102], "./printed.txt");
         update_debug_console();
         tb_peek_event(&ev, 100);
 

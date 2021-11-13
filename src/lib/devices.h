@@ -13,10 +13,11 @@
 #include <stdio.h>
 #include "talea.h"
 #include <fcntl.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#define MODE_d 0x01
+#define MODE_c 0x02
 /**
  * @brief Gets a keystroke and feeds it into in_port, and posts its status to status_port
  * 
@@ -47,29 +48,33 @@ void teletype(byte_t* in_port, byte_t* status_port, char * path){
  * @param path a path to a file to print the formatted byte
  */
 void printer(byte_t* out_port, byte_t* options_port, byte_t* status_port, char * path) {
-    #define MODE_d 0x01;
-    #define MODE_c 0x02;
     
     int fd;
     char formatted[5];
     byte_t to_print = *out_port;
 
-    *status_port = 0xfe; //printing
-    switch (*options_port)
+    if (*options_port > 0)
     {
-    case MODE_d:
-        sprintf(formatted, "%d", to_print);
-        break;
-    
-    case MODE_c:
-        sprintf(formatted, "%c", to_print);
-        break;
-    }
-    fd = open(path, O_APPEND);
-    write(fd, formatted, 5);
-    close(fd);
+        *status_port = 0xfe; //printing
+        switch (*options_port)
+        {
+        case MODE_d:
+            sprintf(formatted, "%d", to_print);
+            break;
+        
+        case MODE_c:
+            sprintf(formatted, "%c", to_print);
+            break;
+        }
+        FILE * fd = fopen(path, "a");
+        fputs(formatted, fd);
+        fclose(fd);
+        *status_port = 0x00; //ready
 
-    *status_port = 0x00; //ready
+
+    }
+    
+
 
 }
 
