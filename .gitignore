@@ -1,2 +1,3 @@
-src/.gitignore
 .vscode
+src/monitor
+src/lib/termbox/termbox.o
