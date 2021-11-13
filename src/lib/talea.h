@@ -472,6 +472,7 @@ struct instr decode(byte_t instruction)
     case lea_n:
         if ((instruction & 0x8) == 0)
         {
+            decoded.op = lea_p;
             decoded.type = GAMMA;
             decoded.addrL = memory[regs.pc + 1];
             decoded.addrH = memory[regs.pc + 2];
@@ -482,7 +483,6 @@ struct instr decode(byte_t instruction)
             decoded.reg = instruction & 0x7;
             decoded.addrL = memory[regs.pc + 1];
         }
-        decoded.op = lea_p;
         break;
 
     case branch_n:
