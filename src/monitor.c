@@ -137,7 +137,10 @@ void render_stack(){
         tb_printf(x, y, 23, 2, "%.2x", st.stack[i]);
         y++;       
     }
-    tb_set_cell(x, 7 + st.pointer, st.stack[st.pointer], 0, 23); 
+
+    ///tracking sp
+    tb_set_cell(x, 6 + st.pointer, '>', 23, 0);
+    tb_set_cell(x, 6 + st.pointer + 2, '<', 23, 0); 
 
 } 
 
