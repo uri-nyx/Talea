@@ -358,7 +358,7 @@ void debugger_step_back()
     regs.pc = prev_pc;
 }
 
-void monitor_loop()
+int monitor_loop()
 {
     while (1)
     {
@@ -429,5 +429,4 @@ int main()
     initialize();
     update_debug_console();
     monitor_loop();
-}
 }
