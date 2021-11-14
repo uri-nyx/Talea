@@ -1023,7 +1023,7 @@ void ldi_o(struct instr ins)
     switch (ins.type)
     {
     case ALPHA:
-        regs.general[ins.reg] = memory[((word_t)regs.general[hx] << 8) | regs.general[lx]]];
+        regs.general[ins.reg] = memory[((word_t)regs.general[hx] << 8) | regs.general[lx]];
         break;
 
     case GAMMA:
