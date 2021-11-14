@@ -55,11 +55,12 @@ void tty_printer(byte_t* out_port, byte_t* options_port, byte_t* status_port, ch
     if (*options_port > 0)
     {
         *status_port = 0xfe; //printing
-        FILE * fd = fopen(, "a"); //raw
+        FILE * fd = fopen(path, "a"); //raw
         fputs(to_print, fd);
         fclose(fd);
         *status_port = 0xff; //ready
     }
+}
 
 void tty_keyboard(){
     
@@ -82,7 +83,7 @@ int main(int argc, char *argv){
         return 1;
     }
     
-    int hz = atoi(argv[2])
+    int hz = atoi(argv[2]);
     st.pointer = 0;
     regs.status = 0x2;
     regs.pc = 0x300;
