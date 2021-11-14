@@ -338,6 +338,7 @@ void update_debug_console()
     render_output();
 
     render_pc_cursor(regs.pc);
+    printer(&memory[0x200], &memory[0x201], &memory[0x102], "./printed.txt");
 
     if (comm)
     {
@@ -366,7 +367,6 @@ int monitor_loop()
     while (1)
     {
         teletype(&memory[0x100], &memory[0x101], "/tmp/fifo");
-        printer(&memory[0x200], &memory[0x201], &memory[0x102], "./printed.txt");
         update_debug_console();
         tb_peek_event(&ev, 100);
 

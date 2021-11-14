@@ -18,6 +18,7 @@
 
 #define MODE_d 0x01
 #define MODE_c 0x02
+#define MODE_r 0x03
 /**
  * @brief Gets a keystroke and feeds it into in_port, and posts its status to status_port
  * 
@@ -64,6 +65,9 @@ void printer(byte_t* out_port, byte_t* options_port, byte_t* status_port, char *
         
         case MODE_c:
             sprintf(formatted, "%c", to_print);
+            break;
+        case MODE_r:
+            formatted[0] = to_print;
             break;
         }
         FILE * fd = fopen(path, "a");
