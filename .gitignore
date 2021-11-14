@@ -2,3 +2,5 @@
 src/monitor
 src/lib/termbox/termbox.o
 src/tele
+src/tools/casm/test.txt
+src/tools/casm/__pycache__/frontend.cpython-39.pyc
