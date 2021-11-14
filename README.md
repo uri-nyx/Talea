@@ -56,7 +56,7 @@ It's main purpose was, opposed to that of the Machine of the Archive of Arkade, 
 + x9 sti    r;$,zp,(hl): mem[mem[arg]] = r
 
 + xA ldi    r;$,zp,(hl): r = mem[mem[arg]]
-+ xB lea    $.zp: hl = $ 
++ xB lea    $,zp: hl = $ 
 
 + xC bnz    $,zp,(hl): Z != 0 ? pc = arg : pc++
    - bez    $,zp,(hl): Z == 0 ? pc = arg : pc++

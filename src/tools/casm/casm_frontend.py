@@ -201,18 +201,20 @@ def check_instruction_syntax_and_count_bytes(line: List[Tuple]) -> Tuple:
     instrR_AZPHL = ["str", "sti", "ldi"]
     instrR_RALZP = ["ldr"]
     
-    mnemonic_or_directive = ()
+    token_type = ()
     for token in line:
         if token[2][1] == 2:
-            mnemonic_or_directive = token
+            token_type = token
     
     args = []
     for token in line:
-        if token [2][1] > 2:
+        if token[0] == "comment":
+            break
+        elif token [2][1] > 2:
             args.append(token)
               
-    if mnemonic_or_directive[0] == "mnemonic":
-        m = mnemonic_or_directive[1]
+    if token_type[0] == "mnemonic":
+        m = token_type[1]
         if m in instrN:
             if args == []: return (1, correct, "No error")
             
@@ -247,22 +249,22 @@ def check_instruction_syntax_and_count_bytes(line: List[Tuple]) -> Tuple:
                     elif (args[1][0] == "address") or (args[1][0] == "label_reference") : return (3, correct, "No error")
                     elif args[1][0] == "zp": return (2, correct, "No error")
                     elif (args[1][0] == "dec_litteral") or (args[1][0] == "hex_litteral"): return (3, correct, "No error")
-                    errmsg = "Error: wrong number of arguments for LDR in line:" + str(mnemonic_or_directive[2][0])
+                    errmsg = "Error: wrong number of arguments for LDR in line:" + str(token_type[2][0])
                 else: return (-1, incorrect, errmsg)
         
-        errmsg = "Error wrong number of arguments for " + m.upper() + " in line:" + str(mnemonic_or_directive[2][0])
+        errmsg = "Error wrong number of arguments for " + m.upper() + " in line:" + str(token_type[2][0])
         return (-1, incorrect, errmsg)
                                     
                 
                  
         
-    elif mnemonic_or_directive[0] == "directive": 
-        d = mnemonic_or_directive[1]
+    elif token_type[0] == "directive": 
+        d = token_type[1]
         if d == ".org":
             if (len(args) == 1) and ((args[0][0] == "dec_litteral") or (args[0][0] == "hex_litteral")):
                 return (args[0][1], correct, "No error")
             else:
-                errmsg = "Error in .ORG directive: wrong number of arguments, in line:" + str(mnemonic_or_directive[2][0])
+                errmsg = "Error in .ORG directive: wrong number of arguments, in line:" + str(token_type[2][0])
                 return (-1, incorrect, errmsg)
         elif d == "Format:Rom": return (0, correct, "No error")
         elif d == ".const": return (0, correct, "No error") #has already been handled
@@ -270,14 +272,14 @@ def check_instruction_syntax_and_count_bytes(line: List[Tuple]) -> Tuple:
             if (len(args) == 1) and ((args[0][0] == "dec_litteral") or (args[0][0] == "hex_litteral")):
                 return (1, correct, "No error")
             else:
-                errmsg = "Error in .BYTE directive: wrong number of arguments, in line:" + str(mnemonic_or_directive[2][0])
+                errmsg = "Error in .BYTE directive: wrong number of arguments, in line:" + str(token_type[2][0])
                 return (-1, incorrect, errmsg)
             
         elif d == ".word": 
             if (len(args) == 1) and ((args[0][0] == "dec_litteral") or (args[0][0] == "hex_litteral")):
                 return (2, correct, "No error")
             else:
-                errmsg = "Error in .WORD directive: wrong number of arguments, in line:" + str(mnemonic_or_directive[2][0])
+                errmsg = "Error in .WORD directive: wrong number of arguments, in line:" + str(token_type[2][0])
                 return (-1, incorrect, errmsg)
         
         elif d == ".stringz":
@@ -290,14 +292,14 @@ def check_instruction_syntax_and_count_bytes(line: List[Tuple]) -> Tuple:
                 
                 return (len(s) + 1, correct, "No error")
             else:
-                errmsg = "Error in .STRINGZ directive: wrong number of arguments, in line:" + str(mnemonic_or_directive[2][0])
+                errmsg = "Error in .STRINGZ directive: wrong number of arguments, in line:" + str(token_type[2][0])
                 return (-1, incorrect, errmsg)
         
         elif d == ".alloc":
             if (len(args) == 1) and ((args[0][0] == "dec_litteral") or (args[0][0] == "hex_litteral")):
                 return (args[0][1], correct, "No error")
             else:
-                errmsg = "Error in .ALLOC directive: wrong number of arguments, in line:" + str(mnemonic_or_directive[2][0])
+                errmsg = "Error in .ALLOC directive: wrong number of arguments, in line:" + str(token_type[2][0])
                 return (-1, incorrect, errmsg)
         
         elif d == ".end": return (0, correct, "No error")
@@ -316,9 +318,13 @@ def expand_labels(env: Dict, bytecount: List[int], line: List[Tuple]) -> List[Tu
     expanded_line = []
     for token in line:
         if token[0] == "label_reference":
-            l = env[token[1]]
-            addr = sum(bytecount[:l])
-            expanded_line.append(("address", addr, (token[2][0], token[2][1])))
+            try:
+                l = env[token[1]]
+                addr = sum(bytecount[:l])
+                expanded_line.append(("address", addr, (token[2][0], token[2][1])))
+            except KeyError:
+                #label is not actually a label, but a comment
+                pass
         else:
             expanded_line.append(token)
             
@@ -352,5 +358,13 @@ def parse(tokens: List[Tuple]) -> List[List[Tuple]]:
     syntax_status = list(filter(lambda x: x == True, [s[1] for s in final_lines_syn]))
     if len(final_lines_syn) != len(syntax_status):
         assert str(list(filter(lambda x: x == False, [s[1] for s in final_lines_syn])))
-    
-    return final_lines
+        
+    # remove label definitions, and line numbers and comments
+    ast = []
+    for line in final_lines:
+        temp = [tk[:2] for tk in line] #remove line numbers
+        temp = list(filter(lambda tk: False if tk[0] == "label_definition" else True, temp))
+        temp = list(filter(lambda tk: False if tk[0] == "comment" else True, temp))
+        ast.append(temp)
+       
+    return ast
