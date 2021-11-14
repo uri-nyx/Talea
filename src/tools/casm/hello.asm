@@ -1,5 +1,4 @@
-    .org #q300
-hello   .stringz "hello
+    .org #x0300
     lea hello
     ldr bcc #q2
 putc    ldi acc
@@ -11,3 +10,4 @@ putc    ldi acc
     ldr lx acc
     bnz putc
 endprog nop
+hello   .stringz "hello

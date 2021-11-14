@@ -271,7 +271,7 @@ def str_g(args):
             if reg1 < 6:
                 opcode = 0xd0 | (0xa + reg1)
             else:
-                opcode = 0xe | (0x5 + reg1)
+                opcode = 0xe0 | (0x5 + reg1)
                 
             addrL = args[1][1] & 0xff
             b = [opcode, addrL]
@@ -305,12 +305,12 @@ def ldi_g(args):
             b = [opcode, addrL, addrH]
             return b
         elif args[1][0] == "zp":
-            opcode = 0xf8 | reg1               
+            opcode = 0xb8 | reg1               
             addrL = args[1][1] & 0xff
             b = [opcode, addrL]
             return b
     else:
-        return (0xb0 | reg1)
+        return (0xa0 | reg1)
     
 
 

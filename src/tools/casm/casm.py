@@ -24,6 +24,8 @@ def main(argv):
         
     source = tokenize_lines(file_to_string_list(file))
     syntax_tree = parse([lex(s) for s in source])
+    for line in syntax_tree:
+        print(line)
     temp_2d_array = list(filter(lambda s: False if s == None else True, [codegen(line) for line in syntax_tree]))
     raw_bytes = []
     for s in temp_2d_array:
