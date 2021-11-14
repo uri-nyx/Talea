@@ -95,9 +95,9 @@ int main(int argc, char *argv){
     while (!memory[HALT])
     {
         //tty_printer()
-        tty_keyboard()
+        tty_keyboard();
         
-        sleep(hz / 0.001)
+        sleep(hz / 0.001);
     }
     
     disableRawMode();
