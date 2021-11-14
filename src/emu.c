@@ -92,7 +92,7 @@ int main(int argc, char **argv){
         tty_printer(&memory[0x200], &memory[0x201], &memory[0x10a]);
 
         cycle();        
-        sleep(hz / 0.001);
+        //sleep(hz / 0.001);
     }
     
     disableRawMode();
