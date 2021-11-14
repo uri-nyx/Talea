@@ -17,7 +17,7 @@
 #include "lib/devices.h"
 
 
-#define HALT 0xffff
+#define HALT 0xfffe
 
 struct termios orig_termios;
 
@@ -68,7 +68,7 @@ void tty_keyboard(byte_t* in_port, byte_t* status_port){
 }
 
 
-int main(int argc, char *argv){
+int main(int argc, char **argv){
     
     if (argc > 3)
     {
@@ -89,7 +89,7 @@ int main(int argc, char *argv){
     while (!memory[HALT])
     {
         tty_keyboard(&memory[0x100], &memory[0x101]);
-        tty_printer(&memory[0x200], &memory[0x201], &memory[0x10a])
+        tty_printer(&memory[0x200], &memory[0x201], &memory[0x10a]);
 
         cycle();        
         sleep(hz / 0.001);

@@ -9,5 +9,5 @@ putc    ldi acc
     add lx
     ldr lx acc
     bnz putc
-endprog nop
 hello   .stringz "hello
+endprog .end
