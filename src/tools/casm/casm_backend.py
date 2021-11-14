@@ -333,7 +333,10 @@ def alloc_g(args):
     bytes_to_alloc = args[0][1]
     b = [0 for s in range(bytes_to_alloc)]
     return b
-    
+
+def end_g(args):
+    b = [0x78, 0xff, 0x00, 0x88, 0xff, 0xff]
+
 def codegen(line: List[Tuple]) -> bytearray:
     """Reads a line of tokens and outputs the desired binary
 
@@ -355,7 +358,7 @@ def codegen(line: List[Tuple]) -> bytearray:
                  "call" : call_g, "and" : and_g, "xor" : xor_g, "add" : add_g, "adc" : adc_g, "subb" : subb_g, "ldr" : ldr_g,
                  "str" : str_g, "sti" : sti_g, "ldi" : ldi_g}
     directives = {".org" : org_g, "Format:Rom" : org_g, ".const" : org_g, ".byte" : byte_g,
-                  ".word" : word_g, ".stringz" : stringz_g, ".alloc" : alloc_g, ".end" : org_g}
+                  ".word" : word_g, ".stringz" : stringz_g, ".alloc" : alloc_g, ".end" : end_g}
     
     statement_type = line[0][0]
     statement = line[0][1]

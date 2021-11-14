@@ -46,31 +46,24 @@ void enableRawMode() {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
-void tty_printer(byte_t* out_port, byte_t* options_port, byte_t* status_port, char * path) {
+void tty_printer(byte_t* out_port, byte_t* options_port, byte_t* status_port) {
     
-    int fd;
-    char formatted[5];
     byte_t to_print = *out_port;
 
     if (*options_port > 0)
     {
         *status_port = 0xfe; //printing
-        FILE * fd = fopen(path, "a"); //raw
-        fputs(to_print, fd);
-        fclose(fd);
+        if (write(STDOUT_FILENO, &to_print, 1) == -1) die("write");
         *status_port = 0xff; //ready
     }
 }
 
-void tty_keyboard(){
+void tty_keyboard(byte_t* in_port, byte_t* status_port){
     
     char c = '\0';
     if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN) die("read");
-    if (iscntrl(c)) {
-      printf("%d\r\n", c);
-    } else {
-      printf("%d ('%c')\r\n", c, c);
-    }
+    *in_port = (unsigned)c;
+    if(c) *status_port = 0xff;
     if (c == 'q') memory[HALT] = 0xff;
 }
 
@@ -84,19 +77,21 @@ int main(int argc, char *argv){
     }
     
     int hz = atoi(argv[2]);
+    const char* rom_file = argv[1];
     st.pointer = 0;
     regs.status = 0x2;
     regs.pc = 0x300;
 
-    rom_loader(argv[1]);
+    rom_loader(rom_file);
 
     enableRawMode();
 
     while (!memory[HALT])
     {
-        //tty_printer()
-        tty_keyboard();
-        
+        tty_keyboard(&memory[0x100], &memory[0x101]);
+        tty_printer(&memory[0x200], &memory[0x201], &memory[0x10a])
+
+        cycle();        
         sleep(hz / 0.001);
     }
     
