@@ -320,7 +320,7 @@ def expand_labels(env: Dict, bytecount: List[int], line: List[Tuple]) -> List[Tu
         if token[0] == "label_reference":
             try:
                 l = env[token[1]]
-                addr = sum(bytecount[:l]) - 1
+                addr = sum(bytecount[:(l-1)])
                 expanded_line.append(("address", addr, (token[2][0], token[2][1])))
             except KeyError:
                 #label is not actually a label, but a comment

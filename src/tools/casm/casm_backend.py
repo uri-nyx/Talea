@@ -48,7 +48,7 @@ def shiftr_g(args):
 
 def lea_g(args):
     if args[0][0] == "address":
-        opcode = 0xb
+        opcode = 0xb0
         addrL = args[0][1] & 0xff
         addrH = args[0][1] >> 8
         b = [opcode, addrL, addrH]
