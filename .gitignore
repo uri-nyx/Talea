@@ -6,3 +6,4 @@ src/tools/casm/test.txt
 src/tools/casm/__pycache__/frontend.cpython-39.pyc
 src/tools/casm/__pycache__/casm_backend.cpython-39.pyc
 src/tools/casm/__pycache__/casm_frontend.cpython-39.pyc
+src/emu

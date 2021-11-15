@@ -336,6 +336,7 @@ def alloc_g(args):
 
 def end_g(args):
     b = [0x78, 0xff, 0x00, 0x88, 0xfe, 0xff]
+    return b
 
 def codegen(line: List[Tuple]) -> bytearray:
     """Reads a line of tokens and outputs the desired binary
