@@ -26,6 +26,18 @@ void die(const char *s) {
   exit(1);
 }
 
+int kbhit()
+{
+    struct timeval tv;
+    fd_set fds;
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds); //STDIN_FILENO is 0
+    select(STDIN_FILENO+1, &fds, NULL, NULL, &tv);
+    return FD_ISSET(STDIN_FILENO, &fds);
+}
+
 void disableRawMode() {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
     die("tcsetattr");
@@ -48,7 +60,7 @@ void enableRawMode() {
 
 void tty_printer(byte_t* out_port, byte_t* options_port, byte_t* status_port) {
     
-    byte_t to_print = *out_port;
+    char to_print = (char)*out_port;
 
     if (*options_port > 0)
     {
@@ -59,12 +71,15 @@ void tty_printer(byte_t* out_port, byte_t* options_port, byte_t* status_port) {
 }
 
 void tty_keyboard(byte_t* in_port, byte_t* status_port){
+
     
+    if (kbhit()) {
     char c = '\0';
     if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN) die("read");
     *in_port = (unsigned)c;
     if(c) *status_port = 0xff;
     if (c == 'q') memory[HALT] = 0xff;
+    }
 }
 
 
@@ -94,10 +109,10 @@ int main(int argc, char **argv){
 
         cycle();
         cycles++;       
-        //sleep(hz / 0.001);
+        //usleep(1000000 / (hz*1000000));
     }
     
     disableRawMode();
-    printf("[Computation performed in %d cycles]", cycles);
+    printf("\n\r[Computation performed in %d cycles]", cycles);
 }
 
