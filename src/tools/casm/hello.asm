@@ -10,5 +10,5 @@ putc    ldi acc
         add lx
         ldr lx acc
         bnz putc
-hello   .stringz "Aer! "Talendelkie "annetten'iren "Sirio-Ap-Talea!
+hello   .stringz "Hello "world!
 endprog .end

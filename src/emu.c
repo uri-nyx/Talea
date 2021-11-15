@@ -78,6 +78,7 @@ int main(int argc, char **argv){
     
     int hz = atoi(argv[2]);
     const char* rom_file = argv[1];
+    int cycles;
     st.pointer = 0;
     regs.status = 0x2;
     regs.pc = 0x300;
@@ -91,10 +92,12 @@ int main(int argc, char **argv){
         tty_keyboard(&memory[0x100], &memory[0x101]);
         tty_printer(&memory[0x200], &memory[0x201], &memory[0x10a]);
 
-        cycle();        
+        cycle();
+        cycles++;       
         //sleep(hz / 0.001);
     }
     
     disableRawMode();
+    printf("[Computation performed in %d cycles]", cycles);
 }
 
