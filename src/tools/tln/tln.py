@@ -188,7 +188,7 @@ def defun_g(args: List, env: Dict) -> str:
         for call in fbody:
             callee = call[0]
             if callee.typ == "keyword":
-                asm += codegen([call]) 
+                asm += codegen([call], env) 
             elif len(call) > 1:
                 for token in call:
                     if token in fparams:
@@ -237,16 +237,17 @@ def argument_type_handler(arg: Token, env: Dict) -> str:
     elif arg.typ == "dec_litteral":
         return "#q" + arg.value
     elif arg.typ == "symbol_id":
-        return env[arg]
+        return env[arg.value]
     else:
         assert "Tln only supports symbols or byte litterals as function arguments"
 
-def codegen(ast: List[Token]) -> str:
+def codegen(ast: List[Token], env: Dict) -> str:
     keywords = {"malloc" : malloc_g, "ref" : ref_g, 
                 "deref" : deref_g, "defun" : defun_g, 
                 "inline" : inline_g, "enter" : enter_g}
     
-    Env = index_ids(ast)
+    env.update(index_ids(ast))
+    print(env)
     
     asm = ""
     
@@ -255,11 +256,11 @@ def codegen(ast: List[Token]) -> str:
             head = statement[0]
             
             if head.value in keywords:
-                asm += keywords[head.value](statement[1:], Env)
+                asm += keywords[head.value](statement[1:], env)
             elif head.value == "let":
                 pass
             else:
-                asm += fcall_g(statement, Env)
+                asm += fcall_g(statement, env)
 
     return asm
 
@@ -274,6 +275,8 @@ def split_data_code(src: str) -> str:
             data.append(line)
         elif ".alloc" in line:
             data.append(line)
+        elif ".stringz" in line:
+            data.append(line)
         else:
             code.append(line)
 
@@ -281,7 +284,8 @@ def split_data_code(src: str) -> str:
     
 
 def compile(path: str) -> str:
-    asm = codegen(parse(lex(path)))
+    Env = {}
+    asm = codegen(parse(lex(path)), Env)
     
     data, code = split_data_code(asm)
     

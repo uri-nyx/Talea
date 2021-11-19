@@ -1,5 +1,0 @@
-( :* define a function to add two numbers *: )
-( let + )
-( defun + ( a b ) ( (inline ."sum ldr acc param_+_a\n adc param_+_b \n".) ))
-(enter)
-( + 1 2 )
