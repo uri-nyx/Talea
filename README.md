@@ -64,7 +64,7 @@ It's main purpose was, opposed to that of the Machine of the Archive of Arkade, 
    - call   $,zp,(hl): push(pc); pc = arg
 
 + xD jmp    (hl): push(pc); pc = mem[arg]
-   - ret    : pc = pop 16 bytes from stack
+   - ret    : pc = pop 2 bytes from stack
    - swap   : acc <-> bcc
    - psr    : push status
    - ssr    : set status

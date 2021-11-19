@@ -348,11 +348,6 @@ def codegen(line: List[Tuple]) -> bytearray:
         bytearray: [the representation of that line in binary]
     """
     
-    addr_prefix = '$'
-    litt_prefix = '#'
-    dec_prefix = 'q'
-    hex_prefix = 'x'
-    str_prefix = '\"'
     mnemonics = {"jmp" : jmp_g, "ret" : ret_g, "swap" :swap_g, "psr" : psr_g, "ssr" : ssr_g, "psp": psp_g,
                  "ssp" :ssp_g, "not" : not_g, "sec" : sec_g, "clc" : clc_g, "nop" : nop_g, "push" : push_g, "pop" : pop_g,
                  "shiftl" : shiftl_g, "shiftr" : shiftr_g, "lea" : lea_g, "bnz" : bnz_g, "bez" : bez_g, "ben" : ben_g,

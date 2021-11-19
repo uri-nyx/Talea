@@ -12,3 +12,4 @@ putc    ldi acc
         bnz putc
 hello   .stringz "Hello "world!
 endprog .end
+pointer .word putc

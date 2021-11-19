@@ -37,7 +37,7 @@ def main(argv):
     # TODO: expand macros;
     with open(out, "w+b") as fout:
         if mode == "rom":
-            bin_bytes = bytearray(0x8ff) # 3.25kb of ROM
+            bin_bytes = bytearray(0xc00) # 3kb of ROM
         else:
             bin_bytes = bytearray()
             

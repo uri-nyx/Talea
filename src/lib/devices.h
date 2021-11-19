@@ -88,14 +88,14 @@ void printer(byte_t* out_port, byte_t* options_port, byte_t* status_port, char *
  * @param fname the filename 
  */
 void rom_loader(const char * fname){
-    byte_t rom[0x8ff];
+    byte_t rom[0xc00];
     FILE *fp = fopen(fname, "rb"); //opens the file to read binary
-    fread(rom, 1, 0x8ff, fp);
+    fread(rom, 1, 0xc00, fp);
     fclose(fp);
 
-    for (size_t i = 0; i < 0x8ff; i++)
+    for (size_t i = 0; i < 0xc00; i++)
     {
-        memory[i + 0x300] = rom[i];
+        memory[i + 0x400] = rom[i];
     }
     
 }

@@ -249,8 +249,9 @@ def check_instruction_syntax_and_count_bytes(line: List[Tuple]) -> Tuple:
                     elif (args[1][0] == "address") or (args[1][0] == "label_reference") : return (3, correct, "No error")
                     elif args[1][0] == "zp": return (2, correct, "No error")
                     elif (args[1][0] == "dec_litteral") or (args[1][0] == "hex_litteral"): return (3, correct, "No error")
-                    errmsg = "Error: wrong number of arguments for LDR in line:" + str(token_type[2][0])
-                else: return (-1, incorrect, errmsg)
+                else:
+                    errmsg = "Error: wrong number of arguments for LDR in line:" + str(token_type[2][0]) 
+                    return (-1, incorrect, errmsg)
         
         errmsg = "Error wrong number of arguments for " + m.upper() + " in line:" + str(token_type[2][0])
         return (-1, incorrect, errmsg)
@@ -365,6 +366,7 @@ def parse(tokens: List[Tuple]) -> List[List[Tuple]]:
         temp = [tk[:2] for tk in line] #remove line numbers
         temp = list(filter(lambda tk: False if tk[0] == "label_definition" else True, temp))
         temp = list(filter(lambda tk: False if tk[0] == "comment" else True, temp))
+        temp = list(filter(lambda tk: False if tk == "" else True, temp))
         ast.append(temp)
        
     return ast
