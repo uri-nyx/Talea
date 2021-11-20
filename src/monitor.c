@@ -437,7 +437,7 @@ int main(int argc, char *argv[])
     
     st.pointer = 0;
     regs.status = 0x2;
-    regs.pc = 0x400;
+    regs.pc = 0x000;
 
     rom_loader(argv[1]);
 
