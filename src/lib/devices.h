@@ -99,3 +99,105 @@ void rom_loader(const char * fname){
     }
     
 }
+
+void tty_monitor(char* path_in, char* path_out, byte_t* status) {
+    int from_monitor, to_monitor;
+    FILE* reset_file;
+    unsigned char in[3];
+    byte_t order;
+    byte_t a, b;
+
+    enum orders {
+        RESUME = 1,
+        PAUSE,
+        STEP,
+        SETMEM,
+        SETREG,
+        CORE,
+        STACK,
+        CONTROL
+    };
+
+    from_monitor = open(path_in, O_RDONLY | O_NONBLOCK);
+    to_monitor = open(path_out, O_WRONLY | O_NONBLOCK | O_CREAT, 0777);
+
+    read(from_monitor, &in, 3);
+    close(from_monitor);
+
+    order = in[0];
+    a = in[1];
+    b = in[2];
+
+    int array_size;
+    array_size = b - a;
+    byte_t coredump[array_size];
+    byte_t control_panel[11] = {
+        regs.pc, regs.status, st.pointer,
+        regs.general[0], regs.general[1],
+        regs.general[2], regs.general[3],
+        regs.general[4], regs.general[5],
+        regs.general[6], regs.general[7]
+    };
+    
+    switch (order)
+        {
+        case RESUME:
+            
+            *status = 0;
+            break;
+        case PAUSE:
+            
+            *status = 1;
+            break;
+        case STEP:
+            
+            cycle();
+            break;
+        case SETMEM:
+            
+            memory[a] = b;
+            break;
+        case SETREG:
+            
+            switch (a)
+            {
+            case 8:
+                regs.pc = b ;
+                break;
+            case 9:
+                st.pointer = b;
+                break;
+            case 10:
+                regs.status = b;
+                break;
+            default:
+                regs.general[a] = b;
+                break;
+            }
+            break;
+        case CORE:
+            
+
+            for (size_t i = 0; i < array_size; i++)
+            {
+                coredump[i] = memory[i + a];
+            }
+
+            write(to_monitor, coredump, array_size);
+            break;
+        case STACK:
+            
+            write(to_monitor, &st.pointer, 1);
+            write(to_monitor, st.stack, 255);
+            break;
+        case CONTROL:
+            
+            write(to_monitor, control_panel, 11);
+            break;
+        case 255:
+            break;
+        }
+
+        close(to_monitor);
+    
+}
