@@ -1,0 +1,98 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title System Architecture
+
+@s Register and Buses specification
+
+Taleä Tabula is a 16-bit, little endian system with a 24-bit wide address 
+space (up to 16 Mb of addressable memory), and a 256 byte cache. Its byte 
+and word sizes are 8 and 16-bit respectively:
+
+--- sizes
+#define Bit 1
+
+const int DATA_BUS_SIZE = 16 * Bit;
+const int ADDRESS_BUS_SIZE = 24 * Bit;
+
+const int BYTE_SIZE = 8 * Bit;
+const int WORD_SIZE = 16 * Bit;
+
+#define MAX_MEMORY_SIZE (1 << ADDRESS_BUS_SIZE)
+#define CACHE_SIZE (1 << BYTE_SIZE)
+---
+
+The system has a total of 12 registers: four are one byte wide, seven, a word,
+and one (the `instruction pointer`), occupies 3 bytes. 
+
+--- sizes +=
+#define Byte 1
+#define Word 2
+
+const int STATUS_REGISTER_SIZE = Byte;
+const int CHAPTER_REGISTER_SIZE = Byte;
+const int PAGINA_REGISTER_SIZE = Byte;
+const int LITTERA_REGISTER_SIZE = Byte;
+
+const int STACK_POINTER_SIZE = Word;
+const int FRAME_POINTER_SIZE = Word;
+const int REGISTER_SIZE = Word;
+
+const int INSTRUCION_POINTER_SIZE = 3 * Byte;
+
+#define GeneralPurposeRegisters 5
+#define REGISTER_FILE_SIZE (STATUS_REGISTER_SIZE + CHAPTER_REGISTER_SIZE + PAGINA_REGISTER_SIZE + LITTERA_REGISTER_SIZE + STACK_POINTER_SIZE + FRAME_POINTER_SIZE + (REGISTER_SIZE * GeneralPurposeRegisters) + INSTRUCION_POINTER_SIZE)
+---
+
+Each one of those is indexed into the register file:
+
+| *Register Name*     	| *Symbol* 	| *Size (bytes)* 	| *Index* 	|
+|---------------------	|----------	|----------------	|---------	|
+| Littera             	| `l`      	| 1              	| 0       	|
+| Chapter             	| `c`      	| 1              	| 1       	|
+| Pagina              	| `p`      	| 1              	| 2       	|
+| Stack Pointer       	| `sp`     	| 2              	| 3       	|
+| Frame Pointer       	| `fp`     	| 2              	| 6       	|
+| Gen. Purpose 0      	| `g0`     	| 2              	| 8       	|
+| Gen. Purpose 1      	| `g1`     	| 2              	| 10      	|
+| Gen. Purpose 2      	| `g2`     	| 2              	| 12      	|
+| Gen. Purpose 3      	| `g3`     	| 2              	| 14      	|
+| Gen. Purpose 4      	| `g5`     	| 2              	| 16      	|
+| Status              	| None     	| 1              	| 17      	|
+| Instruction Pointer 	| None     	| 3              	| 18      	|
+
+--- register indexes
+enum RegisterIndex {
+    LITTERA_REGISTER = 0,
+    CHAPTER_REGISTER,
+    PAGINA_REGISTER,
+    STACK_POINTER = 4,
+    FRAME_POINTER = 6,
+    GPR0 = 8,
+    GPR1 = 10,
+    GPR2 = 12,
+    GPR3 = 14,
+    GPR4 = 16
+    INSTRUCTION_POINTER = 18,
+} typedef RegisterIndex;
+---
+
+@s Cache Memory & I/O Ports
+
+The 256 bytes of cache are used as a sort of I/O port file and intermediate memory
+betweeen registers and RAM. It is accessible trough specific instructions that 
+refer to its physical addresses. The devices mentioned in the preface are thus 
+mapped to arbitrary locations or `ports` in the cache:
+
+--- ports
+enum Port {
+    KB_PORT = 0x00,
+    TTY_PORT_CHAR,
+
+    VIDEO_PORT_CMD,
+    VIDEO_PORT_DATA,
+
+    DISK_PORT_CMD,
+    DISK_PORT_DATA,
+};
+---

@@ -1,0 +1,125 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Emulator Implementation
+
+Once we have explained the different modules that compose both the system and the emulator, we can start to implement it. The language of implementation will be C, and we will use [SDL2](https://www.libsdl.org/download-2.0.php) for graphics and [Inprint](https://github.com/driedfruit/SDL_inprint) for fonts and text mode.
+
+The emulator implementation spans across only two files: a main file that implements functionality, `talea.c`, and a header file with the architectural prototypes, data structures and constants, `talea.h`.
+
+@s Header File
+
+The contents of the header file have already been defined in previous chapters, save for some constants that are more related to the implementaation than the architecture itself:
+
+--- frequencies
+#define FPS 60
+#define MHz 1000000
+#define SYSTEM_CLOCK_FREQUENCY 10 * MHz
+#define CYCLES_TO_RENDER 666
+const int CYCLES_PER_FRAME = (SYSTEM_CLOCK_FREQUENCY / FPS) - CYCLES_TO_RENDER;
+const int MILLISECONDS_PER_FRAME = 1000 / FPS;
+---
+
+--- paths
+#define TTY_FILE_PATH "devices/tty.txt"
+#define DISK_FILE_PATH "devices/disk"
+---
+
+--- renderer flags
+#define RENDERER_FLAGS SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+---
+
+--- implementation constants
+@{paths}
+
+@{renderer flags}
+
+@{frequencies}
+---
+
+We will also define some error codes and an error handler (different from the exception handler of the cpu):
+
+--- error
+typedef enum {
+    ERROR_UNKNOWN = -1,
+    ERROR_NONE = 0,
+
+    // Tty errors
+    TTY_ERROR_WRITE_FAILED,
+    TTY_ERROR_CLOSE_FAILED,
+
+    // Video errors
+    VIDEO_ERROR_INIT_FAILED,
+    VIDEO_ERROR_INVALID_MODE,
+    VIDEO_ERROR_INVALID_COORDINATE,
+
+    DISK_ERROR_OPEN_FAILED,
+
+    ERROR_UNKNOWN_OPCODE,
+} error_t;
+
+void TaleaSystem_Panic(error_t error);
+---
+
+And set up some internals needed by SDL2 
+in the video structure:
+
+--- sdl video internals
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    SDL_Texture *texture;
+---
+
+Thus, the header file is laid as follows:
+
+--- talea.h
+#pragma once
+
+#include <stdint.h>
+#include <SDL2/SDL.h>
+
+@{implementation constants}
+
+// #region Architecture
+@{sizes}
+@{register indexes}
+@{ports}
+// #endregion
+
+// #region Cpu
+@{cpu}
+// #endregion
+
+// #region Mmu
+@{mmu}
+// #endregion
+
+// #region Tty
+@{tty}
+// #endregion
+
+// #region Keyboard
+@{kb}
+// #endregion
+
+// #region Video
+@{video modes}
+@{video controller}
+@{video commands}
+@{text mode commands prototypes}
+@{graphic mode commands prototypes}
+// #endregion
+
+// #region Disk
+@{sector}
+@{disk}
+@{disk commands}
+@{disk commands prototypes}
+// #endregion
+
+// #region Instruction Set 
+@{isa}
+// #endregion
+---
+
+@s Implementation File

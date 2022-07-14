@@ -1,0 +1,20 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Keyboard
+
+@s
+
+The Keyboard module provides de major input device for the system, in the shape of a
+simple keyboard. It supports the ASCII expanded character set and **some** of its
+control sequences:
+
+--- kb
+typedef struct
+{
+    uint8_t port;
+    const uint8_t *state;
+} kb_t;
+
+void Kb_Handle(kb_t *kb, cpu_t *cpu);
+---

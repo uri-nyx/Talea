@@ -1,0 +1,9 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Instruction Set
+@s
+
+--- isa
+// TODO: Design instruction set
+---

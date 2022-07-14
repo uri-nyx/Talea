@@ -1,0 +1,57 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Disk Drive
+
+@s
+
+The Disk Drive shipped whith the Taleä Tabula System is that of its antecessor, the Taleä Codex, and lacks in maximum capacity (only 32 Mb), though it ought to be
+enough for any business use.
+
+The device provides a secondary persistent storage to the device, and can be addressed by `sector`. Each sector contains 512 bytes of memory:
+
+--- sector
+const int SECTOR_SIZE = 512;
+
+struct sector
+{
+    uint8_t data[SECTOR_SIZE];
+};
+---
+
+The disk contains up to 65535 (`0xffff`) sectors:
+
+--- disk
+const int MAX_SECTOR_COUNT = 0xffff
+typedef struct 
+{
+    const char *filename;
+    FILE *fp;
+    uint16_t sector_count;
+} disk_t;
+---
+
+@s Disk Drive Commands
+
+Much like the Video Controller, the *cpu* makes use of the Disk Drive through a series of commands, but simpler:
+
++ `LoadSector`: Loads a sector specified in `sectorh:sectorl` ports to an arbitrary block of memory starting at the address pointed by `c:p:l`. 
+
+--- disk commands prototypes
+void Disk_LoadSector(disk_t *disk, uint16_t sector_number, struct sector *sector);
+---
+
++ `StoreSector`: Stores a block of memory starting at the address pointed by `c:p:l`in the sector specified in `sectorh:sectorl`. 
+
+--- disk commands prototypes +=
+void Disk_StoreSector(disk_t *disk, uint16_t sector_number, struct sector *sector);
+---
+
+--- disk commands
+enum DiskCommands
+{
+    Disk_Nop = 0x0,
+    Disk_StoreSector,
+    Disk_LoadSector,
+};
+---
