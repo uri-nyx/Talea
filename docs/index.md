@@ -2,7 +2,7 @@
 
 ## Literate Implementation
 
-Here lies the literate implementation of the emulator that acts as documentation for both the system architecture of Taleä and its emulator: [Taleä System Emulator](_book/Taleä\ Tabula\ System\ Emulator_contents.html) [book](_book/arch.html)
+Here lies the literate implementation of the emulator that acts as documentation for both the system architecture of Taleä and its emulator: [Taleä System Emulator](_book/Taleä Tabula System Emulator_contents.html) [book](_book/arch.html)
 
 ## Compilation & Installation
 
