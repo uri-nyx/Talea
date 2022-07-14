@@ -86,6 +86,10 @@ Thus, the header file is laid as follows:
 @{ports}
 // #endregion
 
+// #region Error
+@{error}
+// #endregion
+
 // #region Cpu
 @{cpu}
 // #endregion

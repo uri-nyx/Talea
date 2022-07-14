@@ -72,7 +72,7 @@ enum RegisterIndex {
     GPR1 = 10,
     GPR2 = 12,
     GPR3 = 14,
-    GPR4 = 16
+    GPR4 = 16,
     INSTRUCTION_POINTER = 18,
 } typedef RegisterIndex;
 ---
