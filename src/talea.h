@@ -7,11 +7,13 @@
 /* implementation constants */
 /* paths */
 #define TTY_FILE_PATH "devices/tty.txt"
-#define DISK_FILE_PATH "devices/disk"
+#define DISK_FILE_PATH "devices/drive0/disk"
 
 
 /* renderer flags */
 #define RENDERER_FLAGS SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+#define WINDOW_WIDTH 640
+#define WINDOW_HEIGHT 400
 
 
 /* frequencies */
@@ -82,6 +84,45 @@ enum Port {
 
 // #endregion
 
+// #region Error
+/* error */
+typedef enum {
+    ERROR_UNKNOWN = -1,
+    ERROR_NONE = 0,
+
+    // Tty errors
+    TTY_ERROR_WRITE_FAILED,
+    TTY_ERROR_CLOSE_FAILED,
+
+    // Video errors
+    VIDEO_ERROR_INIT_FAILED,
+    VIDEO_ERROR_INVALID_MODE,
+    VIDEO_ERROR_INVALID_COORDINATE,
+
+    DISK_ERROR_OPEN_FAILED,
+
+    ERROR_UNKNOWN_OPCODE,
+} error_t;
+
+void TaleaSystem_Panic(error_t error);
+
+// #endregion
+
+// #region Clock
+/* clock prototypes */
+struct clock
+{
+    clock_t start, end;
+    double cpu_time_used;
+    double frame_took;
+};
+
+// CLock functions are used to time a frame roughly to 16 ms
+void Clock_FrameStart(struct clock *clk);
+void Clock_FrameEnd(struct clock *clk);
+
+// #endregion
+
 // #region Cpu
 /* cpu */
 typedef struct
@@ -113,6 +154,7 @@ void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint8_t value);
 
 // #region Mmu
 /* mmu */
+typedef int mmu_t;
 // TODO: Implement mmu
 
 // #endregion
@@ -161,8 +203,8 @@ typedef struct
 {
     enum Video_Mode mode;
     uint8_t *pixels;
-    uint8_t *charbuffer;
-    uint8_t *line;
+    char *charbuffer;
+    char *line;
 
     /* sdl video internals */
         SDL_Window *window;
@@ -188,7 +230,7 @@ enum Video_Commands {
 };
 
 /* text mode commands prototypes */
-error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, char c);
+error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, uint8_t c);
 
 /* graphic mode commands prototypes */
 void Video_SetPixelAbsolute(video_t* video, uint32_t addr, uint8_t color);
@@ -205,20 +247,27 @@ struct sector
 };
 
 /* disk */
-const int MAX_SECTOR_COUNT = 0xffff
+const int MAX_SECTOR_COUNT = 0xffff;
 typedef struct 
 {
     const char *filename;
     FILE *fp;
     uint16_t sector_count;
 } disk_t;
+const int MAX_DISK_COUNT = 16;
+typedef struct
+{
+        uint8_t disk_count;
+        disk_t disk_list[MAX_DISK_COUNT];
+        disk_t *current_disk;
+} drive_t;
 
 /* disk commands */
 enum DiskCommands
 {
-    Disk_Nop = 0x0,
-    Disk_StoreSector,
-    Disk_LoadSector,
+    Disk_Command_Nop = 0x0,
+    Disk_Command_StoreSector,
+    Disk_Command_LoadSector,
 };
 
 /* disk commands prototypes */
@@ -230,6 +279,13 @@ void Disk_StoreSector(disk_t *disk, uint16_t sector_number, struct sector *secto
 // #region Instruction Set 
 /* isa */
 // TODO: Design instruction set
+
+// #endregion
+
+// #region Addenda
+// For future system ampliations or custom devices
+/* addenda header */
+// Custom devices
 
 // #endregion
 

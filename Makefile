@@ -1,18 +1,18 @@
 CC := cc
-CFLAGS := -o talea -I include -L lib -l SDL2 -O2
 SRC := src/
 DOC := docs/
 LIT := lit/
-Literate-generated-toc := $(shell ls $(DOC)_book | grep contents\.html)
+INCLUDE := $(SRC)include/
+CFLAGS := $(INCLUDE)inprint/inprint2.c -o talea -I $(INCLUDE) -L $(SRC)lib -l SDL2 -Wall -Wextra -std=c11 -O2
 
 run: talea
 	./talea
 	rm talea
 
 talea: talea.c
-	$(CC) $(SRC)talea.c include/inprint/inprint2.c $(CFLAGS)
+	$(CC) $(SRC)talea.c $(CFLAGS)
 
-talea.c: rename
+talea.c:
 	lit -t -odir $(SRC) $(LIT)talea.lit
 
 gh-page: talea.html
@@ -20,5 +20,5 @@ gh-page: talea.html
 	$(shell mv $(DOC)_book/*_contents.html $(DOC)_book/index.html)
 
 talea.html:
-	$(if $(filter $(DOC)book,$(wildcard *)), rm -r $(DOC)book)
+	if [ -d $(DOC)book ]; then rm -r $(DOC)book; fi
 	lit -w --md-compiler pandoc -odir $(DOC) $(LIT)talea.lit

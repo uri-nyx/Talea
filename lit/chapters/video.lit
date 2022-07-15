@@ -56,26 +56,26 @@ enum Video_Commands {
 
 @s Text Mode Commands
 
-+ `SetChar`: takes the character from the `data` port and outputs it at x = `l` and y = `p` (`littera` and `pagina` registers)
-
---- text mode commands prototypes
-error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, char c);
----
-
 --- text mode commands
 Video_Command_SetChar,
 ---
 
++ `SetChar`: takes the character from the `data` port and outputs it at x = `l` and y = `p` (`littera` and `pagina` registers)
+
+--- text mode commands prototypes
+error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, uint8_t c);
+---
+
 @s Graphic Mode Commands
+
+--- graphic mode commands
+Video_Command_SetPixel
+---
 
 + `SetPixel`: takes the color (in `RGB332` format) from the `data` port and outputs it at the absolute `video memory` adress pointed by `c:p:l` (`chapter`, `pagina` and `littera` registers)
 
 --- graphic mode commands prototypes
 void Video_SetPixelAbsolute(video_t* video, uint32_t addr, uint8_t color);
----
-
---- graphic mode commands
-Video_Command_SetPixel
 ---
 
 @s 
@@ -88,8 +88,8 @@ typedef struct
 {
     enum Video_Mode mode;
     uint8_t *pixels;
-    uint8_t *charbuffer;
-    uint8_t *line;
+    char *charbuffer;
+    char *line;
 
     @{sdl video internals}
 } video_t;

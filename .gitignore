@@ -1,5 +1,7 @@
 .DS_Store
 .vscode
+talea
+devices/drive0/*
 # Prerequisites
 *.d
 

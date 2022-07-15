@@ -58,7 +58,7 @@ enum Video_Mode {
 </pre>
 
 
-<p class="seealso">Used in section <a href="emu.html#9:1">9:1</a></p>
+<p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
 <p>The <code>text</code> mode provides the user with 80 columns of characters and 50 rows viewport and the graphic mode with an 640 pixels wide by 400:</p>
 <div class="codeblock">
@@ -72,7 +72,7 @@ const int GRAPHIC_MODE_HEIGHT = 400 * Pixel;
 </pre>
 
 
-<p class="seealso">Used in section <a href="emu.html#9:1">9:1</a></p>
+<p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
 </div>
 <a name="7:2"><div class="section"><h4 class="noheading">2. </h4></a>
@@ -93,20 +93,10 @@ enum Video_Commands {
 </pre>
 
 
-<p class="seealso">Used in section <a href="emu.html#9:1">9:1</a></p>
+<p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
 </div>
 <a name="7:3"><div class="section"><h4>3. Text Mode Commands</h4></a>
-<ul><li><code>SetChar</code>: takes the character from the <code>data</code> port and outputs it at x = <code>l</code> and y = <code>p</code> (<code>littera</code> and <code>pagina</code> registers)</li></ul>
-<div class="codeblock">
-<span class="codeblock_name">{text mode commands prototypes <a href="video.html#7:3">3</a>}</span>
-<pre class="prettyprint lang-c">
-error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, char c);
-</pre>
-
-
-<p class="seealso">Used in section <a href="emu.html#9:1">9:1</a></p>
-</div>
 
 <div class="codeblock">
 <span class="codeblock_name">{text mode commands <a href="video.html#7:3">3</a>}</span>
@@ -117,18 +107,18 @@ Video_Command_SetChar,
 
 <p class="seealso">Used in section <a href="video.html#7:2">2</a></p>
 </div>
-</div>
-<a name="7:4"><div class="section"><h4>4. Graphic Mode Commands</h4></a>
-<ul><li><code>SetPixel</code>: takes the color (in <code>RGB332</code> format) from the <code>data</code> port and outputs it at the absolute <code>video memory</code> adress pointed by <code>c:p:l</code> (<code>chapter</code>, <code>pagina</code> and <code>littera</code> registers)</li></ul>
+<ul><li><code>SetChar</code>: takes the character from the <code>data</code> port and outputs it at x = <code>l</code> and y = <code>p</code> (<code>littera</code> and <code>pagina</code> registers)</li></ul>
 <div class="codeblock">
-<span class="codeblock_name">{graphic mode commands prototypes <a href="video.html#7:4">4</a>}</span>
+<span class="codeblock_name">{text mode commands prototypes <a href="video.html#7:3">3</a>}</span>
 <pre class="prettyprint lang-c">
-void Video_SetPixelAbsolute(video_t* video, uint32_t addr, uint8_t color);
+error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, uint8_t c);
 </pre>
 
 
-<p class="seealso">Used in section <a href="emu.html#9:1">9:1</a></p>
+<p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
+</div>
+<a name="7:4"><div class="section"><h4>4. Graphic Mode Commands</h4></a>
 
 <div class="codeblock">
 <span class="codeblock_name">{graphic mode commands <a href="video.html#7:4">4</a>}</span>
@@ -138,6 +128,16 @@ Video_Command_SetPixel
 
 
 <p class="seealso">Used in section <a href="video.html#7:2">2</a></p>
+</div>
+<ul><li><code>SetPixel</code>: takes the color (in <code>RGB332</code> format) from the <code>data</code> port and outputs it at the absolute <code>video memory</code> adress pointed by <code>c:p:l</code> (<code>chapter</code>, <code>pagina</code> and <code>littera</code> registers)</li></ul>
+<div class="codeblock">
+<span class="codeblock_name">{graphic mode commands prototypes <a href="video.html#7:4">4</a>}</span>
+<pre class="prettyprint lang-c">
+void Video_SetPixelAbsolute(video_t* video, uint32_t addr, uint8_t color);
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
 </div>
 <a name="7:5"><div class="section"><h4 class="noheading">5. </h4></a>
@@ -152,12 +152,12 @@ typedef struct
     uint8_t *charbuffer;
     uint8_t *line;
 
-<span class="nocode pln">    {sdl video internals, <a href="emu.html#9:1">9:1</a>}</span>
+<span class="nocode pln">    {sdl video internals, <a href="emu.html#10:1">10:1</a>}</span>
 } video_t;
 </pre>
 
 
-<p class="seealso">Used in section <a href="emu.html#9:1">9:1</a></p>
+<p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
 
 </div>

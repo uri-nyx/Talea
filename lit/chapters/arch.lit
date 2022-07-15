@@ -57,7 +57,7 @@ Each one of those is indexed into the register file:
 | Gen. Purpose 1      	| `g1`     	| 2              	| 10      	|
 | Gen. Purpose 2      	| `g2`     	| 2              	| 12      	|
 | Gen. Purpose 3      	| `g3`     	| 2              	| 14      	|
-| Gen. Purpose 4      	| `g5`     	| 2              	| 16      	|
+| Gen. Purpose 4      	| `g4`     	| 2              	| 16      	|
 | Status              	| None     	| 1              	| 17      	|
 | Instruction Pointer 	| None     	| 3              	| 18      	|
 

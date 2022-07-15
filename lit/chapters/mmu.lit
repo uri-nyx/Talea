@@ -6,5 +6,6 @@
 @s
 
 --- mmu
+typedef int mmu_t;
 // TODO: Implement mmu
 ---

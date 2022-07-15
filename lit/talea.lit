@@ -25,5 +25,7 @@ This document defines its specification and constitues an emulator.
 [Keyboard](lit/chapters/kb.lit)
 [Video Controller](lit/chapters/video.lit)
 [Disk Drive](lit/chapters/disk.lit)
+[Addenda: Expansions and Custom Devices](lit/chapters/addenda.lit)
 
 [Emulator Implementation](lit/chapters/emu.lit)
+
