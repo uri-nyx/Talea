@@ -349,12 +349,12 @@ void Video_Execute(cpu_t *cpu, video_t *video)
         Video_SetMode(video, GRAPHIC_MODE);
         break;
     case Video_Command_SetPixel:
-        index = (uint32_t)Cpu_GetRegister16(cpu, CHAPTER_REGISTER) << 8 | Cpu_GetRegister8(cpu, LITTERA_REGISTER);
+        index = Cpu_GetSegRegister(cpu, x5);
         Video_SetPixelAbsolute(video, index, data);
         break;
     case Video_Command_SetChar:
-        x = Cpu_GetRegister8(cpu, LITTERA_REGISTER);
-        y = Cpu_GetRegister8(cpu, PAGINA_REGISTER);
+        x = Cpu_GetRegister(cpu, x5) & 0x0f;
+        y = Cpu_GetRegister(cpu, x5) >> 8;
         Video_SetChar(video, x, y, data);
         break;
     }
@@ -430,12 +430,12 @@ error_t Disk_CreateDrive(char *path, drive_t *drive, uint8_t disk_count)
 void Disk_Execute(cpu_t *cpu, drive_t *drive)
 {
     uint8_t data = Cpu_GetCache16(cpu, DISK_PORT_DATA);
-    uint8_t rr = ((data >> 6) * 2) + GPR1;
-    uint8_t ss = (((data & 0x30) >> 4) * 2) + GPR1;
+    uint8_t rr = (data >> 6) + x28;
+    uint8_t ss = ((data & 0x30) >> 4) + x28;
     drive->current_disk = &drive->disk_list[data & 0x0f]; 
 
-    uint16_t starting_point = Cpu_GetRegister16(cpu, rr) * 512;
-    uint16_t sector_number = Cpu_GetRegister16(cpu, ss);
+    uint16_t starting_point = Cpu_GetRegister(cpu, rr) * 512;
+    uint16_t sector_number = Cpu_GetRegister(cpu, ss);
 
     struct sector tmp_sector;
 

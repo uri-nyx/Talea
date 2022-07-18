@@ -15,8 +15,8 @@ and word sizes are 8 and 16-bit respectively:
 const int DATA_BUS_SIZE = 16 * Bit;
 const int ADDRESS_BUS_SIZE = 24 * Bit;
 
-const int BYTE_SIZE = 8 * Bit;
-const int WORD_SIZE = 16 * Bit;
+#define BYTE_SIZE 8
+#define WORD_SIZE 16
 
 #define MAX_MEMORY_SIZE (1 << ADDRESS_BUS_SIZE)
 #define CACHE_SIZE (1 << BYTE_SIZE)

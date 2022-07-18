@@ -60,7 +60,7 @@ enum Video_Commands {
 Video_Command_SetChar,
 ---
 
-+ `SetChar`: takes the character from the `data` port and outputs it at x = `l` and y = `p` (`littera` and `pagina` registers)
++ `SetChar`: takes the character from the `data` port and outputs it at x = `x5l` and y = `x5h` (`x5` register high and low bytes)
 
 --- text mode commands prototypes
 error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, uint8_t c);
@@ -72,7 +72,7 @@ error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, uint8_t c);
 Video_Command_SetPixel
 ---
 
-+ `SetPixel`: takes the color (in `RGB332` format) from the `data` port and outputs it at the absolute `video memory` adress pointed by `c:p:l` (`chapter`, `pagina` and `littera` registers)
++ `SetPixel`: takes the color (in `RGB332` format) from the `data` port and outputs it at the absolute `video memory` adress pointed by `sx5` (register `x5` in conjunction with its segment register)
 
 --- graphic mode commands prototypes
 void Video_SetPixelAbsolute(video_t* video, uint32_t addr, uint8_t color);

@@ -33,8 +33,8 @@ const int MILLISECONDS_PER_FRAME = 1000 / FPS;
 const int DATA_BUS_SIZE = 16 * Bit;
 const int ADDRESS_BUS_SIZE = 24 * Bit;
 
-const int BYTE_SIZE = 8 * Bit;
-const int WORD_SIZE = 16 * Bit;
+#define BYTE_SIZE 8
+#define WORD_SIZE 16
 
 #define MAX_MEMORY_SIZE (1 << ADDRESS_BUS_SIZE)
 #define CACHE_SIZE (1 << BYTE_SIZE)
@@ -229,7 +229,7 @@ void Video_SetPixelAbsolute(video_t* video, uint32_t addr, uint8_t color);
 
 // #region Disk
 /* sector */
-const int SECTOR_SIZE = 512;
+#define SECTOR_SIZE 512
 
 struct sector
 {
@@ -237,14 +237,16 @@ struct sector
 };
 
 /* disk */
-const int MAX_SECTOR_COUNT = 0xffff;
+#define MAX_SECTOR_COUNT 0xffff
+
 typedef struct 
 {
     const char *filename;
     FILE *fp;
     uint16_t sector_count;
 } disk_t;
-const int MAX_DISK_COUNT = 16;
+#define MAX_DISK_COUNT 16
+
 typedef struct
 {
         uint8_t disk_count;
