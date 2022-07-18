@@ -22,59 +22,33 @@ const int WORD_SIZE = 16 * Bit;
 #define CACHE_SIZE (1 << BYTE_SIZE)
 ---
 
-The system has a total of 12 registers: four are one byte wide, seven, a word,
-and one (the `instruction pointer`), occupies 3 bytes. 
+The register arrangement of the system is built upon of that of the real architecture
+RISC-V, with some modifications to adapt it to a 16bit machine with 24bit addresses.
+There is a `zero` register, 31 general purpose 16bit registers, and a 24bit instruction
+pointer. In addition, there is another set of 31 8bit registers, one for each general
+purpose one used when calculating addresses.
 
 --- sizes +=
 #define Byte 1
 #define Word 2
 
-const int STATUS_REGISTER_SIZE = Byte;
-const int CHAPTER_REGISTER_SIZE = Byte;
-const int PAGINA_REGISTER_SIZE = Byte;
-const int LITTERA_REGISTER_SIZE = Byte;
+#define REGISTER_SIZE Word
+#define SREGISTER_SIZE Byte
 
-const int STACK_POINTER_SIZE = Word;
-const int FRAME_POINTER_SIZE = Word;
-const int REGISTER_SIZE = Word;
+#define  INSTRUCION_POINTER_SIZE (3 * Byte)
 
-const int INSTRUCION_POINTER_SIZE = 3 * Byte;
-
-#define GeneralPurposeRegisters 5
-#define REGISTER_FILE_SIZE (STATUS_REGISTER_SIZE + CHAPTER_REGISTER_SIZE + PAGINA_REGISTER_SIZE + LITTERA_REGISTER_SIZE + STACK_POINTER_SIZE + FRAME_POINTER_SIZE + (REGISTER_SIZE * GeneralPurposeRegisters) + INSTRUCION_POINTER_SIZE)
+#define REGISTER_COUNT 32
 ---
-
-Each one of those is indexed into the register file:
-
-| *Register Name*     	| *Symbol* 	| *Size (bytes)* 	| *Index* 	|
-|---------------------	|----------	|----------------	|---------	|
-| Littera             	| `l`      	| 1              	| 0       	|
-| Chapter             	| `c`      	| 1              	| 1       	|
-| Pagina              	| `p`      	| 1              	| 2       	|
-| Stack Pointer       	| `sp`     	| 2              	| 3       	|
-| Frame Pointer       	| `fp`     	| 2              	| 6       	|
-| Gen. Purpose 0      	| `g0`     	| 2              	| 8       	|
-| Gen. Purpose 1      	| `g1`     	| 2              	| 10      	|
-| Gen. Purpose 2      	| `g2`     	| 2              	| 12      	|
-| Gen. Purpose 3      	| `g3`     	| 2              	| 14      	|
-| Gen. Purpose 4      	| `g4`     	| 2              	| 16      	|
-| Status              	| None     	| 1              	| 17      	|
-| Instruction Pointer 	| None     	| 3              	| 18      	|
 
 --- register indexes
 enum RegisterIndex {
-    LITTERA_REGISTER = 0,
-    CHAPTER_REGISTER,
-    PAGINA_REGISTER,
-    STACK_POINTER = 4,
-    FRAME_POINTER = 6,
-    GPR0 = 8,
-    GPR1 = 10,
-    GPR2 = 12,
-    GPR3 = 14,
-    GPR4 = 16,
-    INSTRUCTION_POINTER = 18,
-} typedef RegisterIndex;
+	x0 = 0,
+	x1,x2,x3,x4,x5,x6,x7,x8,x9,
+	x10,x11,x12,x13,x14,x15,x16,
+	x17,x18,x19,x20,x21,x22,x23,
+	x24,x25,x26,x27,x28,x29,x30,
+	x31,
+};
 ---
 
 @s Cache Memory & I/O Ports

@@ -41,34 +41,22 @@ const int WORD_SIZE = 16 * Bit;
 #define Byte 1
 #define Word 2
 
-const int STATUS_REGISTER_SIZE = Byte;
-const int CHAPTER_REGISTER_SIZE = Byte;
-const int PAGINA_REGISTER_SIZE = Byte;
-const int LITTERA_REGISTER_SIZE = Byte;
+#define REGISTER_SIZE Word
+#define SREGISTER_SIZE Byte
 
-const int STACK_POINTER_SIZE = Word;
-const int FRAME_POINTER_SIZE = Word;
-const int REGISTER_SIZE = Word;
+#define  INSTRUCION_POINTER_SIZE (3 * Byte)
 
-const int INSTRUCION_POINTER_SIZE = 3 * Byte;
-
-#define GeneralPurposeRegisters 5
-#define REGISTER_FILE_SIZE (STATUS_REGISTER_SIZE + CHAPTER_REGISTER_SIZE + PAGINA_REGISTER_SIZE + LITTERA_REGISTER_SIZE + STACK_POINTER_SIZE + FRAME_POINTER_SIZE + (REGISTER_SIZE * GeneralPurposeRegisters) + INSTRUCION_POINTER_SIZE)
+#define REGISTER_COUNT 32
 
 /* register indexes */
 enum RegisterIndex {
-    LITTERA_REGISTER = 0,
-    CHAPTER_REGISTER,
-    PAGINA_REGISTER,
-    STACK_POINTER = 4,
-    FRAME_POINTER = 6,
-    GPR0 = 8,
-    GPR1 = 10,
-    GPR2 = 12,
-    GPR3 = 14,
-    GPR4 = 16,
-    INSTRUCTION_POINTER = 18,
-} typedef RegisterIndex;
+	x0 = 0,
+	x1,x2,x3,x4,x5,x6,x7,x8,x9,
+	x10,x11,x12,x13,x14,x15,x16,
+	x17,x18,x19,x20,x21,x22,x23,
+	x24,x25,x26,x27,x28,x29,x30,
+	x31,
+};
 
 /* ports */
 enum Port {
@@ -127,28 +115,30 @@ void Clock_FrameEnd(struct clock *clk);
 /* cpu */
 typedef struct
 {
-    uint8_t RegisterFile[REGISTER_FILE_SIZE];
+    uint16_t General[REGISTER_COUNT];
+    uint8_t Segment[REGISTER_COUNT];
+    uint32_t InstructionPointer;
     uint8_t Cache[CACHE_SIZE];
     uint8_t *Memory;
 } cpu_t;
 
-uint8_t Cpu_Fetch(cpu_t *cpu);
-error_t Cpu_Execute(cpu_t *cpu, uint8_t opcode);
+uint32_t Cpu_Fetch(cpu_t *cpu);
+error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction);
 void Cpu_Cycle(cpu_t *cpu);
-static inline uint8_t Cpu_GetRegister8(cpu_t *cpu, enum RegisterIndex index);
-static inline uint16_t Cpu_GetRegister16(cpu_t *cpu, enum RegisterIndex index);
-static inline void Cpu_SetRegister8(cpu_t *cpu,  enum RegisterIndex index, uint8_t value);
-static inline void Cpu_SetRegister16(cpu_t *cpu,  enum RegisterIndex index, uint16_t value);
+static inline uint16_t Cpu_GetRegister(cpu_t *cpu, enum RegisterIndex index);
+static inline void Cpu_SetRegister(cpu_t *cpu,  enum RegisterIndex index, uint16_t value);
+static inline uint32_t Cpu_GetSegRegister(cpu_t *cpu, enum RegisterIndex index);
+static inline void Cpu_SetSegRegister(cpu_t *cpu, enum RegisterIndex index, uint32_t value);
 static inline uint32_t Cpu_GetIp(cpu_t *cpu);
-void Cpu_SetIp(cpu_t *cpu, uint32_t addr);
+static inline void Cpu_SetIp(cpu_t *cpu, uint32_t value);
 static inline uint8_t Cpu_GetCache8(cpu_t *cpu, uint8_t addr);
 static inline uint16_t Cpu_GetCache16(cpu_t *cpu, uint8_t addr);
 static inline void Cpu_SetCache8(cpu_t *cpu, uint8_t addr, uint8_t value);
-static inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint8_t value);
+static inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint16_t value);
 uint8_t Cpu_GetMemory8(cpu_t *cpu, uint32_t addr);
 uint16_t Cpu_GetMemory16(cpu_t *cpu, uint32_t addr);
 void Cpu_SetMemory8(cpu_t *cpu, uint32_t addr, uint8_t value);
-void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint8_t value);
+void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint16_t value);
 
 // #endregion
 

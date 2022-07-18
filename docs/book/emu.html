@@ -321,7 +321,7 @@ void Cpu_Cycle(cpu_t *cpu)
 
     if (error != ERROR_NONE)
     {
-        Talea_Panic(error);
+        TaleaSystem_Panic(error);
     }
 }
 </pre>
@@ -377,7 +377,7 @@ void Cpu_SetIp(cpu_t *cpu, uint32_t value)
     cpu-&gt;RegisterFile[INSTRUCTION_POINTER + 2] = value;
 }
 </pre>
-<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -406,7 +406,7 @@ inline void Cpu_SetRegister16(cpu_t *cpu, enum RegisterIndex index, uint16_t val
     cpu-&gt;RegisterFile[index + 1] = value &amp; 0xFF;
 }
 </pre>
-<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -435,13 +435,13 @@ inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint8_t value)
     cpu-&gt;Cache[addr + 1] = value &amp; 0xFF;
 }
 </pre>
-<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
 <p>To get and set values on main Memory:</p>
 <div class="codeblock">
-<span class="codeblock_name">{+= memory access <a href="emu.html#10:2">2</a>}</span>
+<span class="codeblock_name">{memory access <a href="emu.html#10:2">2</a>} +=</span>
 <pre class="prettyprint lang-c">
 uint8_t Cpu_GetMemory8(cpu_t *cpu, uint32_t addr)
 {
@@ -464,7 +464,7 @@ void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint8_t value)
     Cpu_SetMemory8(cpu, addr + 1, value &amp; 0xFF);
 }
 </pre>
-
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -571,16 +571,16 @@ void Kb_Handle(kb_t *kb, cpu_t *cpu)
     Cpu_SetCache8(cpu, kb-&gt;port, '\0');
 }
 
-void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, SDL_bool *quit)
+void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
 {
     SDL_StartTextInput();
 
-    while (SDL_PollEvent(&amp;event))
+    while (SDL_PollEvent(event))
     {
         switch (event-&gt;type)
         {
         case SDL_QUIT:
-            quit = SDL_TRUE;
+            *quit = SDL_TRUE;
             break;
         case SDL_TEXTINPUT:
             SDL_StopTextInput();
@@ -790,9 +790,9 @@ void Video_Execute(cpu_t *cpu, video_t *video)
 <pre class="prettyprint lang-c">
 // #region Video Module Implementation
 <span class="nocode pln">{video initialization, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{video modes implementation, <a href="emu.html#10:2">2</a>}</span>
 <span class="nocode pln">{video render implementation, <a href="emu.html#10:2">2</a>}</span>
 <span class="nocode pln">{video execute implementation, <a href="emu.html#10:2">2</a>}</span>
-<span class="nocode pln">{video modes implementation, <a href="emu.html#10:2">2</a>}</span>
 <span class="nocode pln">{text mode commands implementation, <a href="emu.html#10:2">2</a>}</span>
 <span class="nocode pln">{graphic mode commands implementation, <a href="emu.html#10:2">2</a>}</span>
 // #endregion
@@ -817,7 +817,7 @@ error_t Disk_Create(const char *path, disk_t *disk, uint16_t sector_count)
     if (disk-&gt;fp == NULL)
         return DISK_ERROR_OPEN_FAILED;
 
-    for (int i = 0; i &lt; sector_count; i++)
+    for (int i = 0; i &lt;= sector_count; i++)
     {
         fwrite(&amp;prototype_sector, sizeof(struct sector), 1, disk-&gt;fp);
     }
@@ -833,8 +833,8 @@ error_t Disk_CreateDrive(char *path, drive_t *drive, uint8_t disk_count)
     drive-&gt;disk_count = disk_count;
     for (int i = 0; i &lt; disk_count; i++)
     {
-        const char *filename[strlen(path) + 1];
-        sprintf(filename, "%s%d", path, i);
+        char filename[strlen(DISK_FILE_PATH) + 2]; //remember \0
+        sprintf(filename, "%s%X", DISK_FILE_PATH, i);
         error = Disk_Create(filename, &amp;drive-&gt;disk_list[i], MAX_SECTOR_COUNT);
 
         if (error != ERROR_NONE)
@@ -941,10 +941,10 @@ void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb
 
     tty-&gt;filename = TTY_FILE_PATH;
 
-    const char *filename[strlen(DISK_FILE_PATH) + 1];
     for (int i = 0; i &lt; MAX_DISK_COUNT; i++)
     {
-        sprintf(filename, "%s%d", DISK_FILE_PATH, i);
+        char filename[strlen(DISK_FILE_PATH) + 2]; //remember \0
+        sprintf(filename, "%s%X", DISK_FILE_PATH, i);
 
         drive-&gt;disk_list[i].filename = filename;
         drive-&gt;disk_list[i].fp = fopen(filename, "wb");
@@ -953,7 +953,7 @@ void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb
         if (drive-&gt;disk_list[i].fp == NULL)
         {
             printf("Failed to open disk file: %s\n", filename);
-            return;
+            exit(1);
         }
     }
     
@@ -974,7 +974,7 @@ void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb
 <span class="nocode pln">    {addenda init, <a href="addenda.html#9:3">9:3</a>}</span>
 }
 </pre>
-<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -986,7 +986,7 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
 {
 
     struct clock clock_fps;
-    SDL_bool quit = SDL_FALSE;
+    int quit = SDL_FALSE;
     SDL_Event event;
     struct timespec frame_start, frame_end;
     kb-&gt;state = SDL_GetKeyboardState(NULL);
@@ -1006,7 +1006,7 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
         }
 
         // Every 16ms check for events such as keypresses (83333 cycles at 10Mhz) perhaps too fast?
-        Kb_Execute(kb, cpu, &amp;event, &amp;quit);
+        Kb_Execute(cpu, kb, &amp;event, &amp;quit);
 <span class="nocode pln">        {addenda execute (after kb), <a href="addenda.html#9:3">9:3</a>}</span>
 
         // Every 16ms, render the screen (166666 cycles at 10Mhz)
@@ -1016,7 +1016,7 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
     }
 }
 </pre>
-<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -1024,16 +1024,33 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
 <div class="codeblock">
 <span class="codeblock_name">{emulator initialization <a href="emu.html#10:2">2</a>} +=</span>
 <pre class="prettyprint lang-c">
-void TaleaSystem_Destroy(cpu_t *cpu, video_t *video, disk_t *disk)
+void TaleaSystem_Destroy(cpu_t *cpu, video_t *video, drive_t *drive)
 {
     // Destroy systems
 <span class="nocode pln">    {addenda destroy, <a href="addenda.html#9:3">9:3</a>}</span>
-    fclose(disk-&gt;fp);
+    for (int i = 0; i &lt; MAX_DISK_COUNT; i++)
+    {
+        fclose(drive-&gt;disk_list[i].fp);
+    }
+
     Cpu_Destroy(cpu);
     Video_Destroy(video);
 }
 </pre>
-<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p>We will also implement a <code>panic</code> function, that will log error to <code>stdout</code>:</p>
+<div class="codeblock">
+<span class="codeblock_name">{emulator initialization <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+void TaleaSystem_Panic(error_t error)
+{
+    printf("Error: %d", error); // TODO: make this better
+}
+</pre>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -1056,7 +1073,7 @@ int main(int argc, char const *argv[])
     {
         if (strcmp(argv[1], "createDrive") == 0)
         {
-            if (Disk_Create(DISK_FILE_PATH, &amp;drive, MAX_DISK_COUNT) == ERROR_NONE)
+            if (Disk_CreateDrive(DISK_FILE_PATH, &amp;drive, MAX_DISK_COUNT) == ERROR_NONE)
             {
                 printf("Drive created succesfully\n");
                 return 0;
@@ -1095,6 +1112,7 @@ int main(int argc, char const *argv[])
 <span class="nocode pln">{kb implementation, <a href="emu.html#10:2">2</a>}</span>
 <span class="nocode pln">{video implementation, <a href="emu.html#10:2">2</a>}</span>
 <span class="nocode pln">{disk drive implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{addenda implementation, <a href="addenda.html#9:2">9:2</a>}</span>
 
 <span class="nocode pln">{emulator initialization, <a href="emu.html#10:2">2</a>}</span>
 

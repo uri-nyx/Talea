@@ -8,13 +8,6 @@
 
 
 /* helpers */
-uint8_t nextByte(cpu_t *cpu)
-{
-    uint32_t ip = Cpu_GetIp(cpu);
-    uint8_t byte = Cpu_GetMemory8(cpu, ip);
-    Cpu_SetIp(cpu, ip + Byte);
-    return byte;
-}
 
 static inline uint32_t trimAddr(uint32_t addr)
 {
@@ -42,15 +35,17 @@ void Clock_FrameEnd(struct clock *clk)
 /* cpu initialization and deinitialization */
 void Cpu_Init(cpu_t *cpu)
 {
-    memset(cpu->RegisterFile, 0, sizeof(cpu->RegisterFile));
-    memset(cpu->Cache, 0, sizeof(cpu->Cache));
     cpu->Memory = malloc(sizeof(uint8_t) * MAX_MEMORY_SIZE);
+    memset(cpu->General, 0, sizeof(cpu->General));
+    memset(cpu->Segment, 0, sizeof(cpu->Segment));
+    memset(cpu->Cache, 0, sizeof(cpu->Cache));
     memset(cpu->Memory, 0, sizeof(uint8_t) * MAX_MEMORY_SIZE);
 }
 
 void Cpu_Reset(cpu_t *cpu)
 {
-    memset(cpu->RegisterFile, 0, sizeof(cpu->RegisterFile));
+    memset(cpu->General, 0, sizeof(cpu->General));
+    memset(cpu->Segment, 0, sizeof(cpu->Segment));
     memset(cpu->Cache, 0, sizeof(cpu->Cache));
     memset(cpu->Memory, 0, sizeof(uint8_t) * MAX_MEMORY_SIZE);
 }
@@ -70,13 +65,19 @@ void Cpu_Cycle(cpu_t *cpu)
         TaleaSystem_Panic(error);
     }
 }
-uint8_t Cpu_Fetch(cpu_t *cpu)
+uint32_t Cpu_Fetch(cpu_t *cpu)
 {
-    return nextByte(cpu);
+    uint32_t instruction = 0;
+    instruction |= cpu->Memory[trimAddr(cpu->InstructionPointer)];
+    instruction |= cpu->Memory[trimAddr(cpu->InstructionPointer + 1)] << 8;
+    instruction |= cpu->Memory[trimAddr(cpu->InstructionPointer + 2)] << 16;
+    instruction |= cpu->Memory[trimAddr(cpu->InstructionPointer + 3)] << 24;
+
+    return instruction;
 }
-error_t Cpu_Execute(cpu_t *cpu, uint8_t opcode)
+error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
 {
-    switch (opcode)
+    switch (instruction)
     {
     case 0: //TODO: ISA
         return ERROR_NONE;
@@ -86,36 +87,33 @@ error_t Cpu_Execute(cpu_t *cpu, uint8_t opcode)
 }
 
 /* memory access */
-inline uint32_t Cpu_GetIp(cpu_t *cpu)
+static inline uint32_t Cpu_GetIp(cpu_t *cpu) 
 {
-    return (uint32_t)cpu->RegisterFile[INSTRUCTION_POINTER] << 16 | (uint32_t)cpu->RegisterFile[INSTRUCTION_POINTER + 1] << 8 | cpu->RegisterFile[INSTRUCTION_POINTER + 2];
+    return trimAddr(cpu->InstructionPointer);
 }
 
-void Cpu_SetIp(cpu_t *cpu, uint32_t value)
+static inline void Cpu_SetIp(cpu_t *cpu, uint32_t value)
 {
-    cpu->RegisterFile[INSTRUCTION_POINTER] = value >> 16;
-    cpu->RegisterFile[INSTRUCTION_POINTER + 1] = value >> 8;
-    cpu->RegisterFile[INSTRUCTION_POINTER + 2] = value;
+    cpu->InstructionPointer = trimAddr(value);
 }
-inline uint8_t Cpu_GetRegister8(cpu_t *cpu, enum RegisterIndex index)
+static inline uint16_t Cpu_GetRegister(cpu_t *cpu, enum RegisterIndex index)
 {
-    return cpu->RegisterFile[index];
+    return cpu->General[index];
 }
 
-inline uint16_t Cpu_GetRegister16(cpu_t *cpu, enum RegisterIndex index)
+static inline void Cpu_SetRegister(cpu_t *cpu,  enum RegisterIndex index, uint16_t value)
 {
-    return (uint16_t)cpu->RegisterFile[index] << 8 | cpu->RegisterFile[index + 1];
+    cpu->General[index] = value;
 }
 
-inline void Cpu_SetRegister8(cpu_t *cpu, enum RegisterIndex index, uint8_t value)
+static inline uint32_t Cpu_GetSegRegister(cpu_t *cpu, enum RegisterIndex index)
 {
-    cpu->RegisterFile[index] = value;
+    return (uint32_t)cpu->Segment[index] << 16 | cpu->General[index];
 }
-
-inline void Cpu_SetRegister16(cpu_t *cpu, enum RegisterIndex index, uint16_t value)
+static inline void Cpu_SetSegRegister(cpu_t *cpu, enum RegisterIndex index, uint32_t value)
 {
-    cpu->RegisterFile[index] = value >> 8;
-    cpu->RegisterFile[index + 1] = value & 0xFF;
+    cpu->Segment[index] = (value >> 16);
+    cpu->General[index] = (uint16_t)value;
 }
 inline uint8_t Cpu_GetCache8(cpu_t *cpu, uint8_t addr)
 {
@@ -124,7 +122,7 @@ inline uint8_t Cpu_GetCache8(cpu_t *cpu, uint8_t addr)
 
 inline uint16_t Cpu_GetCache16(cpu_t *cpu, uint8_t addr)
 {
-    return (uint16_t)cpu->Cache[addr] << 8 | cpu->Cache[addr + 1];
+    return (uint16_t)cpu->Cache[addr + 1] << 8 | cpu->Cache[addr];
 }
 
 inline void Cpu_SetCache8(cpu_t *cpu, uint8_t addr, uint8_t value)
@@ -132,10 +130,10 @@ inline void Cpu_SetCache8(cpu_t *cpu, uint8_t addr, uint8_t value)
     cpu->Cache[addr] = value;
 }
 
-inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint8_t value)
+inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint16_t value)
 {
-    cpu->Cache[addr] = value >> 8;
-    cpu->Cache[addr + 1] = value & 0xFF;
+    cpu->Cache[addr] = value & 0xFF;
+    cpu->Cache[addr + 1] = value >> 8;
 }
 uint8_t Cpu_GetMemory8(cpu_t *cpu, uint32_t addr)
 {
@@ -144,7 +142,7 @@ uint8_t Cpu_GetMemory8(cpu_t *cpu, uint32_t addr)
 
 uint16_t Cpu_GetMemory16(cpu_t *cpu, uint32_t addr)
 {
-    return (uint16_t)Cpu_GetMemory8(cpu, addr) << 8 | Cpu_GetMemory8(cpu, addr + 1);
+    return (uint16_t)Cpu_GetMemory8(cpu, addr + 1) << 8 | Cpu_GetMemory8(cpu, addr);
 }
 
 void Cpu_SetMemory8(cpu_t *cpu, uint32_t addr, uint8_t value)
@@ -152,10 +150,10 @@ void Cpu_SetMemory8(cpu_t *cpu, uint32_t addr, uint8_t value)
     cpu->Memory[trimAddr(addr)] = value;
 }
 
-void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint8_t value)
+void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint16_t value)
 {
-    Cpu_SetMemory8(cpu, addr, value >> 8);
-    Cpu_SetMemory8(cpu, addr + 1, value & 0xFF);
+    Cpu_SetMemory8(cpu, addr, value & 0xFF);
+    Cpu_SetMemory8(cpu, addr + 1, value >> 8);
 }
 
 // #endregion
@@ -473,6 +471,9 @@ void Disk_StoreSector(disk_t *disk, uint16_t sector_number, struct sector *secto
 }
 
 // #endregion
+
+/* addenda implementation */
+// Custom devices functions
 
 
 /* emulator initialization */

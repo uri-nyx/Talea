@@ -8,6 +8,8 @@ CFLAGS := $(INCLUDE)inprint/inprint2.c -o talea -I $(INCLUDE) -L $(SRC)lib -l SD
 run: talea
 	./talea
 	rm talea
+test:
+	$(CC) $(SRC)talea.c $(CFLAGS)
 
 talea: talea.c
 	$(CC) $(SRC)talea.c $(CFLAGS)

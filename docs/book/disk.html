@@ -59,7 +59,7 @@ struct sector
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
-<p>One disk contains up to 65535 (<code>0xffff</code>) sectors:</p>
+<p>One disk contains up to 0xffff sectors:</p>
 <div class="codeblock">
 <span class="codeblock_name">{disk <a href="disk.html#8:1">1</a>}</span>
 <pre class="prettyprint lang-c">
@@ -75,11 +75,11 @@ typedef struct
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
-<p>And a drive manages up to 16 (<code>0xf</code>) disks:</p>
+<p>And a drive manages up to 16 disks:</p>
 <div class="codeblock">
 <span class="codeblock_name">{disk <a href="disk.html#8:1">1</a>} +=</span>
 <pre class="prettyprint lang-c">
-const int MAX_DISK_COUNT = 0xf;
+const int MAX_DISK_COUNT = 16;
 typedef struct
 {
         uint8_t disk_count;
