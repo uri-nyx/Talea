@@ -71,10 +71,14 @@ uint32_t Cpu_Fetch(cpu_t *cpu)
 {
     uint32_t instruction = 0;
     instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer + 3)] << 24;
+    //printf("\n%x -> ", instruction);
     instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer + 2)] << 16;
+    //printf("%x -> ", instruction);
     instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer + 1)] << 8;
+    //printf("%x -> ", instruction);
     instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer)];
-    
+    //printf("%x :: IP: %x\n", instruction, Cpu_GetIp(cpu));
+
     return instruction;
 }
 error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
@@ -85,7 +89,7 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
     int16_t rs2 = (instruction & 0x01F00000) >> 20;
     int16_t imm_i = (instruction & 0xFFF00000) >> 20;
     	imm_i = (instruction & 0x80000000) ? 0xf000 | imm_i : imm_i;
-    int16_t imm_b = ((instruction & 0x80000000) >> 11) | ((instruction & 0x00000080) << 11) | ((instruction & 0x7F000000) >> 19) | ((instruction & 0x0000F00) >> 7);
+    int16_t imm_b = ((instruction & 0x80000000) >> 19) | ((instruction & 0x00000080) << 4) | ((instruction & 0x7F000000) >> 20) | ((instruction & 0x0000F00) >> 7);
     	imm_b = (instruction & 0x80000000) ? 0xe000 | imm_b : imm_b;
     int32_t imm_j = (instruction & 0x80000000) >> 11 | (instruction & 0x000FF000) | ((instruction & 0x00100000) >> 9) | ((instruction & 0x7FE00000) >> 20);
     	imm_j = (instruction & 0x80000000) ? 0xfff00000 | imm_j : imm_j;
@@ -154,7 +158,7 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
                 Cpu_SetRegister(cpu, rd, 0x0000 | Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load byte from memory at rs1 + imm_i into rd
                 break; // load unsigned byte from memory at rs1 + imm_i into rd
             case 0b010: // ADDAPT LW to load from cache
-            	Cpu_SetRegister(cpu, rd, Cpu_GetCache16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i));
+            	Cpu_SetRegister(cpu, rd, Cpu_GetCache16(cpu, Cpu_GetRegister(cpu, rs1) + imm_i));
             	break;
         }
         Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
@@ -402,9 +406,10 @@ void Kb_Handle(kb_t *kb, cpu_t *cpu)
     if (Cpu_GetCache8(cpu, kb->port) != '\0')
     {
         printf("Key Port: %d\n", Cpu_GetCache8(cpu, kb->port));
+        
     }
     // Erase cache
-    Cpu_SetCache8(cpu, kb->port, '\0');
+    //Cpu_SetCache8(cpu, kb->port, '\0');
 }
 
 void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
@@ -718,6 +723,8 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
     kb->state = SDL_GetKeyboardState(NULL);
 
 	Video_Render(video);
+    Kb_Execute(cpu, kb, &event, &quit);
+
     
     while (!quit)
     {
@@ -768,7 +775,8 @@ void TaleaSystem_Panic(error_t error)
 }
 
 
-/* main */
+/* 
+ */
 int main(int argc, char const *argv[])
 {
 
@@ -811,14 +819,16 @@ int main(int argc, char const *argv[])
 	for (int i = 0; i<psize; i++)
 	{
 		printf("%x ", hex[i]);
+		Cpu_SetMemory8(&cpu, i, hex[i]);
 	}
 
-	memcpy(&cpu.Memory, &hex, psize);
-
+	//emcpy(&(cpu.Memory), &hex, psize);
+	free(hex);
+	
 	printf("\n\nMemory:\n");
 	for (int i = 0; i<psize; i++)
 	{
-		printf("%x ", cpu.Memory[i]);
+		printf("%x ", Cpu_GetMemory8(&cpu, i));
 	}
 	    
     TaleaSystem_Run(&cpu, &video, &tty, &drive, &kb);
