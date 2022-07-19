@@ -1,6 +1,5 @@
 /* talea.c */
 /* implementation includes */
-#include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 #include "talea.h"
@@ -36,6 +35,7 @@ void Clock_FrameEnd(struct clock *clk)
 /* cpu initialization and deinitialization */
 void Cpu_Init(cpu_t *cpu)
 {
+	cpu->InstructionPointer = 0;
     cpu->Memory = malloc(sizeof(uint8_t) * MAX_MEMORY_SIZE);
     memset(cpu->General, 0, sizeof(cpu->General));
     memset(cpu->Segment, 0, sizeof(cpu->Segment));
@@ -45,6 +45,7 @@ void Cpu_Init(cpu_t *cpu)
 
 void Cpu_Reset(cpu_t *cpu)
 {
+	cpu->InstructionPointer = 0;
     memset(cpu->General, 0, sizeof(cpu->General));
     memset(cpu->Segment, 0, sizeof(cpu->Segment));
     memset(cpu->Cache, 0, sizeof(cpu->Cache));
@@ -63,17 +64,17 @@ void Cpu_Cycle(cpu_t *cpu)
 
     if (error != ERROR_NONE)
     {
-        TaleaSystem_Panic(error);
+    	TaleaSystem_Panic(error);
     }
 }
 uint32_t Cpu_Fetch(cpu_t *cpu)
 {
     uint32_t instruction = 0;
-    instruction |= cpu->Memory[trimAddr(cpu->InstructionPointer)];
-    instruction |= cpu->Memory[trimAddr(cpu->InstructionPointer + 1)] << 8;
-    instruction |= cpu->Memory[trimAddr(cpu->InstructionPointer + 2)] << 16;
-    instruction |= cpu->Memory[trimAddr(cpu->InstructionPointer + 3)] << 24;
-
+    instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer + 3)] << 24;
+    instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer + 2)] << 16;
+    instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer + 1)] << 8;
+    instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer)];
+    
     return instruction;
 }
 error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
@@ -82,15 +83,15 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
     int16_t rd = (instruction & 0x00000F80) >> 7;
     int16_t rs1 = (instruction & 0x000F8000) >> 15;
     int16_t rs2 = (instruction & 0x01F00000) >> 20;
-    int16_t imm_i = (instruction & 0xFFF00000) >> 20);
+    int16_t imm_i = (instruction & 0xFFF00000) >> 20;
     	imm_i = (instruction & 0x80000000) ? 0xf000 | imm_i : imm_i;
     int16_t imm_b = ((instruction & 0x80000000) >> 11) | ((instruction & 0x00000080) << 11) | ((instruction & 0x7F000000) >> 19) | ((instruction & 0x0000F00) >> 7);
     	imm_b = (instruction & 0x80000000) ? 0xe000 | imm_b : imm_b;
-    int32 imm_j = (instruction & 0x80000000) >> 11) | (instruction & 0x000FF000) | ((instruction & 0x00100000) >> 9) | ((instruction & 0x7FE00000) >> 20);
+    int32_t imm_j = (instruction & 0x80000000) >> 11 | (instruction & 0x000FF000) | ((instruction & 0x00100000) >> 9) | ((instruction & 0x7FE00000) >> 20);
     	imm_j = (instruction & 0x80000000) ? 0xfff00000 | imm_j : imm_j;
     int16_t imm_u = (instruction & 0xFFFF0000) >> 4;
-    int16_t imm_s = (instruction & 0xFF000000) >> 20) | ((instruction & 0x00000F80) >> 7);
-    	imm_s = (instruction & 0x80000000) ? 0xf000 | imm_s: imm_s
+    int16_t imm_s = (instruction & 0xFF000000) >> 20 | ((instruction & 0x00000F80) >> 7);
+    	imm_s = (instruction & 0x80000000) ? 0xf000 | imm_s: imm_s;
     int16_t shamt = (instruction & 0x00F00000) >> 20;
     int16_t mod = instruction & 0x40000000;
     int16_t funct3 = (instruction & 0x00007000) >> 12;
@@ -108,7 +109,7 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
         break;
     case Jal:
         Cpu_SetSegRegister(cpu, rd, Cpu_GetIp(cpu) + 4); // Gets return destination
-        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + imm_j); // increment ip by imm_j
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + imm_j); // increment jump to offset
         break;
     case Jalr:
         Cpu_SetSegRegister(cpu, rd, Cpu_GetIp(cpu) + 4); // Gets return destination
@@ -152,6 +153,9 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
             case 0b100: // LBU
                 Cpu_SetRegister(cpu, rd, 0x0000 | Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load byte from memory at rs1 + imm_i into rd
                 break; // load unsigned byte from memory at rs1 + imm_i into rd
+            case 0b010: // ADDAPT LW to load from cache
+            	Cpu_SetRegister(cpu, rd, Cpu_GetCache16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i));
+            	break;
         }
         Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
         break;
@@ -159,11 +163,14 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
         switch (funct3)
         {
             case 0b000: // SB
-                Cpu_SetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, (uint8_t)Cpu_GetRegister(cpu, rd)); // store byte from rd to memory at rs1 + imm_i
+                Cpu_SetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, (uint8_t)Cpu_GetRegister(cpu, rs2)); // store byte from rd to memory at rs1 + imm_i
                 break; // store byte from rd to memory at rs1 + imm_i
             case 0b001: // SH
-                Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rd)); // store halfword from rd to memory at rs1 + imm_i
+                Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2)); // store halfword from rd to memory at rs1 + imm_i
                 break; // store halfword from rd to memory at rs1 + imm_i
+            case 0b010: // Addapt SW to store to cache
+            	Cpu_SetCache16(cpu, Cpu_GetRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2));
+            	break;
         }
         Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
         break;
@@ -228,26 +235,42 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
         Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
         break;
     case E:
-        (rs2) ? I_ebreak() : I_ecall(); // if rs2 is 0, execute I_ebreak, else execute I_ecall
+        (rs2) ? I_ebreak(cpu) : I_ecall(); // if rs2 is 0, execute I_ebreak, else execute I_ecall
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); 
         break;
     default:
-        printf("Unknown opcode: %x\n", opcode);
+        printf("Unknown opcode: %x. Instruction: %x\n", opcode, instruction);
         return ERROR_UNKNOWN_OPCODE;
     }
+    //printf("executed instruction: %x, opcode: %x, func3, %b\n", instruction, opcode, funct3);
+    return ERROR_NONE;
 }
 
-void I_ebreak() {
-	printf("Machine halted: press to continue");
+error_t I_ebreak(cpu_t *cpu) {
+
+	printf("EBREAK:\n");
+	// DUMP:
+	for (int i = 0; i<32; i++)
+	{
+		printf("register x%d: %x\n", i, Cpu_GetRegister(cpu, i));
+	}
+
+	printf("\nCache:\n");
+	for (int i = 0;i<16; i++)
+	{
+		printf(" %x", Cpu_GetCache8(cpu, i));
+	}
+	
+	printf("\nMachine halted: press to continue");
 	getchar();
 
-	return;
+	return 0;
 }
 
-void I_ebreak() {
+error_t I_ecall() {
 	printf("Not implemented");
-	return;
+	return 0;
 }
-
 
 /* memory access */
 static inline uint32_t Cpu_GetIp(cpu_t *cpu) 
@@ -261,7 +284,7 @@ static inline void Cpu_SetIp(cpu_t *cpu, uint32_t value)
 }
 static inline uint16_t Cpu_GetRegister(cpu_t *cpu, enum RegisterIndex index)
 {
-    return cpu->General[index];
+    return (index) ? cpu->General[index] : 0;
 }
 
 static inline void Cpu_SetRegister(cpu_t *cpu,  enum RegisterIndex index, uint16_t value)
@@ -271,7 +294,7 @@ static inline void Cpu_SetRegister(cpu_t *cpu,  enum RegisterIndex index, uint16
 
 static inline uint32_t Cpu_GetSegRegister(cpu_t *cpu, enum RegisterIndex index)
 {
-    return (uint32_t)cpu->Segment[index] << 16 | cpu->General[index];
+    return (index) ? (uint32_t)cpu->Segment[index] << 16 | cpu->General[index] : 0;
 }
 static inline void Cpu_SetSegRegister(cpu_t *cpu, enum RegisterIndex index, uint32_t value)
 {
@@ -486,6 +509,7 @@ error_t Video_Render(video_t *video)
         SDL_RenderPresent(video->renderer);
         break;
     default:
+    	printf("Error Rendering\n");
         return VIDEO_ERROR_INVALID_MODE;
     }
 
@@ -516,7 +540,7 @@ void Video_Execute(cpu_t *cpu, video_t *video)
         Video_SetPixelAbsolute(video, index, data);
         break;
     case Video_Command_SetChar:
-        x = Cpu_GetRegister(cpu, x5) & 0x0f;
+    	x = Cpu_GetRegister(cpu, x5) & 0x0f;
         y = Cpu_GetRegister(cpu, x5) >> 8;
         Video_SetChar(video, x, y, data);
         break;
@@ -532,7 +556,9 @@ error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, uint8_t c)
     if (x < 0 || x >= TEXT_MODE_WIDTH || y < 0 || y >= TEXT_MODE_HEIGHT)
         return VIDEO_ERROR_INVALID_COORDINATE;
     if (video->mode != TEXT_MODE)
-        return VIDEO_ERROR_INVALID_MODE;
+    {
+    	return VIDEO_ERROR_INVALID_MODE;
+    }
     video->charbuffer[x + y * TEXT_MODE_WIDTH] = c;
     return ERROR_NONE;
 };
@@ -677,6 +703,7 @@ void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb
 
     // Setup systems
     Video_SetMode(video, TEXT_MODE);
+    printf("Initialization complete, Video Text mode set\n");
     /* addenda init */
     // Custom devices initialization
 
@@ -690,6 +717,8 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
     struct timespec frame_start, frame_end;
     kb->state = SDL_GetKeyboardState(NULL);
 
+	Video_Render(video);
+    
     while (!quit)
     {
         Clock_FrameStart(&clock_fps);
@@ -698,7 +727,7 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
         for (size_t cycles = 0; cycles < CYCLES_PER_FRAME; cycles++)
         {
             Cpu_Cycle(cpu);
-            Video_Execute(cpu, video);
+           	Video_Execute(cpu, video);
             Disk_Execute(cpu, drive);
             Tty_Execute(cpu, tty);
             /* addenda execute (after tty) */
@@ -734,7 +763,8 @@ void TaleaSystem_Destroy(cpu_t *cpu, video_t *video, drive_t *drive)
 }
 void TaleaSystem_Panic(error_t error)
 {
-    printf("Error: %d", error); // TODO: make this better
+    printf("Talea System Panic -- Error: %d\n", error); // TODO: make this better
+    getchar();
 }
 
 
@@ -769,6 +799,28 @@ int main(int argc, char const *argv[])
 
     TaleaSystem_Init(&cpu, &video, &tty, &drive, &kb, &mmu);
 
+	FILE * program = fopen("program.hex", "rb");
+	fseek(program, 0, SEEK_END);
+	long psize = ftell(program);
+	fseek(program, 0, SEEK_SET);
+
+	uint8_t *hex = malloc(psize + 1);
+	fread(hex, psize, 1, program);
+	fclose(program);
+
+	for (int i = 0; i<psize; i++)
+	{
+		printf("%x ", hex[i]);
+	}
+
+	memcpy(&cpu.Memory, &hex, psize);
+
+	printf("\n\nMemory:\n");
+	for (int i = 0; i<psize; i++)
+	{
+		printf("%x ", cpu.Memory[i]);
+	}
+	    
     TaleaSystem_Run(&cpu, &video, &tty, &drive, &kb);
 
     TaleaSystem_Destroy(&cpu, &video, &drive);
