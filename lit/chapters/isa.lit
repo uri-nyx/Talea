@@ -4,6 +4,33 @@
 @title Instruction Set
 @s
 
---- isa
-// TODO: Design instruction set
+--- isa opcodes
+/*
+ * U-type
+ * J-type
+ * R-type
+ * I-type
+ * S-type
+ * B-type
+ */
+
+enum Opcode {
+  Lui = 0b0110111,
+  Auipc = 0b0010111,
+  Jal = 0b1101111,
+  Jalr = 0b1100111,
+
+  Branch = 0b1100011,
+  Load = 0b0000011,
+  Store = 0b0100011,
+  MathI = 0b0010011,
+  MathR = 0b0110011,
+
+  E = 0b1110011,
+  /* CSR Not Implemented */
+};
+
+
+static inline error_t I_ecall(void);
+static inline error_t I_ebreak(void);
 ---

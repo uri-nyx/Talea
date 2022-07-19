@@ -1,5 +1,6 @@
 /* talea.c */
 /* implementation includes */
+#include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 #include "talea.h"
@@ -77,19 +78,23 @@ uint32_t Cpu_Fetch(cpu_t *cpu)
 }
 error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
 {
-    int opcode = instruction & 0x0000007F;
-    int rd = (instruction & 0x00000F80) >> 7;
-    int rs1 = (instruction & 0x000F8000) >> 15;
-    int rs2 = (instruction & 0x01F00000) >> 20;
-    int imm_i = sx((instruction & 0xFFF00000) >> 20);
-    int imm_b = sx(((instruction & 0x80000000) >> 11) | ((instruction & 0x00000080) << 11) | ((instruction & 0x7F000000) >> 19) | ((instruction & 0x0000F00) >> 7));
-    int imm_j = sx((instruction & 0x80000000) >> 11) | (instruction & 0x000FF000) | ((instruction & 0x00100000) >> 9) | ((instruction & 0x7FE00000) >> 20);
-    int imm_u = (instruction & 0xFFFF0000) >> 4;
-    int imm_s = sx((instruction & 0xFF000000) >> 20) | ((instruction & 0x00000F80) >> 7);
-    int shamt = (instruction & 0x00F00000) >> 20;
-    int mod = instruction & 0x40000000;
-    int funct3 = (instruction & 0x00007000) >> 12;
-    int funct7 = (instruction & 0xFE000000) >> 25;
+    int16_t opcode = instruction & 0x0000007F;
+    int16_t rd = (instruction & 0x00000F80) >> 7;
+    int16_t rs1 = (instruction & 0x000F8000) >> 15;
+    int16_t rs2 = (instruction & 0x01F00000) >> 20;
+    int16_t imm_i = (instruction & 0xFFF00000) >> 20);
+    	imm_i = (instruction & 0x80000000) ? 0xf000 | imm_i : imm_i;
+    int16_t imm_b = ((instruction & 0x80000000) >> 11) | ((instruction & 0x00000080) << 11) | ((instruction & 0x7F000000) >> 19) | ((instruction & 0x0000F00) >> 7);
+    	imm_b = (instruction & 0x80000000) ? 0xe000 | imm_b : imm_b;
+    int32 imm_j = (instruction & 0x80000000) >> 11) | (instruction & 0x000FF000) | ((instruction & 0x00100000) >> 9) | ((instruction & 0x7FE00000) >> 20);
+    	imm_j = (instruction & 0x80000000) ? 0xfff00000 | imm_j : imm_j;
+    int16_t imm_u = (instruction & 0xFFFF0000) >> 4;
+    int16_t imm_s = (instruction & 0xFF000000) >> 20) | ((instruction & 0x00000F80) >> 7);
+    	imm_s = (instruction & 0x80000000) ? 0xf000 | imm_s: imm_s
+    int16_t shamt = (instruction & 0x00F00000) >> 20;
+    int16_t mod = instruction & 0x40000000;
+    int16_t funct3 = (instruction & 0x00007000) >> 12;
+    int16_t funct7 = (instruction & 0xFE000000) >> 25;
 
     switch (opcode)
     {
@@ -135,13 +140,14 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
     case Load:
         switch (funct3)
         {
-            case 0b000: // LB
+            case 0b000: 
+              { // LB
                 uint8_t byte = Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i);
                 Cpu_SetRegister(cpu, rd, (byte & 0x80) ? 0xff00 | byte : 0x0000 | byte); // load byte from memory at rs1 + imm_i into rd
-                break; // load sign extended byte from memory at rs1 + imm_i into rd  
+                break;// load sign extended byte from memory at rs1 + imm_i into rd  
+              }
             case 0b001: // LH
-                Cpu_SetRegister(cpu, rd, 
-                    sx(Cpu_GetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i))); // load halfword from memory at rs1 + imm_i into rd
+                Cpu_SetRegister(cpu, rd, Cpu_GetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load halfword from memory at rs1 + imm_i into rd
                 break; // load halfword from memory at rs1 + imm_i into rd
             case 0b100: // LBU
                 Cpu_SetRegister(cpu, rd, 0x0000 | Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load byte from memory at rs1 + imm_i into rd
@@ -168,7 +174,7 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
                 Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) + imm_i); // add imm_i to rs1 and store in rd
                 break; // add imm_i to rs1 and store in rd
             case 0b010: // SLTI
-                Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) < imm_i) ? 1 : 0); // set rd to 1 if rs1 < imm_i, else 0
+                Cpu_SetRegister(cpu, rd, ((int16_t)Cpu_GetRegister(cpu, rs1) < imm_i) ? 1 : 0); // set rd to 1 if rs1 < imm_i, else 0
                 break; // set rd to 1 if rs1 < imm_i, else 0
             case 0b011: // SLTIU
                 Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) < (uint16_t)imm_i) ? 1 : 0); // set rd to 1 if rs1 < imm_i, else 0
@@ -185,8 +191,8 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
             case 0b001: // SLLI
                 Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) << shamt); // shift left imm_i to rs1 and store in rd
                 break; // shift left imm_i to rs1 and store in rd
-            case 0b101: // SRLI/SRAI
-                Cpu_SetRegister(cpu, rd, (mod) ? Cpu_GetRegister(cpu, rs1) >> shamt : Cpu_GetRegister(cpu, rs1) >> shamt); // shift right imm_i to rs1 and store in rd
+            case 0b101: // SRLI/SRAI				ARITHMETIC												LOGICAL
+                Cpu_SetRegister(cpu, rd, (mod) ? (int16_t)Cpu_GetRegister(cpu, rs1) >> shamt : Cpu_GetRegister(cpu, rs1) >> shamt); // shift right imm_i to rs1 and store in rd
                 break; // shift right imm_i to rs1 and store in rd
         }
         Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
@@ -201,7 +207,7 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
                 Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) << Cpu_GetRegister(cpu, rs2)); // shift left rs2 to rs1 and store in rd
                 break; // shift left rs2 to rs1 and store in rd
             case 0b010: // SLT
-                Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) < Cpu_GetRegister(cpu, rs2)) ? 1 : 0); // set rd to 1 if rs1 < rs2, else 0
+                Cpu_SetRegister(cpu, rd, ((int16_t)Cpu_GetRegister(cpu, rs1) < (int16_t)Cpu_GetRegister(cpu, rs2)) ? 1 : 0); // set rd to 1 if rs1 < rs2, else 0
                 break; // set rd to 1 if rs1 < rs2, else 0
             case 0b011: // SLTU
                 Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) < Cpu_GetRegister(cpu, rs2)) ? 1 : 0); // set rd to 1 if rs1 < rs2, else 0
@@ -209,8 +215,8 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
             case 0b100: // XOR
                 Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) ^ Cpu_GetRegister(cpu, rs2)); // xor rs2 to rs1 and store in rd
                 break; // xor rs2 to rs1 and store in rd
-            case 0b101: // SRL/SRA
-                Cpu_SetRegister(cpu, rd, (mod) ? Cpu_GetRegister(cpu, rs1) >> Cpu_GetRegister(cpu, rs2) : Cpu_GetRegister(cpu, rs1) >> Cpu_GetRegister(cpu, rs2)); // shift right rs2 to rs1 and store in rd
+            case 0b101: // SRL/SRAI							ARITMETHIC												LOGICAL
+                Cpu_SetRegister(cpu, rd, (mod) ? (int16_t)Cpu_GetRegister(cpu, rs1) >> Cpu_GetRegister(cpu, rs2) : Cpu_GetRegister(cpu, rs1) >> Cpu_GetRegister(cpu, rs2)); // shift right rs2 to rs1 and store in rd
                 break; // shift right rs2 to rs1 and store in rd
             case 0b110: // OR
                 Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) | Cpu_GetRegister(cpu, rs2)); // or rs2 to rs1 and store in rd
@@ -229,6 +235,19 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
         return ERROR_UNKNOWN_OPCODE;
     }
 }
+
+void I_ebreak() {
+	printf("Machine halted: press to continue");
+	getchar();
+
+	return;
+}
+
+void I_ebreak() {
+	printf("Not implemented");
+	return;
+}
+
 
 /* memory access */
 static inline uint32_t Cpu_GetIp(cpu_t *cpu) 
