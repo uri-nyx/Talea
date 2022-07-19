@@ -307,10 +307,46 @@ enum Opcode {
   MathI = 0b0010011,
   MathR = 0b0110011,
 
-  CSR = 0b1110011,
+  E = 0b1110011,
+  /* CSR Not Implemented */
 };
 
-static inline error_t I_lui(uint16_t *rd, uint16_t *imm);
+static inline error_t I_lui(int rd, int imm);
+static inline error_t I_auipc(int rd, int imm);
+static inline error_t I_jal(int rd, int pcrel21);
+static inline error_t I_jalr(int rd, int rs1, int imm);
+static inline error_t I_beq(int rs1, int rs2, int pcrel13);
+static inline error_t I_bne(int rs1, int rs2, int pcrel13);
+static inline error_t I_blt(int rs1, int rs2, int pcrel13);
+static inline error_t I_bge(int rs1, int rs2, int pcrel13);
+static inline error_t I_bltu(int rs1, int rs2, int pcrel13);
+static inline error_t I_bgeu(int rs1, int rs2, int pcrel13);
+static inline error_t I_lb(int rd, int rs1, int imm);
+static inline error_t I_lh(int rd, int rs1, int imm);
+static inline error_t I_lbu(int rd, int rs1, int imm);
+static inline error_t I_sb(int rs1, int rs2, int imm);
+static inline error_t I_sh(int rs1, int rs2, int imm);
+static inline error_t I_addi(int rd, int rs1, int imm);
+static inline error_t I_slti(int rd, int rs1, int imm);
+static inline error_t I_sltiu(int rd, int rs1, int imm);
+static inline error_t I_xori(int rd, int rs1, int imm);
+static inline error_t I_ori(int rd, int rs1, int imm);
+static inline error_t I_andi(int rd, int rs1, int imm);
+static inline error_t I_slli(int rd, int rs1, int shamt4);
+static inline error_t I_srli(int rd, int rs1, int shamt4);
+static inline error_t I_srai(int rd, int rs1, int shamt4);
+static inline error_t I_add(int rd, int rs1, int rs2);
+static inline error_t I_sub(int rd, int rs1, int rs2);
+static inline error_t I_sll(int rd, int rs1, int rs2);
+static inline error_t I_slt(int rd, int rs1, int rs2);
+static inline error_t I_sltu(int rd, int rs1, int rs2);
+static inline error_t I_xor(int rd, int rs1, int rs2);
+static inline error_t I_srl(int rd, int rs1, int rs2);
+static inline error_t I_sra(int rd, int rs1, int rs2);
+static inline error_t I_or(int rd, int rs1, int rs2);
+static inline error_t I_and(int rd, int rs1, int rs2);
+static inline error_t I_ecall(void);
+static inline error_t I_ebreak(void);
 
 // #endregion
 
