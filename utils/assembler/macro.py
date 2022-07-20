@@ -100,14 +100,18 @@ def main(argv):
         print("Usage: macro <input-file> [output]")
         return -1
 
+    builtin = "essential.S"
     infile = argv[1]
     outfile = "expanded.s"
 
     if len(argv) == 3:
         outfile = argv[2]
 
+    with open(builtin, 'r') as builtin:
+        source = builtin.read()
+
     with open(infile, 'r') as inf:
-        source = inf.read()
+        source += inf.read()
     
     with open(outfile, 'w') as outf:
         outf.write(expand_all(source))

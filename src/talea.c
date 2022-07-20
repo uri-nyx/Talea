@@ -438,7 +438,7 @@ void Kb_Handle(kb_t *kb, cpu_t *cpu)
     // trigger interrupt if port or modifier != 0
     if (Cpu_GetCache8(cpu, kb->port) != '\0')
     {
-        printf("Key Port: %d\n", Cpu_GetCache8(cpu, kb->port));
+        
     }
 }
 
@@ -763,19 +763,25 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
             Disk_Execute(cpu, drive);
             Tty_Execute(cpu, tty);
             /* addenda execute (after tty) */
-            // Custom devices execution
-
+            // Custom devices execution			        
         }
 
         // Every 16ms check for events such as keypresses (83333 cycles at 10Mhz) perhaps too fast?
-        Kb_Execute(cpu, kb, &event, &quit);
+	    Kb_Execute(cpu, kb, &event, &quit);
+        printf("Text Input Buffer\n");
+		for (int i = 0; i < 80; i++) 
+		{
+		   	printf("%x ", Cpu_GetMemory8(cpu, i + 1024));
+		}
+		printf("\n t0: %d, s1 %d, Port: %d\n", Cpu_GetRegister(cpu, x5), Cpu_GetRegister(cpu, x9), Cpu_GetCache8(cpu, 0));
+
         /* addenda execute (after kb) */
         // Custom devices execution
 
 
         // Every 16ms, render the screen (166666 cycles at 10Mhz)
         Video_Render(video);
-
+        
         Clock_FrameEnd(&clock_fps);
     }
 }

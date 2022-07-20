@@ -30,9 +30,3 @@ m t3 < $28 >
 m t4 < $29 >
 m t5 < $30 >
 m t6 < $31 >
-
-endmacro
-
-start:
-addi a0 , zero , 123
-
