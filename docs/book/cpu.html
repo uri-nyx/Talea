@@ -44,46 +44,48 @@ body{min-width:200px;max-width:850px;margin:0 auto;padding:30px;}.chapter-nav{fo
 <section>
 <h1>Central Processing Unit</h1>
 <a name="3:1"><div class="section"><h4 class="noheading">1. </h4></a>
-<p>As exposed in the first chapter (<a href="lit/chaptters/arch.lit">System Architecture</a>), the Central Processing Unit is the module responible for the coordination of the whole system as for the execution of the instructions explained in <a href="lit/chapters/isa.lit">Instruction Set</a>. To do this, the <em>cpu</em> follows the <code>fetch</code>, <code>decode</code>, <code>execute</code> cycle:</p>
+<p>As exposed in the first chapter (<ahref="lit/chaptters/arch.lit">System Architecture</a>), the CentralProcessing Unit is the module responible for the coordination of thewhole system as for the execution of the instructions explained in <ahref="lit/chapters/isa.lit">Instruction Set</a>. To do this, the<em>cpu</em> follows the <code>fetch</code>, <code>decode</code>,<code>execute</code> cycle:</p>
 <div class="codeblock">
 <span class="codeblock_name">{cpu <a href="cpu.html#3:1">1</a>}</span>
 <pre class="prettyprint lang-c">
 typedef struct
 {
-    uint8_t RegisterFile[REGISTER_FILE_SIZE];
+    uint16_t General[REGISTER_COUNT];
+    uint8_t Segment[REGISTER_COUNT];
+    uint32_t InstructionPointer;
     uint8_t Cache[CACHE_SIZE];
     uint8_t *Memory;
 } cpu_t;
 
-uint8_t Cpu_Fetch(cpu_t *cpu);
-error_t Cpu_Execute(cpu_t *cpu, uint8_t opcode);
+uint32_t Cpu_Fetch(cpu_t *cpu);
+error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction);
 void Cpu_Cycle(cpu_t *cpu);
 </pre>
-<p class="seealso">Added to in sections <a href="cpu.html#3:1">1</a>, <a href="cpu.html#3:1">1</a> and <a href="cpu.html#3:1">1</a></p>
+
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
-<p>To access the different regions of memory, the <em>cpu</em> will make use of a set of routines (to <code>get</code> and <code>set</code> a <em>byte</em>, to <code>get</code> and <code>set</code>a <em>word</em>). Thus, to target registers it will use:</p>
+<p>To access the different regions of memory, the <em>cpu</em> will makeuse of a set of routines (to <code>get</code> and <code>set</code> a<em>byte</em>, to <code>get</code> and <code>set</code>a <em>word</em>).Thus, to target registers it will use:</p>
 <div class="codeblock">
 <span class="codeblock_name">{cpu <a href="cpu.html#3:1">1</a>} +=</span>
 <pre class="prettyprint lang-c">
-static inline uint8_t Cpu_GetRegister8(cpu_t *cpu, enum RegisterIndex index);
-static inline uint16_t Cpu_GetRegister16(cpu_t *cpu, enum RegisterIndex index);
-static inline void Cpu_SetRegister8(cpu_t *cpu,  enum RegisterIndex index, uint8_t value);
-static inline void Cpu_SetRegister16(cpu_t *cpu,  enum RegisterIndex index, uint16_t value);
+static inline uint16_t Cpu_GetRegister(cpu_t *cpu, enum RegisterIndex index);
+static inline void Cpu_SetRegister(cpu_t *cpu,  enum RegisterIndex index, uint16_t value);
+static inline uint32_t Cpu_GetSegRegister(cpu_t *cpu, enum RegisterIndex index);
+static inline void Cpu_SetSegRegister(cpu_t *cpu, enum RegisterIndex index, uint32_t value);
 </pre>
-<p class="seealso">Added to in sections <a href="cpu.html#3:1">1</a>, <a href="cpu.html#3:1">1</a> and <a href="cpu.html#3:1">1</a></p>
+
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
-<p>Or to access the <code>Instruction Pointer</code> directly:</p>
+<p>Or to access the <code>Instruction Pointer</code> directly ensuringtreatment as a 24bit number:</p>
 <div class="codeblock">
 <span class="codeblock_name">{cpu <a href="cpu.html#3:1">1</a>} +=</span>
 <pre class="prettyprint lang-c">
 static inline uint32_t Cpu_GetIp(cpu_t *cpu);
-void Cpu_SetIp(cpu_t *cpu, uint32_t addr);
+static inline void Cpu_SetIp(cpu_t *cpu, uint32_t value);
 </pre>
-<p class="seealso">Added to in sections <a href="cpu.html#3:1">1</a>, <a href="cpu.html#3:1">1</a> and <a href="cpu.html#3:1">1</a></p>
+
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
@@ -94,22 +96,22 @@ void Cpu_SetIp(cpu_t *cpu, uint32_t addr);
 static inline uint8_t Cpu_GetCache8(cpu_t *cpu, uint8_t addr);
 static inline uint16_t Cpu_GetCache16(cpu_t *cpu, uint8_t addr);
 static inline void Cpu_SetCache8(cpu_t *cpu, uint8_t addr, uint8_t value);
-static inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint8_t value);
+static inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint16_t value);
 </pre>
-<p class="seealso">Added to in sections <a href="cpu.html#3:1">1</a>, <a href="cpu.html#3:1">1</a> and <a href="cpu.html#3:1">1</a></p>
+
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
-<p>And for Main Memory (RAM). Note the use of <code>uint32_t</code> for addresses, as 24-bit types are not a thing in modern systems:</p>
+<p>And for Main Memory (RAM). Note the use of <code>uint32_t</code> foraddresses, as 24-bit types are not a thing in modern systems:</p>
 <div class="codeblock">
 <span class="codeblock_name">{cpu <a href="cpu.html#3:1">1</a>} +=</span>
 <pre class="prettyprint lang-c">
 uint8_t Cpu_GetMemory8(cpu_t *cpu, uint32_t addr);
 uint16_t Cpu_GetMemory16(cpu_t *cpu, uint32_t addr);
 void Cpu_SetMemory8(cpu_t *cpu, uint32_t addr, uint8_t value);
-void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint8_t value);
+void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint16_t value);
 </pre>
-<p class="seealso">Added to in sections <a href="cpu.html#3:1">1</a>, <a href="cpu.html#3:1">1</a> and <a href="cpu.html#3:1">1</a></p>
+
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>

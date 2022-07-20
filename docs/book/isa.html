@@ -46,13 +46,307 @@ body{min-width:200px;max-width:850px;margin:0 auto;padding:30px;}.chapter-nav{fo
 <a name="2:1"><div class="section"><h4 class="noheading">1. </h4></a>
 
 <div class="codeblock">
-<span class="codeblock_name">{isa <a href="isa.html#2:1">1</a>}</span>
+<span class="codeblock_name">{isa opcodes <a href="isa.html#2:1">1</a>}</span>
 <pre class="prettyprint lang-c">
-// TODO: Design instruction set
+/*
+ * U-type
+ * J-type
+ * R-type
+ * I-type
+ * S-type
+ * B-type
+ */
+
+enum Opcode {
+  Lui = 0b0110111,
+  Auipc = 0b0010111,
+  Jal = 0b1101111,
+  Jalr = 0b1100111,
+
+  Branch = 0b1100011,
+  Load = 0b0000011,
+  Store = 0b0100011,
+  MathI = 0b0010011,
+  MathR = 0b0110011,
+
+  E = 0b1110011,
+  /* CSR Not Implemented */
+};
+
+
+static inline error_t I_ecall(void);
+static inline error_t I_ebreak(cpu_t * cpu);
 </pre>
 
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
+</div>
+<p>Decodification of possible field in an instruction is as follows,best explained in resources for RISC-V. This covers the base Integer Isa(a sort of RISC-V 16I). The only change are the instructions used toload and store to cache (using the opcodes for <code>lw</code>,<code>lhu</code>, <code>sw</code>, and one new), and that the field for<code>lui</code> and <code>auipc</code> are 16bits, not 20.</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa fields <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    int16_t opcode = instruction &amp; 0x0000007F;
+
+    int16_t rd = (instruction &amp; 0x00000F80) &gt;&gt; 7;
+    int16_t rs1 = (instruction &amp; 0x000F8000) &gt;&gt; 15;
+    int16_t rs2 = (instruction &amp; 0x01F00000) &gt;&gt; 20;
+    int16_t imm_i = (instruction &amp; 0xFFF00000) &gt;&gt; 20;
+    
+    	imm_i = (instruction &amp; 0x80000000) ? 0xf000 | imm_i : imm_i;
+    int16_t imm_b = ((instruction &amp; 0x80000000) &gt;&gt; 19) | ((instruction &amp; 0x00000080) &lt;&lt; 4) | ((instruction &amp; 0x7F000000) &gt;&gt; 20) | ((instruction &amp; 0x0000F00) &gt;&gt; 7);
+    	imm_b = (instruction &amp; 0x80000000) ? 0xe000 | imm_b : imm_b;
+
+    int32_t imm_j = (instruction &amp; 0x80000000) &gt;&gt; 11 | (instruction &amp; 0x000FF000) | ((instruction &amp; 0x00100000) &gt;&gt; 9) | ((instruction &amp; 0x7FE00000) &gt;&gt; 20);
+    	imm_j = (instruction &amp; 0x80000000) ? 0xfff00000 | imm_j : imm_j;
+
+    int16_t imm_u = (instruction &amp; 0xFFFF0000) &gt;&gt; 4;
+
+    int16_t imm_s = (instruction &amp; 0xFF000000) &gt;&gt; 20 | ((instruction &amp; 0x00000F80) &gt;&gt; 7);
+    	imm_s = (instruction &amp; 0x80000000) ? 0xf000 | imm_s: imm_s;
+
+    int16_t shamt = (instruction &amp; 0x00F00000) &gt;&gt; 20;
+    int16_t mod = instruction &amp; 0x40000000;
+    int16_t funct3 = (instruction &amp; 0x00007000) &gt;&gt; 12;
+    int16_t funct7 = (instruction &amp; 0xFE000000) &gt;&gt; 25;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p><code>Lui</code>:</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa lui <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    case Lui:
+        Cpu_SetSegRegister(cpu, rd, imm_u); // loads high bytes of s:rd with imm_u
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p><code>Auipc</code>:</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa auipc <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    case Auipc:
+        Cpu_SetSegRegister(cpu, rd, Cpu_GetIp(cpu) + imm_u); // loads high bytes of s:rd with imm_u + ip
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p><code>Jal</code>:</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa jal <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    case Jal:
+        Cpu_SetSegRegister(cpu, rd, Cpu_GetIp(cpu) + 4); // Gets return destination
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + imm_j); // increment jump to offset
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p><code>Jalr</code>:</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa jalr <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    case Jalr:
+        Cpu_SetSegRegister(cpu, rd, Cpu_GetIp(cpu) + 4); // Gets return destination
+        Cpu_SetIp(cpu, (Cpu_GetSegRegister(cpu, rs1) + imm_i) &amp; ~1); // increment ip by imm_i
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p>Branches:</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa branches <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    case Branch:
+        switch (funct3)
+        { 
+            case 0b000: // BEQ
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) == Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 == rs2
+            case 0b001: // BNE
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) != Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 != rs2
+            case 0b100: // BLT
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + (((int16_t)Cpu_GetRegister(cpu, rs1) &lt; (int16_t)Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 &lt; rs2
+            case 0b101: // BGE
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + (((int16_t)Cpu_GetRegister(cpu, rs1) &gt;= (int16_t)Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 == rs2
+            case 0b110: // BLTU
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) &lt; Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 &lt; rs2
+            case 0b111: // BGEU
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) &gt;= Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break;
+        }
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p>Loads</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa loads <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    case Load:
+        switch (funct3)
+        {
+            case 0b000: 
+              { // LB
+                uint8_t byte = Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i);
+                Cpu_SetRegister(cpu, rd, (byte &amp; 0x80) ? 0xff00 | byte : 0x0000 | byte); // load byte from memory at rs1 + imm_i into rd
+                break;// load sign extended byte from memory at rs1 + imm_i into rd  
+              }
+            case 0b001: // LH
+                Cpu_SetRegister(cpu, rd, Cpu_GetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load halfword from memory at rs1 + imm_i into rd
+                break; // load halfword from memory at rs1 + imm_i into rd
+            case 0b100: // LBU
+                Cpu_SetRegister(cpu, rd, 0x0000 | Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load byte from memory at rs1 + imm_i into rd
+                break; // load unsigned byte from memory at rs1 + imm_i into rd
+            case 0b010: // ADDAPT LW to load from cache
+            	Cpu_SetRegister(cpu, rd, Cpu_GetCache16(cpu, Cpu_GetRegister(cpu, rs1) + imm_i));
+            	break;
+            case 0b101: // ADDAPT LHU to load from cache
+            	Cpu_SetRegister(cpu, rd, Cpu_GetCache8(cpu, Cpu_GetRegister(cpu, rs1) + imm_i));
+            	break;
+        }
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p>Stores</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa stores <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+ case Store:
+        switch (funct3)
+        {
+            case 0b000: // SB
+                Cpu_SetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, (uint8_t)Cpu_GetRegister(cpu, rs2)); // store byte from rd to memory at rs1 + imm_i
+                break; // store byte from rd to memory at rs1 + imm_i
+            case 0b001: // SH
+                Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2)); // store halfword from rd to memory at rs1 + imm_i
+                break; // store halfword from rd to memory at rs1 + imm_i
+            case 0b010: // Addapt SW to store to cache
+            	Cpu_SetCache16(cpu, Cpu_GetRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2));
+            	break;
+            case 0b011: // NEW OPCODE TO Store to CACHE
+            	Cpu_SetCache8(cpu, Cpu_GetRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2));
+            	break;
+        }
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p>Arithmetic and logic operation with immediate operand</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa mathi <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    case MathI:
+        switch (funct3)
+        {
+            case 0b000: // ADDI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) + imm_i); // add imm_i to rs1 and store in rd
+                break; // add imm_i to rs1 and store in rd
+            case 0b010: // SLTI
+                Cpu_SetRegister(cpu, rd, ((int16_t)Cpu_GetRegister(cpu, rs1) &lt; imm_i) ? 1 : 0); // set rd to 1 if rs1 &lt; imm_i, else 0
+                break; // set rd to 1 if rs1 &lt; imm_i, else 0
+            case 0b011: // SLTIU
+                Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) &lt; (uint16_t)imm_i) ? 1 : 0); // set rd to 1 if rs1 &lt; imm_i, else 0
+                break; // set rd to 1 if rs1 &lt; imm_i, else 0
+            case 0b100: // XORI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) ^ imm_i); // xor imm_i to rs1 and store in rd
+                break; // xor imm_i to rs1 and store in rd
+            case 0b110: // ORI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) | imm_i); // or imm_i to rs1 and store in rd
+                break; // or imm_i to rs1 and store in rd
+            case 0b111: // ANDI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) &amp; imm_i); // and imm_i to rs1 and store in rd
+                break; // and imm_i to rs1 and store in rd
+            case 0b001: // SLLI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) &lt;&lt; shamt); // shift left imm_i to rs1 and store in rd
+                break; // shift left imm_i to rs1 and store in rd
+            case 0b101: // SRLI/SRAI				ARITHMETIC												LOGICAL
+                Cpu_SetRegister(cpu, rd, (mod) ? (int16_t)Cpu_GetRegister(cpu, rs1) &gt;&gt; shamt : Cpu_GetRegister(cpu, rs1) &gt;&gt; shamt); // shift right imm_i to rs1 and store in rd
+                break; // shift right imm_i to rs1 and store in rd
+        }
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p>Arithetic and logic operations with register operands</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa mathr <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    case MathR:
+        switch (funct3)
+        {
+            case 0b000: // ADD/SUB
+                Cpu_SetRegister(cpu, rd, (mod) ? Cpu_GetRegister(cpu, rs1) - Cpu_GetRegister(cpu, rs2) : Cpu_GetRegister(cpu, rs1) + Cpu_GetRegister(cpu, rs2)); // add rs2 to rs1 and store in rd
+                break; // add rs2 to rs1 and store in rd
+            case 0b001: // SLL
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) &lt;&lt; Cpu_GetRegister(cpu, rs2)); // shift left rs2 to rs1 and store in rd
+                break; // shift left rs2 to rs1 and store in rd
+            case 0b010: // SLT
+                Cpu_SetRegister(cpu, rd, ((int16_t)Cpu_GetRegister(cpu, rs1) &lt; (int16_t)Cpu_GetRegister(cpu, rs2)) ? 1 : 0); // set rd to 1 if rs1 &lt; rs2, else 0
+                break; // set rd to 1 if rs1 &lt; rs2, else 0
+            case 0b011: // SLTU
+                Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) &lt; Cpu_GetRegister(cpu, rs2)) ? 1 : 0); // set rd to 1 if rs1 &lt; rs2, else 0
+                break; // set rd to 1 if rs1 &lt; rs2, else 0
+            case 0b100: // XOR
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) ^ Cpu_GetRegister(cpu, rs2)); // xor rs2 to rs1 and store in rd
+                break; // xor rs2 to rs1 and store in rd
+            case 0b101: // SRL/SRAI							ARITMETHIC												LOGICAL
+                Cpu_SetRegister(cpu, rd, (mod) ? (int16_t)Cpu_GetRegister(cpu, rs1) &gt;&gt; Cpu_GetRegister(cpu, rs2) : Cpu_GetRegister(cpu, rs1) &gt;&gt; Cpu_GetRegister(cpu, rs2)); // shift right rs2 to rs1 and store in rd
+                break; // shift right rs2 to rs1 and store in rd
+            case 0b110: // OR
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) | Cpu_GetRegister(cpu, rs2)); // or rs2 to rs1 and store in rd
+                break; // or rs2 to rs1 and store in rd
+            case 0b111: // AND
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) + Cpu_GetRegister(cpu, rs2)); // add rs2 to rs1 and store in rd
+                break; // add rs2 to rs1 and store in rd
+        }
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
+</div>
+<p>Ebreak and Ecall:</p>
+<div class="codeblock">
+<span class="codeblock_name">{isa e <a href="isa.html#2:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    case E:
+        (rs2) ? I_ebreak(cpu) : I_ecall(); // if rs2 is 0, execute I_ebreak, else execute I_ecall
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); 
+        break;
+</pre>
+
+
+<p class="seealso">Used in section <a href="emu.html#10:2">10:2</a></p>
 </div>
 
 </div>

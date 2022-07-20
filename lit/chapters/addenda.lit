@@ -42,3 +42,5 @@ The following code blocks integrate the addendas with the emulator main loop, in
 --- addenda destroy
 // Custom devices destruction
 ---
+
+@s A simple Bootloader

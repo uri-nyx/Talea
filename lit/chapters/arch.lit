@@ -63,10 +63,10 @@ enum Port {
     KB_PORT = 0x00,
     TTY_PORT_CHAR,
 
-    VIDEO_PORT_CMD,
     VIDEO_PORT_DATA,
+    VIDEO_PORT_CMD,
 
-    DISK_PORT_CMD,
     DISK_PORT_DATA,
+    DISK_PORT_CMD,
 };
 ---

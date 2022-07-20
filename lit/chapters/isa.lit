@@ -32,5 +32,229 @@ enum Opcode {
 
 
 static inline error_t I_ecall(void);
-static inline error_t I_ebreak(void);
+static inline error_t I_ebreak(cpu_t * cpu);
+---
+
+Decodification of possible field in an instruction is as follows, best explained in resources for RISC-V. This covers the base Integer Isa (a sort of RISC-V 16I).
+The only change are the instructions used to load and store to cache (using the opcodes for `lw`, `lhu`, `sw`, and one new), and that the field for `lui` and `auipc` are 16bits, not 20.
+
+--- isa fields
+    int16_t opcode = instruction & 0x0000007F;
+
+    int16_t rd = (instruction & 0x00000F80) >> 7;
+    int16_t rs1 = (instruction & 0x000F8000) >> 15;
+    int16_t rs2 = (instruction & 0x01F00000) >> 20;
+    int16_t imm_i = (instruction & 0xFFF00000) >> 20;
+    
+    	imm_i = (instruction & 0x80000000) ? 0xf000 | imm_i : imm_i;
+    int16_t imm_b = ((instruction & 0x80000000) >> 19) | ((instruction & 0x00000080) << 4) | ((instruction & 0x7F000000) >> 20) | ((instruction & 0x0000F00) >> 7);
+    	imm_b = (instruction & 0x80000000) ? 0xe000 | imm_b : imm_b;
+
+    int32_t imm_j = (instruction & 0x80000000) >> 11 | (instruction & 0x000FF000) | ((instruction & 0x00100000) >> 9) | ((instruction & 0x7FE00000) >> 20);
+    	imm_j = (instruction & 0x80000000) ? 0xfff00000 | imm_j : imm_j;
+
+    int16_t imm_u = (instruction & 0xFFFF0000) >> 4;
+
+    int16_t imm_s = (instruction & 0xFF000000) >> 20 | ((instruction & 0x00000F80) >> 7);
+    	imm_s = (instruction & 0x80000000) ? 0xf000 | imm_s: imm_s;
+
+    int16_t shamt = (instruction & 0x00F00000) >> 20;
+    int16_t mod = instruction & 0x40000000;
+    int16_t funct3 = (instruction & 0x00007000) >> 12;
+    int16_t funct7 = (instruction & 0xFE000000) >> 25;
+---
+
+`Lui`:
+
+--- isa lui
+    case Lui:
+        Cpu_SetSegRegister(cpu, rd, imm_u); // loads high bytes of s:rd with imm_u
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+---
+
+`Auipc`:
+
+--- isa auipc
+    case Auipc:
+        Cpu_SetSegRegister(cpu, rd, Cpu_GetIp(cpu) + imm_u); // loads high bytes of s:rd with imm_u + ip
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+---
+
+`Jal`:
+
+--- isa jal
+    case Jal:
+        Cpu_SetSegRegister(cpu, rd, Cpu_GetIp(cpu) + 4); // Gets return destination
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + imm_j); // increment jump to offset
+        break;
+---
+
+`Jalr`:
+
+--- isa jalr
+    case Jalr:
+        Cpu_SetSegRegister(cpu, rd, Cpu_GetIp(cpu) + 4); // Gets return destination
+        Cpu_SetIp(cpu, (Cpu_GetSegRegister(cpu, rs1) + imm_i) & ~1); // increment ip by imm_i
+        break;
+---
+
+Branches:
+
+--- isa branches
+    case Branch:
+        switch (funct3)
+        { 
+            case 0b000: // BEQ
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) == Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 == rs2
+            case 0b001: // BNE
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) != Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 != rs2
+            case 0b100: // BLT
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + (((int16_t)Cpu_GetRegister(cpu, rs1) < (int16_t)Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 < rs2
+            case 0b101: // BGE
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + (((int16_t)Cpu_GetRegister(cpu, rs1) >= (int16_t)Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 == rs2
+            case 0b110: // BLTU
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) < Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break; // increment ip by imm_b if rs1 < rs2
+            case 0b111: // BGEU
+                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) >= Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
+                break;
+        }
+        break;
+---
+
+Loads
+
+--- isa loads
+    case Load:
+        switch (funct3)
+        {
+            case 0b000: 
+              { // LB
+                uint8_t byte = Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i);
+                Cpu_SetRegister(cpu, rd, (byte & 0x80) ? 0xff00 | byte : 0x0000 | byte); // load byte from memory at rs1 + imm_i into rd
+                break;// load sign extended byte from memory at rs1 + imm_i into rd  
+              }
+            case 0b001: // LH
+                Cpu_SetRegister(cpu, rd, Cpu_GetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load halfword from memory at rs1 + imm_i into rd
+                break; // load halfword from memory at rs1 + imm_i into rd
+            case 0b100: // LBU
+                Cpu_SetRegister(cpu, rd, 0x0000 | Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load byte from memory at rs1 + imm_i into rd
+                break; // load unsigned byte from memory at rs1 + imm_i into rd
+            case 0b010: // ADDAPT LW to load from cache
+            	Cpu_SetRegister(cpu, rd, Cpu_GetCache16(cpu, Cpu_GetRegister(cpu, rs1) + imm_i));
+            	break;
+            case 0b101: // ADDAPT LHU to load from cache
+            	Cpu_SetRegister(cpu, rd, Cpu_GetCache8(cpu, Cpu_GetRegister(cpu, rs1) + imm_i));
+            	break;
+        }
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+---
+
+Stores
+
+--- isa stores
+ case Store:
+        switch (funct3)
+        {
+            case 0b000: // SB
+                Cpu_SetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, (uint8_t)Cpu_GetRegister(cpu, rs2)); // store byte from rd to memory at rs1 + imm_i
+                break; // store byte from rd to memory at rs1 + imm_i
+            case 0b001: // SH
+                Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2)); // store halfword from rd to memory at rs1 + imm_i
+                break; // store halfword from rd to memory at rs1 + imm_i
+            case 0b010: // Addapt SW to store to cache
+            	Cpu_SetCache16(cpu, Cpu_GetRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2));
+            	break;
+            case 0b011: // NEW OPCODE TO Store to CACHE
+            	Cpu_SetCache8(cpu, Cpu_GetRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2));
+            	break;
+        }
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+---
+
+Arithmetic and logic operation with immediate operand
+
+--- isa mathi
+    case MathI:
+        switch (funct3)
+        {
+            case 0b000: // ADDI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) + imm_i); // add imm_i to rs1 and store in rd
+                break; // add imm_i to rs1 and store in rd
+            case 0b010: // SLTI
+                Cpu_SetRegister(cpu, rd, ((int16_t)Cpu_GetRegister(cpu, rs1) < imm_i) ? 1 : 0); // set rd to 1 if rs1 < imm_i, else 0
+                break; // set rd to 1 if rs1 < imm_i, else 0
+            case 0b011: // SLTIU
+                Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) < (uint16_t)imm_i) ? 1 : 0); // set rd to 1 if rs1 < imm_i, else 0
+                break; // set rd to 1 if rs1 < imm_i, else 0
+            case 0b100: // XORI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) ^ imm_i); // xor imm_i to rs1 and store in rd
+                break; // xor imm_i to rs1 and store in rd
+            case 0b110: // ORI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) | imm_i); // or imm_i to rs1 and store in rd
+                break; // or imm_i to rs1 and store in rd
+            case 0b111: // ANDI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) & imm_i); // and imm_i to rs1 and store in rd
+                break; // and imm_i to rs1 and store in rd
+            case 0b001: // SLLI
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) << shamt); // shift left imm_i to rs1 and store in rd
+                break; // shift left imm_i to rs1 and store in rd
+            case 0b101: // SRLI/SRAI				ARITHMETIC												LOGICAL
+                Cpu_SetRegister(cpu, rd, (mod) ? (int16_t)Cpu_GetRegister(cpu, rs1) >> shamt : Cpu_GetRegister(cpu, rs1) >> shamt); // shift right imm_i to rs1 and store in rd
+                break; // shift right imm_i to rs1 and store in rd
+        }
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+---
+
+Arithetic and logic operations with register operands
+
+--- isa mathr
+    case MathR:
+        switch (funct3)
+        {
+            case 0b000: // ADD/SUB
+                Cpu_SetRegister(cpu, rd, (mod) ? Cpu_GetRegister(cpu, rs1) - Cpu_GetRegister(cpu, rs2) : Cpu_GetRegister(cpu, rs1) + Cpu_GetRegister(cpu, rs2)); // add rs2 to rs1 and store in rd
+                break; // add rs2 to rs1 and store in rd
+            case 0b001: // SLL
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) << Cpu_GetRegister(cpu, rs2)); // shift left rs2 to rs1 and store in rd
+                break; // shift left rs2 to rs1 and store in rd
+            case 0b010: // SLT
+                Cpu_SetRegister(cpu, rd, ((int16_t)Cpu_GetRegister(cpu, rs1) < (int16_t)Cpu_GetRegister(cpu, rs2)) ? 1 : 0); // set rd to 1 if rs1 < rs2, else 0
+                break; // set rd to 1 if rs1 < rs2, else 0
+            case 0b011: // SLTU
+                Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) < Cpu_GetRegister(cpu, rs2)) ? 1 : 0); // set rd to 1 if rs1 < rs2, else 0
+                break; // set rd to 1 if rs1 < rs2, else 0
+            case 0b100: // XOR
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) ^ Cpu_GetRegister(cpu, rs2)); // xor rs2 to rs1 and store in rd
+                break; // xor rs2 to rs1 and store in rd
+            case 0b101: // SRL/SRAI							ARITMETHIC												LOGICAL
+                Cpu_SetRegister(cpu, rd, (mod) ? (int16_t)Cpu_GetRegister(cpu, rs1) >> Cpu_GetRegister(cpu, rs2) : Cpu_GetRegister(cpu, rs1) >> Cpu_GetRegister(cpu, rs2)); // shift right rs2 to rs1 and store in rd
+                break; // shift right rs2 to rs1 and store in rd
+            case 0b110: // OR
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) | Cpu_GetRegister(cpu, rs2)); // or rs2 to rs1 and store in rd
+                break; // or rs2 to rs1 and store in rd
+            case 0b111: // AND
+                Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) + Cpu_GetRegister(cpu, rs2)); // add rs2 to rs1 and store in rd
+                break; // add rs2 to rs1 and store in rd
+        }
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+        break;
+---
+
+Ebreak and Ecall:
+
+--- isa e
+    case E:
+        (rs2) ? I_ebreak(cpu) : I_ecall(); // if rs2 is 0, execute I_ebreak, else execute I_ecall
+        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); 
+        break;
 ---

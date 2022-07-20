@@ -44,7 +44,7 @@ body{min-width:200px;max-width:850px;margin:0 auto;padding:30px;}.chapter-nav{fo
 <section>
 <h1>System Architecture</h1>
 <a name="1:1"><div class="section"><h4>1. Register and Buses specification</h4></a>
-<p>Taleä Tabula is a 16-bit, little endian system with a 24-bit wide address space (up to 16 Mb of addressable memory), and a 256 byte cache. Its byte and word sizes are 8 and 16-bit respectively:</p>
+<p>Taleä Tabula is a 16-bit, little endian system with a 24-bit wideaddress space (up to 16 Mb of addressable memory), and a 256 byte cache.Its byte and word sizes are 8 and 16-bit respectively:</p>
 <div class="codeblock">
 <span class="codeblock_name">{sizes <a href="arch.html#1:1">1</a>}</span>
 <pre class="prettyprint lang-c">
@@ -53,8 +53,8 @@ body{min-width:200px;max-width:850px;margin:0 auto;padding:30px;}.chapter-nav{fo
 const int DATA_BUS_SIZE = 16 * Bit;
 const int ADDRESS_BUS_SIZE = 24 * Bit;
 
-const int BYTE_SIZE = 8 * Bit;
-const int WORD_SIZE = 16 * Bit;
+#define BYTE_SIZE 8
+#define WORD_SIZE 16
 
 #define MAX_MEMORY_SIZE (1 &lt;&lt; ADDRESS_BUS_SIZE)
 #define CACHE_SIZE (1 &lt;&lt; BYTE_SIZE)
@@ -63,48 +63,36 @@ const int WORD_SIZE = 16 * Bit;
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
-<p>The system has a total of 12 registers: four are one byte wide, seven, a word, and one (the <code>instruction pointer</code>), occupies 3 bytes.</p>
+<p>The register arrangement of the system is built upon of that of thereal architecture RISC-V, with some modifications to adapt it to a 16bitmachine with 24bit addresses. There is a <code>zero</code> register, 31general purpose 16bit registers, and a 24bit instruction pointer. Inaddition, there is another set of 31 8bit registers, one for eachgeneral purpose one used when calculating addresses.</p>
 <div class="codeblock">
 <span class="codeblock_name">{sizes <a href="arch.html#1:1">1</a>} +=</span>
 <pre class="prettyprint lang-c">
 #define Byte 1
 #define Word 2
 
-const int STATUS_REGISTER_SIZE = Byte;
-const int CHAPTER_REGISTER_SIZE = Byte;
-const int PAGINA_REGISTER_SIZE = Byte;
-const int LITTERA_REGISTER_SIZE = Byte;
+#define REGISTER_SIZE Word
+#define SREGISTER_SIZE Byte
 
-const int STACK_POINTER_SIZE = Word;
-const int FRAME_POINTER_SIZE = Word;
-const int REGISTER_SIZE = Word;
+#define  INSTRUCION_POINTER_SIZE (3 * Byte)
 
-const int INSTRUCION_POINTER_SIZE = 3 * Byte;
-
-#define GeneralPurposeRegisters 5
-#define REGISTER_FILE_SIZE (STATUS_REGISTER_SIZE + CHAPTER_REGISTER_SIZE + PAGINA_REGISTER_SIZE + LITTERA_REGISTER_SIZE + STACK_POINTER_SIZE + FRAME_POINTER_SIZE + (REGISTER_SIZE * GeneralPurposeRegisters) + INSTRUCION_POINTER_SIZE)
+#define REGISTER_COUNT 32
 </pre>
 
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
-<p>Each one of those is indexed into the register file:</p><table><thead><tr class="header"><th><em>Register Name</em></th><th><em>Symbol</em></th><th><em>Size (bytes)</em></th><th><em>Index</em></th></tr></thead><tbody><tr class="odd"><td>Littera</td><td><code>l</code></td><td>1</td><td>0</td></tr><tr class="even"><td>Chapter</td><td><code>c</code></td><td>1</td><td>1</td></tr><tr class="odd"><td>Pagina</td><td><code>p</code></td><td>1</td><td>2</td></tr><tr class="even"><td>Stack Pointer</td><td><code>sp</code></td><td>2</td><td>3</td></tr><tr class="odd"><td>Frame Pointer</td><td><code>fp</code></td><td>2</td><td>6</td></tr><tr class="even"><td>Gen. Purpose 0</td><td><code>g0</code></td><td>2</td><td>8</td></tr><tr class="odd"><td>Gen. Purpose 1</td><td><code>g1</code></td><td>2</td><td>10</td></tr><tr class="even"><td>Gen. Purpose 2</td><td><code>g2</code></td><td>2</td><td>12</td></tr><tr class="odd"><td>Gen. Purpose 3</td><td><code>g3</code></td><td>2</td><td>14</td></tr><tr class="even"><td>Gen. Purpose 4</td><td><code>g4</code></td><td>2</td><td>16</td></tr><tr class="odd"><td>Status</td><td>None</td><td>1</td><td>17</td></tr><tr class="even"><td>Instruction Pointer</td><td>None</td><td>3</td><td>18</td></tr></tbody></table>
+
 <div class="codeblock">
 <span class="codeblock_name">{register indexes <a href="arch.html#1:1">1</a>}</span>
 <pre class="prettyprint lang-c">
 enum RegisterIndex {
-    LITTERA_REGISTER = 0,
-    CHAPTER_REGISTER,
-    PAGINA_REGISTER,
-    STACK_POINTER = 4,
-    FRAME_POINTER = 6,
-    GPR0 = 8,
-    GPR1 = 10,
-    GPR2 = 12,
-    GPR3 = 14,
-    GPR4 = 16,
-    INSTRUCTION_POINTER = 18,
-} typedef RegisterIndex;
+	x0 = 0,
+	x1,x2,x3,x4,x5,x6,x7,x8,x9,
+	x10,x11,x12,x13,x14,x15,x16,
+	x17,x18,x19,x20,x21,x22,x23,
+	x24,x25,x26,x27,x28,x29,x30,
+	x31,
+};
 </pre>
 
 
@@ -112,7 +100,7 @@ enum RegisterIndex {
 </div>
 </div>
 <a name="1:2"><div class="section"><h4>2. Cache Memory & I/O Ports</h4></a>
-<p>The 256 bytes of cache are used as a sort of I/O port file and intermediate memory betweeen registers and RAM. It is accessible trough specific instructions that refer to its physical addresses. The devices mentioned in the preface are thus mapped to arbitrary locations or <code>ports</code> in the cache:</p>
+<p>The 256 bytes of cache are used as a sort of I/O port file andintermediate memory betweeen registers and RAM. It is accessible troughspecific instructions that refer to its physical addresses. The devicesmentioned in the preface are thus mapped to arbitrary locations or<code>ports</code> in the cache:</p>
 <div class="codeblock">
 <span class="codeblock_name">{ports <a href="arch.html#1:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -120,11 +108,11 @@ enum Port {
     KB_PORT = 0x00,
     TTY_PORT_CHAR,
 
-    VIDEO_PORT_CMD,
     VIDEO_PORT_DATA,
+    VIDEO_PORT_CMD,
 
-    DISK_PORT_CMD,
     DISK_PORT_DATA,
+    DISK_PORT_CMD,
 };
 </pre>
 
