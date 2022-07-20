@@ -953,22 +953,27 @@ int main(int argc, char const *argv[])
 
     TaleaSystem_Init(&cpu, &video, &tty, &drive, &kb, &mmu);
 
-	FILE * program = fopen("program.hex", "rb");
-	fseek(program, 0, SEEK_END);
-	long psize = ftell(program);
-	fseek(program, 0, SEEK_SET);
+	if (argc == 3)
+    {
+        if (strcmp(argv[1], "rom") == 0)
+        {
+        	FILE * program = fopen(argv[2], "rb");
+			fseek(program, 0, SEEK_END);
+			long psize = ftell(program);
+			fseek(program, 0, SEEK_SET);
 
-	uint8_t *hex = malloc(psize + 1);
-	fread(hex, psize, 1, program);
-	fclose(program);
+			uint8_t *hex = malloc(psize + 1);
+			fread(hex, psize, 1, program);
+			fclose(program);
 
-	for (int i = 0; i<psize; i++)
-	{
-		Cpu_SetMemory8(&cpu, i, hex[i]);
-	}
+			for (int i = 0; i<psize; i++)
+			{
+				Cpu_SetMemory8(&cpu, i, hex[i]);
+			}
 
-	free(hex);
-		    
+			free(hex);
+		}
+    }	    	    
 
     TaleaSystem_Run(&cpu, &video, &tty, &drive, &kb);
 

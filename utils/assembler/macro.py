@@ -1,9 +1,10 @@
 # Simple macro expander for Talea Tabula Systems Cross Assemblers
+from sys import argv
 from typing import Dict, List, Tuple
 
 class Macro():
-    def __init__(self, definition: str) -> None:
-        definition = definition.split("<")
+    def __init__(self, defstring: str) -> None:
+        definition = defstring.split("<")
         self.args = tokenize(definition[0])
         self.argc = len(self.args)
         self.body = " ".join(definition[1].split())
@@ -58,7 +59,7 @@ def get_references(source: List[str], env: dict) -> List[Reference]:
         
         for i in range(len(line)):
             token = line[i]
-            
+
             if token == "m": # do not index definitions
                 break
             
@@ -93,10 +94,25 @@ def expand_all(source: str) -> str:
     
     return "\n".join(expansion)
 
-def test():
-    with open("test.s") as s:
-        source = s.read()
+def main(argv):
+
+    if len(argv) < 2 or len(argv) > 3:
+        print("Usage: macro <input-file> [output]")
+        return -1
+
+    infile = argv[1]
+    outfile = "expanded.s"
+
+    if len(argv) == 3:
+        outfile = argv[2]
+
+    with open(infile, 'r') as inf:
+        source = inf.read()
     
-    print(expand_all(source))
+    with open(outfile, 'w') as outf:
+        outf.write(expand_all(source))
     
-test()
+    return 0
+
+if __name__ == "__main__":
+    main(argv)
