@@ -459,44 +459,12 @@ void Tty_Execute(cpu_t *cpu, tty_t *tty)
 
 ### Keyboard Module Implementation
 
-The Keyboard Module Implementation is perhaps the clunkiest. It starts accepting text input (unicode), polls for SDL2 events, and cuts the text input inmediatly if a key was pressed. It works, but maybe it could lead to input errors. After that, `Kb_Handle` inspects the state of the keyboard at the time of the event and handles modifiers and control characters:
+The Keyboard Module Implementation is perhaps the clunkiest. It gets a keycode in the keyboard port if a key was pressed:
 
 --- kb implementation
-void Kb_Handle(kb_t *kb, cpu_t *cpu)
-{
-    char controlChar;
-
-    if (kb->state[SDL_SCANCODE_RETURN])
-    {
-        Cpu_SetCache8(cpu, kb->port, 0x0D);
-    }
-    if (kb->state[SDL_SCANCODE_BACKSPACE])
-    {
-        Cpu_SetCache8(cpu, kb->port, 0x08);
-    }
-    if (kb->state[SDL_SCANCODE_ESCAPE])
-    {
-        Cpu_SetCache8(cpu, kb->port, 0x1B);
-    }
-    if (kb->state[SDL_SCANCODE_TAB])
-    {
-        Cpu_SetCache8(cpu, kb->port, '\t');
-    }
-    if (kb->state[SDL_SCANCODE_LCTRL])
-    {
-        // TODO: Handle control characters
-    }
-
-    // trigger interrupt if port or modifier != 0
-    if (Cpu_GetCache8(cpu, kb->port) != '\0')
-    {
-        printf("Key Port: %d\n", Cpu_GetCache8(cpu, kb->port));
-    }
-}
 
 void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
 {
-    SDL_StartTextInput();
 
     while (SDL_PollEvent(event))
     {
@@ -505,15 +473,13 @@ void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
         case SDL_QUIT:
             *quit = SDL_TRUE;
             break;
-        case SDL_TEXTINPUT:
-            SDL_StopTextInput();
-            Cpu_SetCache8(cpu, kb->port, event->text.text[0]);
+        case SDL_KEYDOWN:
+            Cpu_SetCache8(cpu, kb->port, event->key.keysym.sym);
             break;
         }
-
-        Kb_Handle(kb, cpu);
     }
 }
+
 ---
 
 ### Video Module implementation
@@ -955,7 +921,7 @@ int main(int argc, char const *argv[])
 
 	if (argc == 3)
     {
-        if (strcmp(argv[1], "rom") == 0)
+        if (strcmp(argv[1], "load") == 0)
         {
         	FILE * program = fopen(argv[2], "rb");
 			fseek(program, 0, SEEK_END);

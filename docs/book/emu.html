@@ -44,7 +44,7 @@ body{min-width:200px;max-width:850px;margin:0 auto;padding:30px;}.chapter-nav{fo
 <section>
 <h1>Emulator Implementation</h1>
 <a name="10:1"><div class="section"><h4>1. Header File</h4></a>
-<p>The contents of the header file have already been defined in previouschapters, save for some constants that are more related to theimplementaation than the architecture itself:</p>
+<p>The contents of the header file have already been defined in previous chapters, save for some constants that are more related to the implementaation than the architecture itself:</p>
 <div class="codeblock">
 <span class="codeblock_name">{frequencies <a href="emu.html#10:1">1</a>}</span>
 <pre class="prettyprint lang-c">
@@ -96,7 +96,7 @@ const int MILLISECONDS_PER_FRAME = 1000 / FPS;
 
 
 </div>
-<p>Along with the frequencies, we will define a clock to coordinatevideo rendering and cpu execution:</p>
+<p>Along with the frequencies, we will define a clock to coordinate video rendering and cpu execution:</p>
 <div class="codeblock">
 <span class="codeblock_name">{clock prototypes <a href="emu.html#10:1">1</a>}</span>
 <pre class="prettyprint lang-c">
@@ -115,7 +115,7 @@ void Clock_FrameEnd(struct clock *clk);
 
 
 </div>
-<p>We will also define some error codes and an error handler (differentfrom the exception handler of the cpu):</p>
+<p>We will also define some error codes and an error handler (different from the exception handler of the cpu):</p>
 <div class="codeblock">
 <span class="codeblock_name">{error <a href="emu.html#10:1">1</a>}</span>
 <pre class="prettyprint lang-c">
@@ -226,7 +226,7 @@ void TaleaSystem_Panic(error_t error);
 </div>
 </div>
 <a name="10:2"><div class="section"><h4>2. Implementation File</h4></a>
-<p>We will need I/O, timing, the Taleä System headers, inprint (forrendering bitmap text with sdl2, and an inline font in XBM format forthe task:</p>
+<p>We will need I/O, timing, the Taleä System headers, inprint (for rendering bitmap text with sdl2, and an inline font in XBM format for the task:</p>
 <div class="codeblock">
 <span class="codeblock_name">{implementation includes <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -240,7 +240,7 @@ void TaleaSystem_Panic(error_t error);
 
 
 </div>
-<h3 id="clock-fucntions">Clock Fucntions</h3><p>We will start by implementing the clock functions that time theemulator execution. <code>Clock_FrameStart</code> will start counting,and <code>Clock_FrameEnd</code> will stop and calculate how much time ittook to render. If it was less than 16ms (60 fps), it will delayexecution until that lapse is reached.</p>
+<h3 id="clock-fucntions">Clock Fucntions</h3><p>We will start by implementing the clock functions that time the emulator execution. <code>Clock_FrameStart</code> will start counting, and <code>Clock_FrameEnd</code> will stop and calculate how much time it took to render. If it was less than 16ms (60 fps), it will delay execution until that lapse is reached.</p>
 <div class="codeblock">
 <span class="codeblock_name">{clock implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -262,7 +262,7 @@ void Clock_FrameEnd(struct clock *clk)
 
 
 </div>
-<h3 id="helper-miscellaneous-functions">Helper Miscellaneousfunctions</h3><p>This is a little function used to ensure addresses are treated as24bit numbers across the system.</p><ul><li><code>trimAddr</code> ensures that addresses (passed as<code>uint32_t</code> parameters for the lack of 24 bit numbers) stickto a 24bit limit.</li></ul>
+<h3 id="helper-miscellaneous-functions">Helper Miscellaneous functions</h3><p>This is a little function used to ensure addresses are treated as 24bit numbers across the system.</p><ul><li><code>trimAddr</code> ensures that addresses (passed as <code>uint32_t</code> parameters for the lack of 24 bit numbers) stick to a 24bit limit.</li></ul>
 <div class="codeblock">
 <span class="codeblock_name">{helpers <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -276,7 +276,7 @@ static inline uint32_t trimAddr(uint32_t addr)
 
 
 </div>
-<h3 id="cpu-module">Cpu Module</h3><p>We will now implement the functions already defined in<code>{cpu,</code><ahref="cpu.html#3:1"><code>3:1</code></a><code>}</code>.<code>Init</code> will initialize and allocate all memory to 0.<code>Reset</code> will reset all of the cpu memories to 0.<code>Destroy</code> will free all memory used by the module:</p>
+<h3 id="cpu-module">Cpu Module</h3><p>We will now implement the functions already defined in @{cpu}. <code>Init</code> will initialize and allocate all memory to 0. <code>Reset</code> will reset all of the cpu memories to 0. <code>Destroy</code> will free all memory used by the module:</p>
 <div class="codeblock">
 <span class="codeblock_name">{cpu initialization and deinitialization <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -308,7 +308,7 @@ void Cpu_Destroy(cpu_t *cpu)
 
 
 </div>
-<p><code>Cycle</code> will perform a <code>fetch</code>,<code>decode</code>, <code>execute</code> cycle:</p>
+<p><code>Cycle</code> will perform a <code>fetch</code>, <code>decode</code>, <code>execute</code> cycle:</p>
 <div class="codeblock">
 <span class="codeblock_name">{FDE cycle <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -322,11 +322,11 @@ void Cpu_Cycle(cpu_t *cpu)
     }
 }
 </pre>
-
+<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
 
 
 </div>
-<p><code>Fetch</code> will fetch the next opcode to execute (a byte)from RAM:</p>
+<p><code>Fetch</code> will fetch the next opcode to execute (a byte) from RAM:</p>
 <div class="codeblock">
 <span class="codeblock_name">{FDE cycle <a href="emu.html#10:2">2</a>} +=</span>
 <pre class="prettyprint lang-c">
@@ -340,7 +340,7 @@ uint32_t Cpu_Fetch(cpu_t *cpu)
     return instruction;
 }
 </pre>
-
+<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -402,11 +402,11 @@ error_t I_ecall() {
 	return 0;
 }
 </pre>
-
+<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
 
 
 </div>
-<h4 id="cpu-memory-access-functions">Cpu Memory Access Functions</h4><p>Now we will implement the functions used to get and set memory, asdefined in <code>{cpu,</code><ahref="cpu.html#3:1"><code>3:1</code></a><code>}</code>. First to get andset <code>ip</code>:</p>
+<h4 id="cpu-memory-access-functions">Cpu Memory Access Functions</h4><p>Now we will implement the functions used to get and set memory, as defined in @{cpu}. First to get and set <code>ip</code>:</p>
 <div class="codeblock">
 <span class="codeblock_name">{memory access <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -420,7 +420,7 @@ static inline void Cpu_SetIp(cpu_t *cpu, uint32_t value)
     cpu-&gt;InstructionPointer = trimAddr(value);
 }
 </pre>
-
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -448,7 +448,7 @@ static inline void Cpu_SetSegRegister(cpu_t *cpu, enum RegisterIndex index, uint
     cpu-&gt;General[index] = (uint16_t)value;
 }
 </pre>
-
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -477,7 +477,7 @@ inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint16_t value)
     cpu-&gt;Cache[addr + 1] = value &gt;&gt; 8;
 }
 </pre>
-
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -506,7 +506,7 @@ void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint16_t value)
     Cpu_SetMemory8(cpu, addr + 1, value &gt;&gt; 8);
 }
 </pre>
-
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -534,7 +534,7 @@ void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint16_t value)
 
 
 </div>
-<h3 id="tty-module-implementation">Tty Module implementation</h3><p>The teletype implementation is fairly simple. We will use a file toemulate the printer output, in append mode. The data should persistbetween sessions, as is indeed <em>printed</em>:</p>
+<h3 id="tty-module-implementation">Tty Module implementation</h3><p>The teletype implementation is fairly simple. We will use a file to emulate the printer output, in append mode. The data should persist between sessions, as is indeed <em>printed</em>:</p>
 <div class="codeblock">
 <span class="codeblock_name">{tty implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -557,7 +557,7 @@ error_t Tty_Write(tty_t *tty)
 
 
 </div>
-<p>We will also add a routine to check if characters were sent to theteletype. It will run every cycle, pretending to emulate the<em>effect</em> of an interrupt. Of course this is not the<em>behavior</em> of an interrupt, and maybe is a bit sloppy, but seemsto perform well?</p>
+<p>We will also add a routine to check if characters were sent to the teletype. It will run every cycle, pretending to emulate the <em>effect</em> of an interrupt. Of course this is not the <em>behavior</em> of an interrupt, and maybe is a bit sloppy, but seems to perform well?</p>
 <div class="codeblock">
 <span class="codeblock_name">{tty implementation <a href="emu.html#10:2">2</a>} +=</span>
 <pre class="prettyprint lang-c">
@@ -575,7 +575,7 @@ void Tty_Execute(cpu_t *cpu, tty_t *tty)
 
 
 </div>
-<h3 id="keyboard-module-implementation">Keyboard ModuleImplementation</h3><p>The Keyboard Module Implementation is perhaps the clunkiest. Itstarts accepting text input (unicode), polls for SDL2 events, and cutsthe text input inmediatly if a key was pressed. It works, but maybe itcould lead to input errors. After that, <code>Kb_Handle</code> inspectsthe state of the keyboard at the time of the event and handles modifiersand control characters:</p>
+<h3 id="keyboard-module-implementation">Keyboard Module Implementation</h3><p>The Keyboard Module Implementation is perhaps the clunkiest. It starts accepting text input (unicode), polls for SDL2 events, and cuts the text input inmediatly if a key was pressed. It works, but maybe it could lead to input errors. After that, <code>Kb_Handle</code> inspects the state of the keyboard at the time of the event and handles modifiers and control characters:</p>
 <div class="codeblock">
 <span class="codeblock_name">{kb implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -636,7 +636,7 @@ void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
 
 
 </div>
-<h3 id="video-module-implementation">Video Module implementation</h3><p>We will start by implementing simple functions to get and set thevideo modes, namely:</p>
+<h3 id="video-module-implementation">Video Module implementation</h3><p>We will start by implementing simple functions to get and set the video modes, namely:</p>
 <div class="codeblock">
 <span class="codeblock_name">{video modes implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -657,7 +657,7 @@ error_t Video_SetMode(video_t *video, int mode)
 
 
 </div>
-<p>Now we will add the implementation for both, text and graphic modecommands:</p>
+<p>Now we will add the implementation for both, text and graphic mode commands:</p>
 <div class="codeblock">
 <span class="codeblock_name">{text mode commands implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -689,7 +689,7 @@ void Video_SetPixelAbsolute(video_t* video, uint32_t index, uint8_t color)
 
 
 </div>
-<h4 id="video-module-initialization">Video Module Initialization</h4><p>The <code>Init</code> fucntion will be in charge of initializing<code>SDL2</code>, <code>inprint</code>, and the video memories. Theemulator <em>shall</em> crash, should this function fail:</p>
+<h4 id="video-module-initialization">Video Module Initialization</h4><p>The <code>Init</code> fucntion will be in charge of initializing <code>SDL2</code>, <code>inprint</code>, and the video memories. The emulator <em>shall</em> crash, should this function fail:</p>
 <div class="codeblock">
 <span class="codeblock_name">{video initialization <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -728,7 +728,7 @@ error_t Video_Init(video_t *video)
 
 
 </div>
-<p>The <code>Destroy</code> funtction will be called on exit to free thememory used in the video module:</p>
+<p>The <code>Destroy</code> funtction will be called on exit to free the memory used in the video module:</p>
 <div class="codeblock">
 <span class="codeblock_name">{video initialization <a href="emu.html#10:2">2</a>} +=</span>
 <pre class="prettyprint lang-c">
@@ -747,7 +747,7 @@ void Video_Destroy(video_t *video)
 
 
 </div>
-<h4 id="video-module-rendering">Video Module Rendering</h4><p>This function is the most important in the video module, as itrenders graphics or text to the screen. In graphic mode it simply blitsthe pixel data to the screen by means of an SDL_Texture. In text mode itprints the character memory row by row <strong>assuming an 8x8 pixelfont</strong>.</p>
+<h4 id="video-module-rendering">Video Module Rendering</h4><p>This function is the most important in the video module, as it renders graphics or text to the screen. In graphic mode it simply blits the pixel data to the screen by means of an SDL_Texture. In text mode it prints the character memory row by row <strong>assuming an 8x8 pixel font</strong>.</p>
 <div class="codeblock">
 <span class="codeblock_name">{video render implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -783,7 +783,7 @@ error_t Video_Render(video_t *video)
 
 
 </div>
-<h4 id="video-mode-command-execution">Video Mode Command Execution</h4><p>Much like the Tty Module, the video module will execute the commandssent to it as a sort of <em>pseudo</em> interruption. This seems not toaffect drastically the performance. However, it will <em>not</em> renderthe changes inmediatly, but on time with the frame.</p>
+<h4 id="video-mode-command-execution">Video Mode Command Execution</h4><p>Much like the Tty Module, the video module will execute the commands sent to it as a sort of <em>pseudo</em> interruption. This seems not to affect drastically the performance. However, it will <em>not</em> render the changes inmediatly, but on time with the frame.</p>
 <div class="codeblock">
 <span class="codeblock_name">{video execute implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -824,7 +824,7 @@ void Video_Execute(cpu_t *cpu, video_t *video)
 
 
 </div>
-<h4 id="video-module-implementation-structure">Video ModuleImplementation Structure</h4><p>Finally, the video module implementation is so:</p>
+<h4 id="video-module-implementation-structure">Video Module Implementation Structure</h4><p>Finally, the video module implementation is so:</p>
 <div class="codeblock">
 <span class="codeblock_name">{video implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -841,7 +841,7 @@ void Video_Execute(cpu_t *cpu, video_t *video)
 
 
 </div>
-<h3 id="disk-drive-module-implementation">Disk Drive ModuleImplementation</h3><p>First we will implement a routine to create an emulated disk drive.It will be a direcoty with 16 binary files, filled each one with up to<code>0xffff</code> <code>{sector,</code><ahref="disk.html#8:1"><code>8:1</code></a><code>}</code> data structures(i.e. 32Mb):</p>
+<h3 id="disk-drive-module-implementation">Disk Drive Module Implementation</h3><p>First we will implement a routine to create an emulated disk drive. It will be a direcoty with 16 binary files, filled each one with up to <code>0xffff</code> @{sector} data structures (i.e. 32Mb):</p>
 <div class="codeblock">
 <span class="codeblock_name">{disk create <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -889,7 +889,7 @@ error_t Disk_CreateDrive(char *path, drive_t *drive, uint8_t disk_count)
 
 
 </div>
-<h4 id="disk-drive-command-implementations">Disk Drive CommandImplementations</h4><p>Then, we will implement the <code>{disk commands prototypes,</code><ahref="disk.html#8:2"><code>8:2</code></a><code>}</code>.<code>LoadSector</code> will read a sector from disk into<code>&amp;sector</code>:</p>
+<h4 id="disk-drive-command-implementations">Disk Drive Command Implementations</h4><p>Then, we will implement the @{disk commands prototypes}. <code>LoadSector</code> will read a sector from disk into <code>&amp;sector</code>:</p>
 <div class="codeblock">
 <span class="codeblock_name">{disk commands implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -903,7 +903,7 @@ void Disk_LoadSector(disk_t *disk, uint16_t sector_number, struct sector *sector
 
 
 </div>
-<p>Likewise <code>StoreSector</code> will store the sector<code>&amp;sector</code> on the specified sector of the disk:</p>
+<p>Likewise <code>StoreSector</code> will store the sector <code>&amp;sector</code> on the specified sector of the disk:</p>
 <div class="codeblock">
 <span class="codeblock_name">{disk commands implementation <a href="emu.html#10:2">2</a>} +=</span>
 <pre class="prettyprint lang-c">
@@ -917,7 +917,7 @@ void Disk_StoreSector(disk_t *disk, uint16_t sector_number, struct sector *secto
 
 
 </div>
-<p>The disk commands will then execute each cycle, in the sort of<em>pseudo</em> interruption we have already seen. Maybe I should searchfor a way to do this asynchronously.</p>
+<p>The disk commands will then execute each cycle, in the sort of <em>pseudo</em> interruption we have already seen. Maybe I should search for a way to do this asynchronously.</p>
 <div class="codeblock">
 <span class="codeblock_name">{disk execute implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -970,7 +970,7 @@ void Disk_Execute(cpu_t *cpu, drive_t *drive)
 
 
 </div>
-<h2 id="emulator-initialization-main-loop">Emulator Initialization &amp;Main loop</h2><p>Once we have implemented all the modules, the last thing to do isgluing all of them together. <code>Init</code> will initialize thesystem, <code>Run</code> will implement the main loop and<code>Destroy</code> will take care of freeing memory and tidying upbefore exiting.</p>
+<h2 id="emulator-initialization-main-loop">Emulator Initialization &amp; Main loop</h2><p>Once we have implemented all the modules, the last thing to do is gluing all of them together. <code>Init</code> will initialize the system, <code>Run</code> will implement the main loop and <code>Destroy</code> will take care of freeing memory and tidying up before exiting.</p>
 <div class="codeblock">
 <span class="codeblock_name">{emulator initialization <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -1014,7 +1014,7 @@ void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb
 <span class="nocode pln">    {addenda init, <a href="addenda.html#9:3">9:3</a>}</span>
 }
 </pre>
-
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -1059,7 +1059,7 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
     }
 }
 </pre>
-
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
@@ -1080,11 +1080,11 @@ void TaleaSystem_Destroy(cpu_t *cpu, video_t *video, drive_t *drive)
     Video_Destroy(video);
 }
 </pre>
-
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
-<p>We will also implement a <code>panic</code> function, that will logerror to <code>stdout</code>:</p>
+<p>We will also implement a <code>panic</code> function, that will log error to <code>stdout</code>:</p>
 <div class="codeblock">
 <span class="codeblock_name">{emulator initialization <a href="emu.html#10:2">2</a>} +=</span>
 <pre class="prettyprint lang-c">
@@ -1093,11 +1093,11 @@ void TaleaSystem_Panic(error_t error)
     printf("Error: %d", error); // TODO: make this better
 }
 </pre>
-
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
 
 
 </div>
-<p>And now, finally, the <code>main</code> function, entry point of theprogram:</p>
+<p>And now, finally, the <code>main</code> function, entry point of the program:</p>
 <div class="codeblock">
 <span class="codeblock_name">{main <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
@@ -1129,22 +1129,27 @@ int main(int argc, char const *argv[])
 
     TaleaSystem_Init(&amp;cpu, &amp;video, &amp;tty, &amp;drive, &amp;kb, &amp;mmu);
 
-	FILE * program = fopen("program.hex", "rb");
-	fseek(program, 0, SEEK_END);
-	long psize = ftell(program);
-	fseek(program, 0, SEEK_SET);
+	if (argc == 3)
+    {
+        if (strcmp(argv[1], "load") == 0)
+        {
+        	FILE * program = fopen(argv[2], "rb");
+			fseek(program, 0, SEEK_END);
+			long psize = ftell(program);
+			fseek(program, 0, SEEK_SET);
 
-	uint8_t *hex = malloc(psize + 1);
-	fread(hex, psize, 1, program);
-	fclose(program);
+			uint8_t *hex = malloc(psize + 1);
+			fread(hex, psize, 1, program);
+			fclose(program);
 
-	for (int i = 0; i&lt;psize; i++)
-	{
-		Cpu_SetMemory8(&amp;cpu, i, hex[i]);
-	}
+			for (int i = 0; i&lt;psize; i++)
+			{
+				Cpu_SetMemory8(&amp;cpu, i, hex[i]);
+			}
 
-	free(hex);
-		    
+			free(hex);
+		}
+    }	    	    
 
     TaleaSystem_Run(&amp;cpu, &amp;video, &amp;tty, &amp;drive, &amp;kb);
 
@@ -1157,7 +1162,7 @@ int main(int argc, char const *argv[])
 
 
 </div>
-<h3 id="sewing-all-together">Sewing All Together</h3><p>Summing up, the implementation file, <code>talea.c</code>, looks likethis:</p>
+<h3 id="sewing-all-together">Sewing All Together</h3><p>Summing up, the implementation file, <code>talea.c</code>, looks like this:</p>
 <div class="codeblock">
 <span class="codeblock_name">{<strong>talea.c</strong> <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">

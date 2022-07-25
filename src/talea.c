@@ -410,41 +410,9 @@ void Tty_Execute(cpu_t *cpu, tty_t *tty)
 }
 
 /* kb implementation */
-void Kb_Handle(kb_t *kb, cpu_t *cpu)
-{
-    char controlChar;
-
-    if (kb->state[SDL_SCANCODE_RETURN])
-    {
-        Cpu_SetCache8(cpu, kb->port, 0x0D);
-    }
-    if (kb->state[SDL_SCANCODE_BACKSPACE])
-    {
-        Cpu_SetCache8(cpu, kb->port, 0x08);
-    }
-    if (kb->state[SDL_SCANCODE_ESCAPE])
-    {
-        Cpu_SetCache8(cpu, kb->port, 0x1B);
-    }
-    if (kb->state[SDL_SCANCODE_TAB])
-    {
-        Cpu_SetCache8(cpu, kb->port, '\t');
-    }
-    if (kb->state[SDL_SCANCODE_LCTRL])
-    {
-        // TODO: Handle control characters
-    }
-
-    // trigger interrupt if port or modifier != 0
-    if (Cpu_GetCache8(cpu, kb->port) != '\0')
-    {
-        
-    }
-}
 
 void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
 {
-    SDL_StartTextInput();
 
     while (SDL_PollEvent(event))
     {
@@ -453,15 +421,13 @@ void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
         case SDL_QUIT:
             *quit = SDL_TRUE;
             break;
-        case SDL_TEXTINPUT:
-            SDL_StopTextInput();
-            Cpu_SetCache8(cpu, kb->port, event->text.text[0]);
+        case SDL_KEYDOWN:
+            Cpu_SetCache8(cpu, kb->port, event->key.keysym.sym);
             break;
         }
-
-        Kb_Handle(kb, cpu);
     }
 }
+
 
 /* video implementation */
 // #region Video Module Implementation
@@ -763,25 +729,19 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
             Disk_Execute(cpu, drive);
             Tty_Execute(cpu, tty);
             /* addenda execute (after tty) */
-            // Custom devices execution			        
+            // Custom devices execution
+
         }
 
         // Every 16ms check for events such as keypresses (83333 cycles at 10Mhz) perhaps too fast?
-	    Kb_Execute(cpu, kb, &event, &quit);
-        printf("Text Input Buffer\n");
-		for (int i = 0; i < 80; i++) 
-		{
-		   	printf("%x ", Cpu_GetMemory8(cpu, i + 1024));
-		}
-		printf("\n t0: %d, s1 %d, Port: %d\n", Cpu_GetRegister(cpu, x5), Cpu_GetRegister(cpu, x9), Cpu_GetCache8(cpu, 0));
-
+        Kb_Execute(cpu, kb, &event, &quit);
         /* addenda execute (after kb) */
         // Custom devices execution
 
 
         // Every 16ms, render the screen (166666 cycles at 10Mhz)
         Video_Render(video);
-        
+
         Clock_FrameEnd(&clock_fps);
     }
 }
@@ -836,9 +796,9 @@ int main(int argc, char const *argv[])
 
     TaleaSystem_Init(&cpu, &video, &tty, &drive, &kb, &mmu);
 
-    if (argc == 3)
+	if (argc == 3)
     {
-        if (strcmp(argv[1], "rom") == 0)
+        if (strcmp(argv[1], "load") == 0)
         {
         	FILE * program = fopen(argv[2], "rb");
 			fseek(program, 0, SEEK_END);
@@ -856,7 +816,7 @@ int main(int argc, char const *argv[])
 
 			free(hex);
 		}
-    }	    
+    }	    	    
 
     TaleaSystem_Run(&cpu, &video, &tty, &drive, &kb);
 

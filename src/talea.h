@@ -169,8 +169,6 @@ typedef struct
     const uint8_t *state;
 } kb_t;
 
-void Kb_Handle(kb_t *kb, cpu_t *cpu);
-
 // #endregion
 
 // #region Video

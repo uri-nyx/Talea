@@ -81,7 +81,7 @@ static inline error_t I_ebreak(cpu_t * cpu);
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
-<p>Decodification of possible field in an instruction is as follows,best explained in resources for RISC-V. This covers the base Integer Isa(a sort of RISC-V 16I). The only change are the instructions used toload and store to cache (using the opcodes for <code>lw</code>,<code>lhu</code>, <code>sw</code>, and one new), and that the field for<code>lui</code> and <code>auipc</code> are 16bits, not 20.</p>
+<p>Decodification of possible field in an instruction is as follows, best explained in resources for RISC-V. This covers the base Integer Isa (a sort of RISC-V 16I). The only change are the instructions used to load and store to cache (using the opcodes for <code>lw</code>, <code>lhu</code>, <code>sw</code>, and one new), and that the field for <code>lui</code> and <code>auipc</code> are 16bits, not 20.</p>
 <div class="codeblock">
 <span class="codeblock_name">{isa fields <a href="isa.html#2:1">1</a>}</span>
 <pre class="prettyprint lang-c">

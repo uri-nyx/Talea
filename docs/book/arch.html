@@ -44,7 +44,7 @@ body{min-width:200px;max-width:850px;margin:0 auto;padding:30px;}.chapter-nav{fo
 <section>
 <h1>System Architecture</h1>
 <a name="1:1"><div class="section"><h4>1. Register and Buses specification</h4></a>
-<p>Taleä Tabula is a 16-bit, little endian system with a 24-bit wideaddress space (up to 16 Mb of addressable memory), and a 256 byte cache.Its byte and word sizes are 8 and 16-bit respectively:</p>
+<p>Taleä Tabula is a 16-bit, little endian system with a 24-bit wide address space (up to 16 Mb of addressable memory), and a 256 byte cache. Its byte and word sizes are 8 and 16-bit respectively:</p>
 <div class="codeblock">
 <span class="codeblock_name">{sizes <a href="arch.html#1:1">1</a>}</span>
 <pre class="prettyprint lang-c">
@@ -63,7 +63,7 @@ const int ADDRESS_BUS_SIZE = 24 * Bit;
 
 <p class="seealso">Used in section <a href="emu.html#10:1">10:1</a></p>
 </div>
-<p>The register arrangement of the system is built upon of that of thereal architecture RISC-V, with some modifications to adapt it to a 16bitmachine with 24bit addresses. There is a <code>zero</code> register, 31general purpose 16bit registers, and a 24bit instruction pointer. Inaddition, there is another set of 31 8bit registers, one for eachgeneral purpose one used when calculating addresses.</p>
+<p>The register arrangement of the system is built upon of that of the real architecture RISC-V, with some modifications to adapt it to a 16bit machine with 24bit addresses. There is a <code>zero</code> register, 31 general purpose 16bit registers, and a 24bit instruction pointer. In addition, there is another set of 31 8bit registers, one for each general purpose one used when calculating addresses.</p>
 <div class="codeblock">
 <span class="codeblock_name">{sizes <a href="arch.html#1:1">1</a>} +=</span>
 <pre class="prettyprint lang-c">
@@ -100,7 +100,7 @@ enum RegisterIndex {
 </div>
 </div>
 <a name="1:2"><div class="section"><h4>2. Cache Memory & I/O Ports</h4></a>
-<p>The 256 bytes of cache are used as a sort of I/O port file andintermediate memory betweeen registers and RAM. It is accessible troughspecific instructions that refer to its physical addresses. The devicesmentioned in the preface are thus mapped to arbitrary locations or<code>ports</code> in the cache:</p>
+<p>The 256 bytes of cache are used as a sort of I/O port file and intermediate memory betweeen registers and RAM. It is accessible trough specific instructions that refer to its physical addresses. The devices mentioned in the preface are thus mapped to arbitrary locations or <code>ports</code> in the cache:</p>
 <div class="codeblock">
 <span class="codeblock_name">{ports <a href="arch.html#1:2">2</a>}</span>
 <pre class="prettyprint lang-c">
