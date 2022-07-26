@@ -3,8 +3,11 @@
 #include <stdio.h>
 #include <time.h>
 #include "talea.h"
+#include "isa.h"
 #include "include/inprint/SDL2_inprint.h"
 #include "include/inprint/inline_font.h"
+
+#define IV_KBINCHAR 0xfe // TODO: Remove this plz
 
 
 /* helpers */
@@ -80,29 +83,25 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
 {
 
 	/* isa fields */
-	    int16_t opcode = instruction & 0x0000007F;
+	    int16_t opcode = get_opcode(instruction);
 	
-	    int16_t rd = (instruction & 0x00000F80) >> 7;
-	    int16_t rs1 = (instruction & 0x000F8000) >> 15;
-	    int16_t rs2 = (instruction & 0x01F00000) >> 20;
-	    int16_t imm_i = (instruction & 0xFFF00000) >> 20;
+	    int16_t rd = get_rd(instruction);
+	    int16_t rs1 = get_rs1(instruction);
+	    int16_t rs2 = get_rs2(instruction);
 	    
-	    	imm_i = (instruction & 0x80000000) ? 0xf000 | imm_i : imm_i;
-	    int16_t imm_b = ((instruction & 0x80000000) >> 19) | ((instruction & 0x00000080) << 4) | ((instruction & 0x7F000000) >> 20) | ((instruction & 0x0000F00) >> 7);
-	    	imm_b = (instruction & 0x80000000) ? 0xe000 | imm_b : imm_b;
+	    int16_t imm_i = get_imm_i(instruction);
+	    int16_t imm_b = make_imm_b(instruction);
 	
-	    int32_t imm_j = (instruction & 0x80000000) >> 11 | (instruction & 0x000FF000) | ((instruction & 0x00100000) >> 9) | ((instruction & 0x7FE00000) >> 20);
-	    	imm_j = (instruction & 0x80000000) ? 0xfff00000 | imm_j : imm_j;
+	    int32_t imm_j = make_imm_j(instruction);
 	
-	    int16_t imm_u = (instruction & 0xFFFF0000) >> 4;
+	    int16_t imm_u = get_imm_u(instruction);
 	
-	    int16_t imm_s = (instruction & 0xFF000000) >> 20 | ((instruction & 0x00000F80) >> 7);
-	    	imm_s = (instruction & 0x80000000) ? 0xf000 | imm_s: imm_s;
+	    int16_t imm_s = make_imm_s(instruction);
 	
-	    int16_t shamt = (instruction & 0x00F00000) >> 20;
-	    int16_t mod = instruction & 0x40000000;
-	    int16_t funct3 = (instruction & 0x00007000) >> 12;
-	    int16_t funct7 = (instruction & 0xFE000000) >> 25;
+	    int16_t shamt = get_shamt(instruction);
+	    int16_t mod = get_mod(instruction);
+	    int16_t funct3 = get_funct3(instruction);
+	    int16_t funct7 = get_funct7(instruction);
 
 	
     switch (opcode)
@@ -136,22 +135,22 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
 	    case Branch:
 	        switch (funct3)
 	        { 
-	            case 0b000: // BEQ
+	            case Beq: // BEQ
 	                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) == Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
 	                break; // increment ip by imm_b if rs1 == rs2
-	            case 0b001: // BNE
+	            case Bne: // BNE
 	                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) != Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
 	                break; // increment ip by imm_b if rs1 != rs2
-	            case 0b100: // BLT
+	            case Blt: // BLT
 	                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + (((int16_t)Cpu_GetRegister(cpu, rs1) < (int16_t)Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
 	                break; // increment ip by imm_b if rs1 < rs2
-	            case 0b101: // BGE
+	            case Bge: // BGE
 	                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + (((int16_t)Cpu_GetRegister(cpu, rs1) >= (int16_t)Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
 	                break; // increment ip by imm_b if rs1 == rs2
-	            case 0b110: // BLTU
+	            case Bltu: // BLTU
 	                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) < Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
 	                break; // increment ip by imm_b if rs1 < rs2
-	            case 0b111: // BGEU
+	            case Bgeu: // BGEU
 	                Cpu_SetIp(cpu, Cpu_GetIp(cpu) + ((Cpu_GetRegister(cpu, rs1) >= Cpu_GetRegister(cpu, rs2)) ? imm_b : 4));
 	                break;
 	        }
@@ -161,22 +160,24 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
         case Load:
             switch (funct3)
             {
-                case 0b000: 
+                case Lb: 
                   { // LB
                     uint8_t byte = Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i);
                     Cpu_SetRegister(cpu, rd, (byte & 0x80) ? 0xff00 | byte : 0x0000 | byte); // load byte from memory at rs1 + imm_i into rd
                     break;// load sign extended byte from memory at rs1 + imm_i into rd  
                   }
-                case 0b001: // LH
+                case Lh: // LH
                     Cpu_SetRegister(cpu, rd, Cpu_GetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load halfword from memory at rs1 + imm_i into rd
                     break; // load halfword from memory at rs1 + imm_i into rd
-                case 0b100: // LBU
+                case Lbu: // LBU
                     Cpu_SetRegister(cpu, rd, 0x0000 | Cpu_GetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_i)); // load byte from memory at rs1 + imm_i into rd
                     break; // load unsigned byte from memory at rs1 + imm_i into rd
-                case 0b010: // ADDAPT LW to load from cache
+                case Lhc: // ADDAPT LW to load from cache
+                	if (cpu->Psr & 0x8000) { /* TODO: Raise Privilege Exception*/ break;}
                 	Cpu_SetRegister(cpu, rd, Cpu_GetCache16(cpu, Cpu_GetRegister(cpu, rs1) + imm_i));
                 	break;
-                case 0b101: // ADDAPT LHU to load from cache
+                case Lbc: // ADDAPT LHU to load from cache //TODO: Study if it would be useful to add load byte (signed) from cache
+                	if (cpu->Psr & 0x8000) { /* TODO: Raise Privilege Exception*/ break;}
                 	Cpu_SetRegister(cpu, rd, Cpu_GetCache8(cpu, Cpu_GetRegister(cpu, rs1) + imm_i));
                 	break;
             }
@@ -187,16 +188,18 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
      case Store:
             switch (funct3)
             {
-                case 0b000: // SB
+                case Sb: // SB
                     Cpu_SetMemory8(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, (uint8_t)Cpu_GetRegister(cpu, rs2)); // store byte from rd to memory at rs1 + imm_i
                     break; // store byte from rd to memory at rs1 + imm_i
-                case 0b001: // SH
+                case Sh: // SH
                     Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2)); // store halfword from rd to memory at rs1 + imm_i
                     break; // store halfword from rd to memory at rs1 + imm_i
-                case 0b010: // Addapt SW to store to cache
+                case Shc: // Addapt SW to store to cache
+                	if (cpu->Psr & 0x8000) { /* TODO: Raise Privilege Exception*/ break;}
                 	Cpu_SetCache16(cpu, Cpu_GetRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2));
                 	break;
-                case 0b011: // NEW OPCODE TO Store to CACHE
+                case Sbc: // NEW OPCODE TO Store to CACHE
+                	if (cpu->Psr & 0x8000) { /* TODO: Raise Privilege Exception*/ break;}
                 	Cpu_SetCache8(cpu, Cpu_GetRegister(cpu, rs1) + imm_s, Cpu_GetRegister(cpu, rs2));
                 	break;
             }
@@ -207,28 +210,28 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
         case MathI:
             switch (funct3)
             {
-                case 0b000: // ADDI
+                case Addi: // ADDI
                     Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) + imm_i); // add imm_i to rs1 and store in rd
                     break; // add imm_i to rs1 and store in rd
-                case 0b010: // SLTI
+                case Slti: // SLTI
                     Cpu_SetRegister(cpu, rd, ((int16_t)Cpu_GetRegister(cpu, rs1) < imm_i) ? 1 : 0); // set rd to 1 if rs1 < imm_i, else 0
                     break; // set rd to 1 if rs1 < imm_i, else 0
-                case 0b011: // SLTIU
+                case Sltiu: // SLTIU
                     Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) < (uint16_t)imm_i) ? 1 : 0); // set rd to 1 if rs1 < imm_i, else 0
                     break; // set rd to 1 if rs1 < imm_i, else 0
-                case 0b100: // XORI
+                case Xori: // XORI
                     Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) ^ imm_i); // xor imm_i to rs1 and store in rd
                     break; // xor imm_i to rs1 and store in rd
-                case 0b110: // ORI
+                case Ori: // ORI
                     Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) | imm_i); // or imm_i to rs1 and store in rd
                     break; // or imm_i to rs1 and store in rd
-                case 0b111: // ANDI
+                case Andi: // ANDI
                     Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) & imm_i); // and imm_i to rs1 and store in rd
                     break; // and imm_i to rs1 and store in rd
-                case 0b001: // SLLI
+                case Slli: // SLLI
                     Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) << shamt); // shift left imm_i to rs1 and store in rd
                     break; // shift left imm_i to rs1 and store in rd
-                case 0b101: // SRLI/SRAI				ARITHMETIC												LOGICAL
+                case Srli_Srai: // SRLI/SRAI				ARITHMETIC												LOGICAL
                     Cpu_SetRegister(cpu, rd, (mod) ? (int16_t)Cpu_GetRegister(cpu, rs1) >> shamt : Cpu_GetRegister(cpu, rs1) >> shamt); // shift right imm_i to rs1 and store in rd
                     break; // shift right imm_i to rs1 and store in rd
             }
@@ -239,28 +242,28 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
         case MathR:
             switch (funct3)
             {
-                case 0b000: // ADD/SUB
+                case Add_Sub: // ADD/SUB
                     Cpu_SetRegister(cpu, rd, (mod) ? Cpu_GetRegister(cpu, rs1) - Cpu_GetRegister(cpu, rs2) : Cpu_GetRegister(cpu, rs1) + Cpu_GetRegister(cpu, rs2)); // add rs2 to rs1 and store in rd
                     break; // add rs2 to rs1 and store in rd
-                case 0b001: // SLL
+                case Sll: // SLL
                     Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) << Cpu_GetRegister(cpu, rs2)); // shift left rs2 to rs1 and store in rd
                     break; // shift left rs2 to rs1 and store in rd
-                case 0b010: // SLT
+                case Slt: // SLT
                     Cpu_SetRegister(cpu, rd, ((int16_t)Cpu_GetRegister(cpu, rs1) < (int16_t)Cpu_GetRegister(cpu, rs2)) ? 1 : 0); // set rd to 1 if rs1 < rs2, else 0
                     break; // set rd to 1 if rs1 < rs2, else 0
-                case 0b011: // SLTU
+                case Sltu: // SLTU
                     Cpu_SetRegister(cpu, rd, (Cpu_GetRegister(cpu, rs1) < Cpu_GetRegister(cpu, rs2)) ? 1 : 0); // set rd to 1 if rs1 < rs2, else 0
                     break; // set rd to 1 if rs1 < rs2, else 0
-                case 0b100: // XOR
+                case Xor: // XOR
                     Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) ^ Cpu_GetRegister(cpu, rs2)); // xor rs2 to rs1 and store in rd
                     break; // xor rs2 to rs1 and store in rd
-                case 0b101: // SRL/SRAI							ARITMETHIC												LOGICAL
+                case Srl_Sra: // SRL/SRAI							ARITMETHIC												LOGICAL
                     Cpu_SetRegister(cpu, rd, (mod) ? (int16_t)Cpu_GetRegister(cpu, rs1) >> Cpu_GetRegister(cpu, rs2) : Cpu_GetRegister(cpu, rs1) >> Cpu_GetRegister(cpu, rs2)); // shift right rs2 to rs1 and store in rd
                     break; // shift right rs2 to rs1 and store in rd
-                case 0b110: // OR
+                case Or: // OR
                     Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) | Cpu_GetRegister(cpu, rs2)); // or rs2 to rs1 and store in rd
                     break; // or rs2 to rs1 and store in rd
-                case 0b111: // AND
+                case And: // AND
                     Cpu_SetRegister(cpu, rd, Cpu_GetRegister(cpu, rs1) + Cpu_GetRegister(cpu, rs2)); // add rs2 to rs1 and store in rd
                     break; // add rs2 to rs1 and store in rd
             }
@@ -269,44 +272,90 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
 
     
     /* isa e */
-        case E:
-            (rs2) ? I_ebreak(cpu) : I_ecall(); // if rs2 is 0, execute I_ebreak, else execute I_ecall
-            Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); 
+    case System:
+            switch (funct3)
+                {
+                    uint8_t imm_8 = (instruction & 0x0ff00000) >> 20; // get 8-bit immediate
+                    case Trap: // Call trap routine
+                        //TODO: Tidy up please
+                        
+                        if (cpu->Psr & 0x8000) {
+                            // Swap stack pointer and supervisor stack pointer
+                            cpu->Usp = Cpu_GetSegRegister(cpu, x2);
+                            Cpu_SetSegRegister(cpu, x2, cpu->Ssp);
+                        }
+                        // Push Psr into Supervisor Stack
+                        Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, x2) - 2, cpu->Psr);
+                        // Load ip+4 into rd and push into Supervisor stack
+                        Cpu_SetSegRegister(cpu, rd, Cpu_GetIp(cpu) + 4);
+                        Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, x2) - 4, Cpu_GetIp(cpu) + 4);
+                        
+                        // Update Ssp
+                        Cpu_SetSegRegister(cpu, x2, Cpu_GetSegRegister(cpu, x2) - 4);
+    
+                        // Set CPU in Supervisor mode
+                        cpu->Psr &= 0x7fff;
+                        // Load ip with the address stored in the trap vector at imm_8 << 1
+                        Cpu_SetIp(cpu, Cpu_GetMemory16(cpu, 0x00ff & (imm_8 << 1)));
+                        break;
+                    case Ssr: // Set segment register
+                        cpu->Segment[rd] = Cpu_GetRegister(cpu, rs1) + imm_8; // set segment register to rs1 + imm_8
+                        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+                        break;
+                    case Gsr: // Get segment register
+                        Cpu_SetRegister(cpu, rd, (rs1) ? cpu->Segment[rs1] : 0); // set rd to segment regiter of rs1 
+                        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+                        break;
+                    case Gpsr:
+                        Cpu_SetRegister(cpu, rd, cpu->Psr); // set rd to psr
+                        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+                        break;
+                }
+            break;
+        case Supervisor:
+            if (cpu->Psr & 0x8000) { // Supervisor mode: PSR[15] == 0
+                // TODO: Raise exception if supervisor mode is not enabled
+                break;
+            }
+    
+            switch (funct3)
+                {
+                    case Rti: // Retrurn from  interrupt
+                        // Pop return address from Supervisor Stack into ip
+                        Cpu_SetIp(cpu, Cpu_GetMemory16(cpu, Cpu_GetSegRegister(cpu, x2)));
+                        // Pop PSR from Supervisor Stack into PSR
+                        cpu->Psr = Cpu_GetMemory16(cpu, Cpu_GetSegRegister(cpu, x2) + 2);
+                        // Update Ssp
+                        Cpu_SetSegRegister(cpu, x2, Cpu_GetSegRegister(cpu, x2) + 4);
+                        // Swap stack pointer and supervisor stack pointer
+    
+                         if (cpu->Psr & 0x8000) { // Supervisor mode: PSR[15] == 0
+                            // If caller was in user mode, return to user mode, else continue in supervisor mode
+                            cpu->Ssp = Cpu_GetSegRegister(cpu, x2);
+                            Cpu_SetSegRegister(cpu, x2, cpu->Usp);
+                        }
+    
+    
+                        break;
+                    case Spsr: // Set Processor Status Register
+                    {
+                    	uint16_t imm_16 = (instruction & 0xffff0000) >> 16; // get 16-bit immediate
+                        cpu->Psr = Cpu_GetRegister(cpu, rs1) + imm_16; // set segment register to rs1 + imm_8
+                        Cpu_SetIp(cpu, Cpu_GetIp(cpu) + 4); // increment ip by 4
+                        break;
+                    		
+                    }
+                }
             break;
 
     
     default:
+        //TODO: Raise exception if opcode is not valid
         printf("Unknown opcode: %x. Instruction: %x\n", opcode, instruction);
         return ERROR_UNKNOWN_OPCODE;
     }
     //printf("executed instruction: %x, opcode: %x, func3, %b\n", instruction, opcode, funct3);
     return ERROR_NONE;
-}
-
-error_t I_ebreak(cpu_t *cpu) {
-
-	printf("EBREAK:\n");
-	// DUMP:
-	for (int i = 0; i<32; i++)
-	{
-		printf("register x%d: %x\n", i, Cpu_GetRegister(cpu, i));
-	}
-
-	printf("\nCache:\n");
-	for (int i = 0;i<16; i++)
-	{
-		printf(" %x", Cpu_GetCache8(cpu, i));
-	}
-	
-	printf("\nMachine halted: press to continue");
-	getchar();
-
-	return 0;
-}
-
-error_t I_ecall() {
-	printf("Not implemented");
-	return 0;
 }
 
 /* memory access */
@@ -423,6 +472,9 @@ void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
             break;
         case SDL_KEYDOWN:
             Cpu_SetCache8(cpu, kb->port, event->key.keysym.sym);
+            kb->interrupt.ready = 1;
+            kb->interrupt.priority = 4;
+            kb->interrupt.vector = IV_KBINCHAR;
             break;
         }
     }
@@ -446,9 +498,9 @@ error_t Video_Init(video_t *video)
     video->renderer = SDL_CreateRenderer(video->window, -1, RENDERER_FLAGS);
     video->texture = SDL_CreateTexture(video->renderer,
                                        SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STATIC, WINDOW_WIDTH, WINDOW_HEIGHT);
-    video->pixels = malloc(GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT * sizeof(uint8_t));
-    video->charbuffer = malloc(TEXT_MODE_WIDTH * TEXT_MODE_HEIGHT * sizeof(char));
-    video->line = malloc(TEXT_MODE_WIDTH * sizeof(char));
+    video->pixels = calloc(GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT, sizeof(uint8_t));
+    video->charbuffer = calloc(TEXT_MODE_WIDTH * TEXT_MODE_HEIGHT, sizeof(char));
+    video->line = calloc(TEXT_MODE_WIDTH, sizeof(char));
 
     inrenderer(video->renderer);
     prepare_inline_font();
@@ -663,9 +715,58 @@ void Disk_StoreSector(disk_t *disk, uint16_t sector_number, struct sector *secto
 // Custom devices functions
 
 
+/* interrupt handler */
+void interrupt_handler(cpu_t *cpu, struct interrupt_interface *interrupt)
+{
+    if ((interrupt->enable && interrupt->ready) && (interrupt->priority > (cpu->Psr & 0x7)))
+    {
+        // TODO: Tidy up and refactor to bitfields maybe?
+            interrupt->ready = 0;
+            if (cpu->Psr & 0x8000) {
+            // Swap stack pointer and supervisor stack pointer to enter supervisor mode
+                cpu->Usp = Cpu_GetSegRegister(cpu, x2);
+                Cpu_SetSegRegister(cpu, x2, cpu->Ssp);
+            }
+            // Push Psr into Supervisor Stack
+            Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, x2) - 2, cpu->Psr);
+            // Push ip into Supervisor stack (ip was updated by instruction executed before interrupt)
+            Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, x2) - 4, Cpu_GetIp(cpu));
+            
+            // Update Ssp
+            Cpu_SetSegRegister(cpu, x2, Cpu_GetSegRegister(cpu, x2) - 4);
+
+            // Set CPU in Supervisor mode (or leave it in it)
+            cpu->Psr &= 0x7fff;
+            // Load ip with the address stored in the interrupt vector
+            Cpu_SetIp(cpu, Cpu_GetMemory16(cpu, 0x0100 | (interrupt->vector << 1)));
+            printf("triggered interrupt: %x\n", interrupt->vector);
+    }
+}
+void handle_interrupts(cpu_t *cpu, video_t *video, drive_t *drive, kb_t *kb)
+{
+    if (Cpu_GetCache8(cpu, VIDEO_PORT_CMD)) Video_Execute(cpu, video);
+    if (Cpu_GetCache8(cpu, DISK_PORT_CMD)) Disk_Execute(cpu, drive);
+    interrupt_handler(cpu, &kb->interrupt);
+    interrupt_handler(cpu, &video->interrupt);
+    interrupt_handler(cpu, &drive->interrupt);
+    /* addenda handle interrupts */
+    // Custom devices interrupt handling
+
+}
+
+
 /* emulator initialization */
 void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_t *kb, mmu_t * mmu)
 {
+	// Disable interrupts for Video and Drive Modules
+	video->interrupt.enable = 0;
+	drive->interrupt.enable = 0;
+
+	// Enable interrupts for Kb module
+	kb->interrupt.enable = 1;
+	kb->interrupt.ready = 0;
+	kb->interrupt.vector = 0;
+	
     // Initialize systems
     Cpu_Init(cpu);
 
@@ -712,7 +813,6 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
     int quit = SDL_FALSE;
     SDL_Event event;
     struct timespec frame_start, frame_end;
-    kb->state = SDL_GetKeyboardState(NULL);
     
 	Video_Render(video);
     Kb_Execute(cpu, kb, &event, &quit);
@@ -725,8 +825,7 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
         for (size_t cycles = 0; cycles < CYCLES_PER_FRAME; cycles++)
         {
             Cpu_Cycle(cpu);
-            Video_Execute(cpu, video);
-            Disk_Execute(cpu, drive);
+            handle_interrupts(cpu, video, drive, kb);
             Tty_Execute(cpu, tty);
             /* addenda execute (after tty) */
             // Custom devices execution

@@ -31,6 +31,10 @@ The following code blocks integrate the addendas with the emulator main loop, in
 // Custom devices initialization
 ---
 
+--- addenda handle interrupts
+// Custom devices interrupt handling
+---
+
 --- addenda execute (after tty)
 // Custom devices execution
 ---

@@ -51,10 +51,8 @@ body{min-width:200px;max-width:850px;margin:0 auto;padding:30px;}.chapter-nav{fo
 typedef struct
 {
     uint8_t port;
-    const uint8_t *state;
+    struct interrupt_interface interrupt;
 } kb_t;
-
-void Kb_Handle(kb_t *kb, cpu_t *cpu);
 </pre>
 
 

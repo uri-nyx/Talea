@@ -37,14 +37,15 @@ const int ADDRESS_BUS_SIZE = 24 * Bit;
 #define WORD_SIZE 16
 
 #define MAX_MEMORY_SIZE (1 << ADDRESS_BUS_SIZE)
-#define CACHE_SIZE (1 << BYTE_SIZE)
+#define CACHE_SIZE (1 << 12)
 #define Byte 1
 #define Word 2
 
 #define REGISTER_SIZE Word
 #define SREGISTER_SIZE Byte
 
-#define  INSTRUCION_POINTER_SIZE (3 * Byte)
+#define INSTRUCION_POINTER_SIZE (3 * Byte)
+#define PSR_SIZE Byte
 
 #define REGISTER_COUNT 32
 
@@ -71,6 +72,16 @@ enum Port {
 };
 
 // #endregion
+
+/* interrupt interface */
+struct interrupt_interface
+{
+    uint8_t enable: 1;
+    uint8_t ready: 1;
+    uint8_t priority: 3;
+    uint8_t vector: 8;
+};
+
 
 // #region Error
 /* error */
@@ -118,7 +129,10 @@ typedef struct
     uint16_t General[REGISTER_COUNT];
     uint8_t Segment[REGISTER_COUNT];
     uint32_t InstructionPointer;
+    uint32_t Ssp;
+    uint32_t Usp;
     uint8_t Cache[CACHE_SIZE];
+    uint16_t Psr;
     uint8_t *Memory;
 } cpu_t;
 
@@ -166,7 +180,7 @@ error_t Tty_Write(tty_t *tty);
 typedef struct
 {
     uint8_t port;
-    const uint8_t *state;
+    struct interrupt_interface interrupt;
 } kb_t;
 
 // #endregion
@@ -193,6 +207,7 @@ typedef struct
     uint8_t *pixels;
     char *charbuffer;
     char *line;
+    struct interrupt_interface interrupt;
 
     /* sdl video internals */
         SDL_Window *window;
@@ -250,6 +265,8 @@ typedef struct
         uint8_t disk_count;
         disk_t disk_list[MAX_DISK_COUNT];
         disk_t *current_disk;
+
+        struct interrupt_interface interrupt;
 } drive_t;
 
 /* disk commands */
@@ -268,15 +285,88 @@ void Disk_StoreSector(disk_t *disk, uint16_t sector_number, struct sector *secto
 
 // #region Instruction Set 
 /* isa opcodes */
-/*
- * U-type
- * J-type
- * R-type
- * I-type
- * S-type
- * B-type
- */
+// isa.h defines constants for funct3 fields (pseudo opcodes) 
+//      and macros to tidy field extraction.
 
+// Macros
+#define get_opcode(instruction) (instruction & 0x0000007F)
+#define get_rd(instruction) (instruction & 0x00000F80) >> 7
+#define get_rs1(instruction) (instruction & 0x000F8000) >> 15
+#define get_rs2(instruction) (instruction & 0x01F00000) >> 20
+#define get_shamt(instruction) (unsigned)(instruction & 0x00F00000) >> 20
+#define get_mod(instruction) instruction & 0x40000000
+#define get_funct3(instruction) (unsigned)(instruction & 0x00007000) >> 12
+#define get_funct7(instruction) (unsigned)(instruction & 0xFE000000) >> 25
+
+#define get_imm_i(instruction) (signed)(instruction & 0xFFF00000) >> 20
+
+#define get_imm_b(instruction) ((instruction & 0x80000000) >> 19) | ((instruction & 0x00000080) << 4) | ((instruction & 0x7F000000) >> 20) | ((instruction & 0x0000F00) >> 7)
+#define make_imm_b(instruction) (instruction & 0x80000000) ? 0xe000 | get_imm_b(instruction) : get_imm_b(instruction)
+
+#define get_imm_j(instruction) (instruction & 0x80000000) >> 11 | (instruction & 0x000FF000) | ((instruction & 0x00100000) >> 9) | ((instruction & 0x7FE00000) >> 20)
+#define make_imm_j(instruction) (instruction & 0x80000000) ? 0xfff00000 | get_imm_j(instruction) : get_imm_j(instruction)
+
+#define get_imm_u(instruction) (unsigned)(instruction & 0xFFFF0000) >> 4
+
+#define get_imm_s(instruction) (instruction & 0xFF000000) >> 20 | ((instruction & 0x00000F80) >> 7)
+#define make_imm_s(instruction) (instruction & 0x80000000) ? 0xf000 | get_imm_s(instruction): get_imm_s(instruction)
+
+
+// Branches
+#define Beq 0b000
+#define Bne 0b001
+#define Blt 0b100
+#define Bge 0b101
+#define Bltu 0b110
+#define Bgeu 0b111
+
+// Loads from RAM
+#define Lb 0b000
+#define Lh 0b001
+#define Lbu 0b100
+
+// Loads from Cache
+#define Lbc 0b101
+#define Lhc 0b010
+
+// Stores to RAM
+#define Sb 0b000
+#define Sh 0b001
+
+// Stores to Cache
+#define Sbc 0b011
+#define Shc 0b010
+
+// Math Register Immediate
+#define Addi 0b000
+#define Slti 0b010
+#define Sltiu 0b011
+#define Xori 0b100
+#define Ori 0b110
+#define Andi 0b111
+#define Slli 0b001
+#define Srli_Srai 0b101
+
+// Math Register Register
+#define Add_Sub 0b000
+#define Sll 0b001
+#define Slt 0b010
+#define Sltu 0b011
+#define Xor 0b100
+#define Srl_Sra 0b101
+#define Or 0b110
+#define And 0b111
+
+// System Extension
+#define Trap 0b000
+#define Ssr 0b001
+#define Gsr 0b010
+#define Gpsr 0b011
+
+// Supervisor Extension
+#define Rti 0b000 
+#define Spsr 0b001
+			
 enum Opcode {
   Lui = 0b0110111,
   Auipc = 0b0010111,
@@ -289,13 +379,9 @@ enum Opcode {
   MathI = 0b0010011,
   MathR = 0b0110011,
 
-  E = 0b1110011,
-  /* CSR Not Implemented */
+  System = 0b1110011,
+  Supervisor = 0b1110001,
 };
-
-
-static inline error_t I_ecall(void);
-static inline error_t I_ebreak(cpu_t * cpu);
 
 // #endregion
 

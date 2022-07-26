@@ -87,6 +87,8 @@ typedef struct
         uint8_t disk_count;
         disk_t disk_list[MAX_DISK_COUNT];
         disk_t *current_disk;
+
+        struct interrupt_interface interrupt;
 } drive_t;
 </pre>
 

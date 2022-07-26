@@ -172,6 +172,8 @@ void TaleaSystem_Panic(error_t error);
 <span class="nocode pln">{ports, <a href="arch.html#1:2">1:2</a>}</span>
 // #endregion
 
+<span class="nocode pln">{interrupt interface, <a href="arch.html#1:3">1:3</a>}</span>
+
 // #region Error
 <span class="nocode pln">{error, <a href="emu.html#10:1">1</a>}</span>
 // #endregion
@@ -233,8 +235,11 @@ void TaleaSystem_Panic(error_t error);
 #include &lt;stdio.h&gt;
 #include &lt;time.h&gt;
 #include "talea.h"
+#include "isa.h"
 #include "include/inprint/SDL2_inprint.h"
 #include "include/inprint/inline_font.h"
+
+#define IV_KBINCHAR 0xfe // TODO: Remove this plz
 </pre>
 
 
@@ -369,37 +374,12 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
 <span class="nocode pln">    {isa e, <a href="isa.html#2:1">2:1</a>}</span>
     
     default:
+        //TODO: Raise exception if opcode is not valid
         printf("Unknown opcode: %x. Instruction: %x\n", opcode, instruction);
         return ERROR_UNKNOWN_OPCODE;
     }
     //printf("executed instruction: %x, opcode: %x, func3, %b\n", instruction, opcode, funct3);
     return ERROR_NONE;
-}
-
-error_t I_ebreak(cpu_t *cpu) {
-
-	printf("EBREAK:\n");
-	// DUMP:
-	for (int i = 0; i&lt;32; i++)
-	{
-		printf("register x%d: %x\n", i, Cpu_GetRegister(cpu, i));
-	}
-
-	printf("\nCache:\n");
-	for (int i = 0;i&lt;16; i++)
-	{
-		printf(" %x", Cpu_GetCache8(cpu, i));
-	}
-	
-	printf("\nMachine halted: press to continue");
-	getchar();
-
-	return 0;
-}
-
-error_t I_ecall() {
-	printf("Not implemented");
-	return 0;
 }
 </pre>
 <p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
@@ -575,45 +555,13 @@ void Tty_Execute(cpu_t *cpu, tty_t *tty)
 
 
 </div>
-<h3 id="keyboard-module-implementation">Keyboard Module Implementation</h3><p>The Keyboard Module Implementation is perhaps the clunkiest. It starts accepting text input (unicode), polls for SDL2 events, and cuts the text input inmediatly if a key was pressed. It works, but maybe it could lead to input errors. After that, <code>Kb_Handle</code> inspects the state of the keyboard at the time of the event and handles modifiers and control characters:</p>
+<h3 id="keyboard-module-implementation">Keyboard Module Implementation</h3><p>The Keyboard Module Implementation is perhaps the clunkiest. It gets a keycode in the keyboard port if a key was pressed:</p>
 <div class="codeblock">
 <span class="codeblock_name">{kb implementation <a href="emu.html#10:2">2</a>}</span>
 <pre class="prettyprint lang-c">
-void Kb_Handle(kb_t *kb, cpu_t *cpu)
-{
-    char controlChar;
-
-    if (kb-&gt;state[SDL_SCANCODE_RETURN])
-    {
-        Cpu_SetCache8(cpu, kb-&gt;port, 0x0D);
-    }
-    if (kb-&gt;state[SDL_SCANCODE_BACKSPACE])
-    {
-        Cpu_SetCache8(cpu, kb-&gt;port, 0x08);
-    }
-    if (kb-&gt;state[SDL_SCANCODE_ESCAPE])
-    {
-        Cpu_SetCache8(cpu, kb-&gt;port, 0x1B);
-    }
-    if (kb-&gt;state[SDL_SCANCODE_TAB])
-    {
-        Cpu_SetCache8(cpu, kb-&gt;port, '\t');
-    }
-    if (kb-&gt;state[SDL_SCANCODE_LCTRL])
-    {
-        // TODO: Handle control characters
-    }
-
-    // trigger interrupt if port or modifier != 0
-    if (Cpu_GetCache8(cpu, kb-&gt;port) != '\0')
-    {
-        printf("Key Port: %d\n", Cpu_GetCache8(cpu, kb-&gt;port));
-    }
-}
 
 void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
 {
-    SDL_StartTextInput();
 
     while (SDL_PollEvent(event))
     {
@@ -622,15 +570,16 @@ void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
         case SDL_QUIT:
             *quit = SDL_TRUE;
             break;
-        case SDL_TEXTINPUT:
-            SDL_StopTextInput();
-            Cpu_SetCache8(cpu, kb-&gt;port, event-&gt;text.text[0]);
+        case SDL_KEYDOWN:
+            Cpu_SetCache8(cpu, kb-&gt;port, event-&gt;key.keysym.sym);
+            kb-&gt;interrupt.ready = 1;
+            kb-&gt;interrupt.priority = 4;
+            kb-&gt;interrupt.vector = IV_KBINCHAR;
             break;
         }
-
-        Kb_Handle(kb, cpu);
     }
 }
+
 </pre>
 
 
@@ -707,9 +656,9 @@ error_t Video_Init(video_t *video)
     video-&gt;renderer = SDL_CreateRenderer(video-&gt;window, -1, RENDERER_FLAGS);
     video-&gt;texture = SDL_CreateTexture(video-&gt;renderer,
                                        SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STATIC, WINDOW_WIDTH, WINDOW_HEIGHT);
-    video-&gt;pixels = malloc(GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT * sizeof(uint8_t));
-    video-&gt;charbuffer = malloc(TEXT_MODE_WIDTH * TEXT_MODE_HEIGHT * sizeof(char));
-    video-&gt;line = malloc(TEXT_MODE_WIDTH * sizeof(char));
+    video-&gt;pixels = calloc(GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT, sizeof(uint8_t));
+    video-&gt;charbuffer = calloc(TEXT_MODE_WIDTH * TEXT_MODE_HEIGHT, sizeof(char));
+    video-&gt;line = calloc(TEXT_MODE_WIDTH, sizeof(char));
 
     inrenderer(video-&gt;renderer);
     prepare_inline_font();
@@ -976,6 +925,15 @@ void Disk_Execute(cpu_t *cpu, drive_t *drive)
 <pre class="prettyprint lang-c">
 void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_t *kb, mmu_t * mmu)
 {
+	// Disable interrupts for Video and Drive Modules
+	video-&gt;interrupt.enable = 0;
+	drive-&gt;interrupt.enable = 0;
+
+	// Enable interrupts for Kb module
+	kb-&gt;interrupt.enable = 1;
+	kb-&gt;interrupt.ready = 0;
+	kb-&gt;interrupt.vector = 0;
+	
     // Initialize systems
     Cpu_Init(cpu);
 
@@ -1029,7 +987,6 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
     int quit = SDL_FALSE;
     SDL_Event event;
     struct timespec frame_start, frame_end;
-    kb-&gt;state = SDL_GetKeyboardState(NULL);
     
 	Video_Render(video);
     Kb_Execute(cpu, kb, &amp;event, &amp;quit);
@@ -1042,8 +999,7 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
         for (size_t cycles = 0; cycles &lt; CYCLES_PER_FRAME; cycles++)
         {
             Cpu_Cycle(cpu);
-            Video_Execute(cpu, video);
-            Disk_Execute(cpu, drive);
+            handle_interrupts(cpu, video, drive, kb);
             Tty_Execute(cpu, tty);
 <span class="nocode pln">            {addenda execute (after tty), <a href="addenda.html#9:3">9:3</a>}</span>
         }
@@ -1178,6 +1134,8 @@ int main(int argc, char const *argv[])
 <span class="nocode pln">{video implementation, <a href="emu.html#10:2">2</a>}</span>
 <span class="nocode pln">{disk drive implementation, <a href="emu.html#10:2">2</a>}</span>
 <span class="nocode pln">{addenda implementation, <a href="addenda.html#9:2">9:2</a>}</span>
+
+<span class="nocode pln">{interrupt handler, <a href="arch.html#1:3">1:3</a>}</span>
 
 <span class="nocode pln">{emulator initialization, <a href="emu.html#10:2">2</a>}</span>
 

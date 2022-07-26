@@ -90,6 +90,7 @@ typedef struct
     uint8_t *pixels;
     char *charbuffer;
     char *line;
+    struct interrupt_interface interrupt;
 
     @{sdl video internals}
 } video_t;

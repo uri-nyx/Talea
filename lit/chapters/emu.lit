@@ -103,6 +103,8 @@ Thus, the header file is laid as follows:
 @{ports}
 // #endregion
 
+@{interrupt interface}
+
 // #region Error
 @{error}
 // #endregion
@@ -160,8 +162,11 @@ We will need I/O, timing, the Taleä System headers, inprint (for rendering bitm
 #include <stdio.h>
 #include <time.h>
 #include "talea.h"
+#include "isa.h"
 #include "include/inprint/SDL2_inprint.h"
 #include "include/inprint/inline_font.h"
+
+#define IV_KBINCHAR 0xfe // TODO: Remove this plz
 ---
 
 ### Clock Fucntions
@@ -280,37 +285,12 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
     @{isa e}
     
     default:
+        //TODO: Raise exception if opcode is not valid
         printf("Unknown opcode: %x. Instruction: %x\n", opcode, instruction);
         return ERROR_UNKNOWN_OPCODE;
     }
     //printf("executed instruction: %x, opcode: %x, func3, %b\n", instruction, opcode, funct3);
     return ERROR_NONE;
-}
-
-error_t I_ebreak(cpu_t *cpu) {
-
-	printf("EBREAK:\n");
-	// DUMP:
-	for (int i = 0; i<32; i++)
-	{
-		printf("register x%d: %x\n", i, Cpu_GetRegister(cpu, i));
-	}
-
-	printf("\nCache:\n");
-	for (int i = 0;i<16; i++)
-	{
-		printf(" %x", Cpu_GetCache8(cpu, i));
-	}
-	
-	printf("\nMachine halted: press to continue");
-	getchar();
-
-	return 0;
-}
-
-error_t I_ecall() {
-	printf("Not implemented");
-	return 0;
 }
 ---
 
@@ -475,6 +455,9 @@ void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
             break;
         case SDL_KEYDOWN:
             Cpu_SetCache8(cpu, kb->port, event->key.keysym.sym);
+            kb->interrupt.ready = 1;
+            kb->interrupt.priority = 4;
+            kb->interrupt.vector = IV_KBINCHAR;
             break;
         }
     }
@@ -542,9 +525,9 @@ error_t Video_Init(video_t *video)
     video->renderer = SDL_CreateRenderer(video->window, -1, RENDERER_FLAGS);
     video->texture = SDL_CreateTexture(video->renderer,
                                        SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STATIC, WINDOW_WIDTH, WINDOW_HEIGHT);
-    video->pixels = malloc(GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT * sizeof(uint8_t));
-    video->charbuffer = malloc(TEXT_MODE_WIDTH * TEXT_MODE_HEIGHT * sizeof(char));
-    video->line = malloc(TEXT_MODE_WIDTH * sizeof(char));
+    video->pixels = calloc(GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT, sizeof(uint8_t));
+    video->charbuffer = calloc(TEXT_MODE_WIDTH * TEXT_MODE_HEIGHT, sizeof(char));
+    video->line = calloc(TEXT_MODE_WIDTH, sizeof(char));
 
     inrenderer(video->renderer);
     prepare_inline_font();
@@ -783,6 +766,15 @@ Once we have implemented all the modules, the last thing to do is gluing all of 
 --- emulator initialization
 void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_t *kb, mmu_t * mmu)
 {
+	// Disable interrupts for Video and Drive Modules
+	video->interrupt.enable = 0;
+	drive->interrupt.enable = 0;
+
+	// Enable interrupts for Kb module
+	kb->interrupt.enable = 1;
+	kb->interrupt.ready = 0;
+	kb->interrupt.vector = 0;
+	
     // Initialize systems
     Cpu_Init(cpu);
 
@@ -832,7 +824,6 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
     int quit = SDL_FALSE;
     SDL_Event event;
     struct timespec frame_start, frame_end;
-    kb->state = SDL_GetKeyboardState(NULL);
     
 	Video_Render(video);
     Kb_Execute(cpu, kb, &event, &quit);
@@ -845,8 +836,7 @@ void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_
         for (size_t cycles = 0; cycles < CYCLES_PER_FRAME; cycles++)
         {
             Cpu_Cycle(cpu);
-            Video_Execute(cpu, video);
-            Disk_Execute(cpu, drive);
+            handle_interrupts(cpu, video, drive, kb);
             Tty_Execute(cpu, tty);
             @{addenda execute (after tty)}
         }
@@ -966,6 +956,8 @@ Summing up, the implementation file, `talea.c`, looks like this:
 @{video implementation}
 @{disk drive implementation}
 @{addenda implementation}
+
+@{interrupt handler}
 
 @{emulator initialization}
 

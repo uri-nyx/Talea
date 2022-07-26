@@ -1,4 +1,4 @@
-@code_type c .c
+ç@code_type c .c
 @comment_type /* %s */
 
 @title Central Processing Unit
@@ -16,7 +16,10 @@ typedef struct
     uint16_t General[REGISTER_COUNT];
     uint8_t Segment[REGISTER_COUNT];
     uint32_t InstructionPointer;
+    uint32_t Ssp;
+    uint32_t Usp;
     uint8_t Cache[CACHE_SIZE];
+    uint16_t Psr;
     uint8_t *Memory;
 } cpu_t;
 
