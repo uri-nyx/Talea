@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Emulator Implementation</title>
+<script>
+!function(){var q=null;window.PR_SHOULD_USE_CONTINUATION=!0;
+(function(){function R(a){function d(e){var b=e.charCodeAt(0);if(b!==92)return b;var a=e.charAt(1);return(b=r[a])?b:"0"<=a&&a<="7"?parseInt(e.substring(1),8):a==="u"||a==="x"?parseInt(e.substring(2),16):e.charCodeAt(1)}function g(e){if(e<32)return(e<16?"\\x0":"\\x")+e.toString(16);e=String.fromCharCode(e);return e==="\\"||e==="-"||e==="]"||e==="^"?"\\"+e:e}function b(e){var b=e.substring(1,e.length-1).match(/\\u[\dA-Fa-f]{4}|\\x[\dA-Fa-f]{2}|\\[0-3][0-7]{0,2}|\\[0-7]{1,2}|\\[\S\s]|[^\\]/g),e=[],a=
+b[0]==="^",c=["["];a&&c.push("^");for(var a=a?1:0,f=b.length;a<f;++a){var h=b[a];if(/\\[bdsw]/i.test(h))c.push(h);else{var h=d(h),l;a+2<f&&"-"===b[a+1]?(l=d(b[a+2]),a+=2):l=h;e.push([h,l]);l<65||h>122||(l<65||h>90||e.push([Math.max(65,h)|32,Math.min(l,90)|32]),l<97||h>122||e.push([Math.max(97,h)&-33,Math.min(l,122)&-33]))}}e.sort(function(e,a){return e[0]-a[0]||a[1]-e[1]});b=[];f=[];for(a=0;a<e.length;++a)h=e[a],h[0]<=f[1]+1?f[1]=Math.max(f[1],h[1]):b.push(f=h);for(a=0;a<b.length;++a)h=b[a],c.push(g(h[0])),
+h[1]>h[0]&&(h[1]+1>h[0]&&c.push("-"),c.push(g(h[1])));c.push("]");return c.join("")}function s(e){for(var a=e.source.match(/\[(?:[^\\\] ]|\\[\S\s])*]|\\u[\dA-Fa-f]{4}|\\x[\dA-Fa-f]{2}|\\\d+|\\[^\dux]|\(\?[!:=]|[()^]|[^()[\\^]+/g),c=a.length,d=[],f=0,h=0;f<c;++f){var l=a[f];l==="("?++h:"\\"===l.charAt(0)&&(l=+l.substring(1))&&(l<=h?d[l]=-1:a[f]=g(l))}for(f=1;f<d.length;++f)-1===d[f]&&(d[f]=++x);for(h=f=0;f<c;++f)l=a[f],l==="("?(++h,d[h]||(a[f]="(?:")):"\\"===l.charAt(0)&&(l=+l.substring(1))&&l<=h&&
+(a[f]="\\"+d[l]);for(f=0;f<c;++f)"^"===a[f]&&"^"!==a[f+1]&&(a[f]="");if(e.ignoreCase&&m)for(f=0;f<c;++f)l=a[f],e=l.charAt(0),l.length>=2&&e==="["?a[f]=b(l):e!=="\\"&&(a[f]=l.replace(/[A-Za-z]/g,function(a){a=a.charCodeAt(0);return"["+String.fromCharCode(a&-33,a|32)+"]"}));return a.join("")}for(var x=0,m=!1,j=!1,k=0,c=a.length;k<c;++k){var i=a[k];if(i.ignoreCase)j=!0;else if(/[a-z]/i.test(i.source.replace(/\\u[\da-f]{4}|\\x[\da-f]{2}|\\[^UXux]/gi,""))){m=!0;j=!1;break}}for(var r={b:8,t:9,n:10,v:11,
+f:12,r:13},n=[],k=0,c=a.length;k<c;++k){i=a[k];if(i.global||i.multiline)throw Error(""+i);n.push("(?:"+s(i)+")")}return RegExp(n.join("|"),j?"gi":"g")}function S(a,d){function g(a){var c=a.nodeType;if(c==1){if(!b.test(a.className)){for(c=a.firstChild;c;c=c.nextSibling)g(c);c=a.nodeName.toLowerCase();if("br"===c||"li"===c)s[j]="\n",m[j<<1]=x++,m[j++<<1|1]=a}}else if(c==3||c==4)c=a.nodeValue,c.length&&(c=d?c.replace(/\r\n?/g,"\n"):c.replace(/[\t\n\r ]+/g," "),s[j]=c,m[j<<1]=x,x+=c.length,m[j++<<1|1]=
+a)}var b=/(?:^|\s)nocode(?:\s|$)/,s=[],x=0,m=[],j=0;g(a);return{a:s.join("").replace(/\n$/,""),d:m}}function H(a,d,g,b){d&&(a={a:d,e:a},g(a),b.push.apply(b,a.g))}function T(a){for(var d=void 0,g=a.firstChild;g;g=g.nextSibling)var b=g.nodeType,d=b===1?d?a:g:b===3?U.test(g.nodeValue)?a:d:d;return d===a?void 0:d}function D(a,d){function g(a){for(var j=a.e,k=[j,"pln"],c=0,i=a.a.match(s)||[],r={},n=0,e=i.length;n<e;++n){var z=i[n],w=r[z],t=void 0,f;if(typeof w==="string")f=!1;else{var h=b[z.charAt(0)];
+if(h)t=z.match(h[1]),w=h[0];else{for(f=0;f<x;++f)if(h=d[f],t=z.match(h[1])){w=h[0];break}t||(w="pln")}if((f=w.length>=5&&"lang-"===w.substring(0,5))&&!(t&&typeof t[1]==="string"))f=!1,w="src";f||(r[z]=w)}h=c;c+=z.length;if(f){f=t[1];var l=z.indexOf(f),B=l+f.length;t[2]&&(B=z.length-t[2].length,l=B-f.length);w=w.substring(5);H(j+h,z.substring(0,l),g,k);H(j+h+l,f,I(w,f),k);H(j+h+B,z.substring(B),g,k)}else k.push(j+h,w)}a.g=k}var b={},s;(function(){for(var g=a.concat(d),j=[],k={},c=0,i=g.length;c<i;++c){var r=
+g[c],n=r[3];if(n)for(var e=n.length;--e>=0;)b[n.charAt(e)]=r;r=r[1];n=""+r;k.hasOwnProperty(n)||(j.push(r),k[n]=q)}j.push(/[\S\s]/);s=R(j)})();var x=d.length;return g}function v(a){var d=[],g=[];a.tripleQuotedStrings?d.push(["str",/^(?:'''(?:[^'\\]|\\[\S\s]|''?(?=[^']))*(?:'''|$)|"""(?:[^"\\]|\\[\S\s]|""?(?=[^"]))*(?:"""|$)|'(?:[^'\\]|\\[\S\s])*(?:'|$)|"(?:[^"\\]|\\[\S\s])*(?:"|$))/,q,"'\""]):a.multiLineStrings?d.push(["str",/^(?:'(?:[^'\\]|\\[\S\s])*(?:'|$)|"(?:[^"\\]|\\[\S\s])*(?:"|$)|`(?:[^\\`]|\\[\S\s])*(?:`|$))/,
+q,"'\"`"]):d.push(["str",/^(?:'(?:[^\n\r'\\]|\\.)*(?:'|$)|"(?:[^\n\r"\\]|\\.)*(?:"|$))/,q,"\"'"]);a.verbatimStrings&&g.push(["str",/^@"(?:[^"]|"")*(?:"|$)/,q]);var b=a.hashComments;b&&(a.cStyleComments?(b>1?d.push(["com",/^#(?:##(?:[^#]|#(?!##))*(?:###|$)|.*)/,q,"#"]):d.push(["com",/^#(?:(?:define|e(?:l|nd)if|else|error|ifn?def|include|line|pragma|undef|warning)\b|[^\n\r]*)/,q,"#"]),g.push(["str",/^<(?:(?:(?:\.\.\/)*|\/?)(?:[\w-]+(?:\/[\w-]+)+)?[\w-]+\.h(?:h|pp|\+\+)?|[a-z]\w*)>/,q])):d.push(["com",
+/^#[^\n\r]*/,q,"#"]));a.cStyleComments&&(g.push(["com",/^\/\/[^\n\r]*/,q]),g.push(["com",/^\/\*[\S\s]*?(?:\*\/|$)/,q]));if(b=a.regexLiterals){var s=(b=b>1?"":"\n\r")?".":"[\\S\\s]";g.push(["lang-regex",RegExp("^(?:^^\\.?|[+-]|[!=]=?=?|\\#|%=?|&&?=?|\\(|\\*=?|[+\\-]=|->|\\/=?|::?|<<?=?|>>?>?=?|,|;|\\?|@|\\[|~|{|\\^\\^?=?|\\|\\|?=?|break|case|continue|delete|do|else|finally|instanceof|return|throw|try|typeof)\\s*("+("/(?=[^/*"+b+"])(?:[^/\\x5B\\x5C"+b+"]|\\x5C"+s+"|\\x5B(?:[^\\x5C\\x5D"+b+"]|\\x5C"+
+s+")*(?:\\x5D|$))+/")+")")])}(b=a.types)&&g.push(["typ",b]);b=(""+a.keywords).replace(/^ | $/g,"");b.length&&g.push(["kwd",RegExp("^(?:"+b.replace(/[\s,]+/g,"|")+")\\b"),q]);d.push(["pln",/^\s+/,q," \r\n\t\u00a0"]);b="^.[^\\s\\w.$@'\"`/\\\\]*";a.regexLiterals&&(b+="(?!s*/)");g.push(["lit",/^@[$_a-z][\w$@]*/i,q],["typ",/^(?:[@_]?[A-Z]+[a-z][\w$@]*|\w+_t\b)/,q],["pln",/^[$_a-z][\w$@]*/i,q],["lit",/^(?:0x[\da-f]+|(?:\d(?:_\d+)*\d*(?:\.\d*)?|\.\d\+)(?:e[+-]?\d+)?)[a-z]*/i,q,"0123456789"],["pln",/^\\[\S\s]?/,
+q],["pun",RegExp(b),q]);return D(d,g)}function J(a,d,g){function b(a){var c=a.nodeType;if(c==1&&!x.test(a.className))if("br"===a.nodeName)s(a),a.parentNode&&a.parentNode.removeChild(a);else for(a=a.firstChild;a;a=a.nextSibling)b(a);else if((c==3||c==4)&&g){var d=a.nodeValue,i=d.match(m);if(i)c=d.substring(0,i.index),a.nodeValue=c,(d=d.substring(i.index+i[0].length))&&a.parentNode.insertBefore(j.createTextNode(d),a.nextSibling),s(a),c||a.parentNode.removeChild(a)}}function s(a){function b(a,c){var d=
+c?a.cloneNode(!1):a,e=a.parentNode;if(e){var e=b(e,1),g=a.nextSibling;e.appendChild(d);for(var i=g;i;i=g)g=i.nextSibling,e.appendChild(i)}return d}for(;!a.nextSibling;)if(a=a.parentNode,!a)return;for(var a=b(a.nextSibling,0),d;(d=a.parentNode)&&d.nodeType===1;)a=d;c.push(a)}for(var x=/(?:^|\s)nocode(?:\s|$)/,m=/\r\n?|\n/,j=a.ownerDocument,k=j.createElement("li");a.firstChild;)k.appendChild(a.firstChild);for(var c=[k],i=0;i<c.length;++i)b(c[i]);d===(d|0)&&c[0].setAttribute("value",d);var r=j.createElement("ol");
+r.className="linenums";for(var d=Math.max(0,d-1|0)||0,i=0,n=c.length;i<n;++i)k=c[i],k.className="L"+(i+d)%10,k.firstChild||k.appendChild(j.createTextNode("\u00a0")),r.appendChild(k);a.appendChild(r)}function p(a,d){for(var g=d.length;--g>=0;){var b=d[g];F.hasOwnProperty(b)?E.console&&console.warn("cannot override language handler %s",b):F[b]=a}}function I(a,d){if(!a||!F.hasOwnProperty(a))a=/^\s*</.test(d)?"default-markup":"default-code";return F[a]}function K(a){var d=a.h;try{var g=S(a.c,a.i),b=g.a;
+a.a=b;a.d=g.d;a.e=0;I(d,b)(a);var s=/\bMSIE\s(\d+)/.exec(navigator.userAgent),s=s&&+s[1]<=8,d=/\n/g,x=a.a,m=x.length,g=0,j=a.d,k=j.length,b=0,c=a.g,i=c.length,r=0;c[i]=m;var n,e;for(e=n=0;e<i;)c[e]!==c[e+2]?(c[n++]=c[e++],c[n++]=c[e++]):e+=2;i=n;for(e=n=0;e<i;){for(var p=c[e],w=c[e+1],t=e+2;t+2<=i&&c[t+1]===w;)t+=2;c[n++]=p;c[n++]=w;e=t}c.length=n;var f=a.c,h;if(f)h=f.style.display,f.style.display="none";try{for(;b<k;){var l=j[b+2]||m,B=c[r+2]||m,t=Math.min(l,B),A=j[b+1],G;if(A.nodeType!==1&&(G=x.substring(g,
+t))){s&&(G=G.replace(d,"\r"));A.nodeValue=G;var L=A.ownerDocument,o=L.createElement("span");o.className=c[r+1];var v=A.parentNode;v.replaceChild(o,A);o.appendChild(A);g<l&&(j[b+1]=A=L.createTextNode(x.substring(t,l)),v.insertBefore(A,o.nextSibling))}g=t;g>=l&&(b+=2);g>=B&&(r+=2)}}finally{if(f)f.style.display=h}}catch(u){E.console&&console.log(u&&u.stack||u)}}var E=window,y=["break,continue,do,else,for,if,return,while"],C=[[y,"auto,case,char,const,default,double,enum,extern,float,goto,inline,int,long,register,short,signed,sizeof,static,struct,switch,typedef,union,unsigned,void,volatile"],
+"catch,class,delete,false,import,new,operator,private,protected,public,this,throw,true,try,typeof"],M=[C,"alignof,align_union,asm,axiom,bool,concept,concept_map,const_cast,constexpr,decltype,delegate,dynamic_cast,explicit,export,friend,generic,late_check,mutable,namespace,nullptr,property,reinterpret_cast,static_assert,static_cast,template,typeid,typename,using,virtual,where"],V=[C,"abstract,assert,boolean,byte,extends,final,finally,implements,import,instanceof,interface,null,native,package,strictfp,super,synchronized,throws,transient"],
+N=[C,"abstract,as,base,bool,by,byte,checked,decimal,delegate,descending,dynamic,event,finally,fixed,foreach,from,group,implicit,in,interface,internal,into,is,let,lock,null,object,out,override,orderby,params,partial,readonly,ref,sbyte,sealed,stackalloc,string,select,uint,ulong,unchecked,unsafe,ushort,var,virtual,where"],C=[C,"debugger,eval,export,function,get,null,set,undefined,var,with,Infinity,NaN"],O=[y,"and,as,assert,class,def,del,elif,except,exec,finally,from,global,import,in,is,lambda,nonlocal,not,or,pass,print,raise,try,with,yield,False,True,None"],
+P=[y,"alias,and,begin,case,class,def,defined,elsif,end,ensure,false,in,module,next,nil,not,or,redo,rescue,retry,self,super,then,true,undef,unless,until,when,yield,BEGIN,END"],W=[y,"as,assert,const,copy,drop,enum,extern,fail,false,fn,impl,let,log,loop,match,mod,move,mut,priv,pub,pure,ref,self,static,struct,true,trait,type,unsafe,use"],y=[y,"case,done,elif,esac,eval,fi,function,in,local,set,then,until"],Q=/^(DIR|FILE|vector|(de|priority_)?queue|list|stack|(const_)?iterator|(multi)?(set|map)|bitset|u?(int|float)\d*)\b/,
+U=/\S/,X=v({keywords:[M,N,C,"caller,delete,die,do,dump,elsif,eval,exit,foreach,for,goto,if,import,last,local,my,next,no,our,print,package,redo,require,sub,undef,unless,until,use,wantarray,while,BEGIN,END",O,P,y],hashComments:!0,cStyleComments:!0,multiLineStrings:!0,regexLiterals:!0}),F={};p(X,["default-code"]);p(D([],[["pln",/^[^<?]+/],["dec",/^<!\w[^>]*(?:>|$)/],["com",/^<\!--[\S\s]*?(?:--\>|$)/],["lang-",/^<\?([\S\s]+?)(?:\?>|$)/],["lang-",/^<%([\S\s]+?)(?:%>|$)/],["pun",/^(?:<[%?]|[%?]>)/],["lang-",
+/^<xmp\b[^>]*>([\S\s]+?)<\/xmp\b[^>]*>/i],["lang-js",/^<script\b[^>]*>([\S\s]*?)(<\/script\b[^>]*>)/i],["lang-css",/^<style\b[^>]*>([\S\s]*?)(<\/style\b[^>]*>)/i],["lang-in.tag",/^(<\/?[a-z][^<>]*>)/i] ]),["default-markup","htm","html","mxml","xhtml","xml","xsl"]);p(D([["pln",/^\s+/,q," \t\r\n"],["atv",/^(?:"[^"]*"?|'[^']*'?)/,q,"\"'"] ],[["tag",/^^<\/?[a-z](?:[\w-.:]*\w)?|\/?>$/i],["atn",/^(?!style[\s=]|on)[a-z](?:[\w:-]*\w)?/i],["lang-uq.val",/^=\s*([^\s"'>]*(?:[^\s"'/>]|\/(?=\s)))/],["pun",/^[/<->]+/],
+["lang-js",/^on\w+\s*=\s*"([^"]+)"/i],["lang-js",/^on\w+\s*=\s*'([^']+)'/i],["lang-js",/^on\w+\s*=\s*([^\s"'>]+)/i],["lang-css",/^style\s*=\s*"([^"]+)"/i],["lang-css",/^style\s*=\s*'([^']+)'/i],["lang-css",/^style\s*=\s*([^\s"'>]+)/i] ]),["in.tag"]);p(D([],[["atv",/^[\S\s]+/] ]),["uq.val"]);p(v({keywords:M,hashComments:!0,cStyleComments:!0,types:Q}),["c","cc","cpp","cxx","cyc","m"]);p(v({keywords:"null,true,false"}),["json"]);p(v({keywords:N,hashComments:!0,cStyleComments:!0,verbatimStrings:!0,types:Q}),
+["cs"]);p(v({keywords:V,cStyleComments:!0}),["java"]);p(v({keywords:y,hashComments:!0,multiLineStrings:!0}),["bash","bsh","csh","sh"]);p(v({keywords:O,hashComments:!0,multiLineStrings:!0,tripleQuotedStrings:!0}),["cv","py","python"]);p(v({keywords:"caller,delete,die,do,dump,elsif,eval,exit,foreach,for,goto,if,import,last,local,my,next,no,our,print,package,redo,require,sub,undef,unless,until,use,wantarray,while,BEGIN,END",hashComments:!0,multiLineStrings:!0,regexLiterals:2}),["perl","pl","pm"]);p(v({keywords:P,
+hashComments:!0,multiLineStrings:!0,regexLiterals:!0}),["rb","ruby"]);p(v({keywords:C,cStyleComments:!0,regexLiterals:!0}),["javascript","js"]);p(v({keywords:"all,and,by,catch,class,else,extends,false,finally,for,if,in,is,isnt,loop,new,no,not,null,of,off,on,or,return,super,then,throw,true,try,unless,until,when,while,yes",hashComments:3,cStyleComments:!0,multilineStrings:!0,tripleQuotedStrings:!0,regexLiterals:!0}),["coffee"]);p(v({keywords:W,cStyleComments:!0,multilineStrings:!0}),["rc","rs","rust"]);
+p(D([],[["str",/^[\S\s]+/] ]),["regex"]);var Y=E.PR={createSimpleLexer:D,registerLangHandler:p,sourceDecorator:v,PR_ATTRIB_NAME:"atn",PR_ATTRIB_VALUE:"atv",PR_COMMENT:"com",PR_DECLARATION:"dec",PR_KEYWORD:"kwd",PR_LITERAL:"lit",PR_NOCODE:"nocode",PR_PLAIN:"pln",PR_PUNCTUATION:"pun",PR_SOURCE:"src",PR_STRING:"str",PR_TAG:"tag",PR_TYPE:"typ",prettyPrintOne:E.prettyPrintOne=function(a,d,g){var b=document.createElement("div");b.innerHTML="<pre>"+a+"</pre>";b=b.firstChild;g&&J(b,g,!0);K({h:d,j:g,c:b,i:1});
+return b.innerHTML},prettyPrint:E.prettyPrint=function(a,d){function g(){for(var b=E.PR_SHOULD_USE_CONTINUATION?c.now()+250:Infinity;i<p.length&&c.now()<b;i++){for(var d=p[i],j=h,k=d;k=k.previousSibling;){var m=k.nodeType,o=(m===7||m===8)&&k.nodeValue;if(o?!/^\??prettify\b/.test(o):m!==3||/\S/.test(k.nodeValue))break;if(o){j={};o.replace(/\b(\w+)=([\w%+\-.:]+)/g,function(a,b,c){j[b]=c});break}}k=d.className;if((j!==h||e.test(k))&&!v.test(k)){m=!1;for(o=d.parentNode;o;o=o.parentNode)if(f.test(o.tagName)&&
+o.className&&e.test(o.className)){m=!0;break}if(!m){d.className+=" prettyprinted";m=j.lang;if(!m){var m=k.match(n),y;if(!m&&(y=T(d))&&t.test(y.tagName))m=y.className.match(n);m&&(m=m[1])}if(w.test(d.tagName))o=1;else var o=d.currentStyle,u=s.defaultView,o=(o=o?o.whiteSpace:u&&u.getComputedStyle?u.getComputedStyle(d,q).getPropertyValue("white-space"):0)&&"pre"===o.substring(0,3);u=j.linenums;if(!(u=u==="true"||+u))u=(u=k.match(/\blinenums\b(?::(\d+))?/))?u[1]&&u[1].length?+u[1]:!0:!1;u&&J(d,u,o);r=
+{h:m,c:d,j:u,i:o};K(r)}}}i<p.length?setTimeout(g,250):"function"===typeof a&&a()}for(var b=d||document.body,s=b.ownerDocument||document,b=[b.getElementsByTagName("pre"),b.getElementsByTagName("code"),b.getElementsByTagName("xmp")],p=[],m=0;m<b.length;++m)for(var j=0,k=b[m].length;j<k;++j)p.push(b[m][j]);var b=q,c=Date;c.now||(c={now:function(){return+new Date}});var i=0,r,n=/\blang(?:uage)?-([\w.]+)(?!\S)/,e=/\bprettyprint\b/,v=/\bprettyprinted\b/,w=/pre|xmp/i,t=/^code$/i,f=/^(?:pre|code|xmp)$/i,
+h={};g()}};typeof define==="function"&&define.amd&&define("google-code-prettify",[],function(){return Y})})();}()
+</script>
+<style>
+.pln{color:#1b181b}.str{color:#918b3b}.kwd{color:#7b59c0}.com{color:#9e8f9e}.typ{color:#516aec}.lit{color:#a65926}.clo,.opn,.pun{color:#1b181b}.tag{color:#ca402b}.atn{color:#a65926}.atv{color:#159393}.dec{color:#a65926}.var{color:#ca402b}.fun{color:#516aec}pre.prettyprint{background:#f7f3f7;color:#ab9bab;font-family:Menlo,Consolas,"Bitstream Vera Sans Mono","DejaVu Sans Mono",Monaco,monospace;font-size:12px;line-height:1.5;border:1px solid #d8cad8;padding:10px}ol.linenums{margin-top:0;margin-bottom:0}
+body{min-width:200px;max-width:850px;margin:0 auto;padding:30px;}.chapter-nav{font-size: 10pt;}a:link,a:visited{color:#00f}.codeblock_name,code,pre.prettyprint{font-family:Monaco,"Lucida Console",monospace}body{font-size:14pt}.codeblock_name,.math,.seealso,code{font-size:10pt}.codeblock{page-break-inside:avoid;padding-bottom:15px}.math{text-indent:0}pre.prettyprint{font-size:10pt;padding:10px;border-radius:10px;border:none;white-space:pre-wrap}.codeblock_name{margin-top:1.25em;display:block}a:link{text-decoration:none}a:link:not(.lit):hover{color:#00f;text-decoration:underline}a:link:active{color:red}h4{padding-right:1.25em}h4.noheading{margin-bottom:0}h1{text-align:center}code{padding:2px}pre{-moz-tab-size:4;-o-tab-size:4;tab-size:4}p:not(.notp){margin:0;text-indent:2em}.two-col{list-style-type:none}.two-col li:before{content:'-';padding:5px;margin-right:5px;color:orange;background-color:#fff;display:inline-block}@media print{body{font-size:10pt}pre.prettyprint{font-size:8pt}.seealso{font-size:9pt}.codeblock_name,.math,code{font-size:8pt}.math{text-indent:0}}
+</style>
+</head>
+<body onload="prettyPrint()">
+<section>
+<h1>Emulator Implementation</h1>
+<a name="10:1"><div class="section"><h4>1. Header File</h4></a>
+<p>The contents of the header file have already been defined in previous chapters, save for some constants that are more related to the implementaation than the architecture itself:</p>
+<div class="codeblock">
+<span class="codeblock_name">{frequencies <a href="emu.html#10:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+#define FPS 60
+#define MHz 1000000
+#define SYSTEM_CLOCK_FREQUENCY 10 * MHz
+#define CYCLES_TO_RENDER 666
+const int CYCLES_PER_FRAME = (SYSTEM_CLOCK_FREQUENCY / FPS) - CYCLES_TO_RENDER;
+const int MILLISECONDS_PER_FRAME = 1000 / FPS;
+</pre>
+
+
+
+</div>
+
+<div class="codeblock">
+<span class="codeblock_name">{paths <a href="emu.html#10:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+#define TTY_FILE_PATH "devices/tty.txt"
+#define DISK_FILE_PATH "devices/drive0/disk"
+</pre>
+
+
+
+</div>
+
+<div class="codeblock">
+<span class="codeblock_name">{renderer flags <a href="emu.html#10:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+#define RENDERER_FLAGS SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+#define WINDOW_WIDTH 640
+#define WINDOW_HEIGHT 400
+</pre>
+
+
+
+</div>
+
+<div class="codeblock">
+<span class="codeblock_name">{implementation constants <a href="emu.html#10:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+<span class="nocode pln">{paths, <a href="emu.html#10:1">1</a>}</span>
+
+<span class="nocode pln">{renderer flags, <a href="emu.html#10:1">1</a>}</span>
+
+<span class="nocode pln">{frequencies, <a href="emu.html#10:1">1</a>}</span>
+</pre>
+
+
+
+</div>
+<p>Along with the frequencies, we will define a clock to coordinate video rendering and cpu execution:</p>
+<div class="codeblock">
+<span class="codeblock_name">{clock prototypes <a href="emu.html#10:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+struct clock
+{
+    clock_t start, end;
+    double cpu_time_used;
+    double frame_took;
+};
+
+// CLock functions are used to time a frame roughly to 16 ms
+void Clock_FrameStart(struct clock *clk);
+void Clock_FrameEnd(struct clock *clk);
+</pre>
+
+
+
+</div>
+<p>We will also define some error codes and an error handler (different from the exception handler of the cpu):</p>
+<div class="codeblock">
+<span class="codeblock_name">{error <a href="emu.html#10:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+typedef enum {
+    ERROR_UNKNOWN = -1,
+    ERROR_NONE = 0,
+
+    // Tty errors
+    TTY_ERROR_WRITE_FAILED,
+    TTY_ERROR_CLOSE_FAILED,
+
+    // Video errors
+    VIDEO_ERROR_INIT_FAILED,
+    VIDEO_ERROR_INVALID_MODE,
+    VIDEO_ERROR_INVALID_COORDINATE,
+
+    DISK_ERROR_OPEN_FAILED,
+
+    ERROR_UNKNOWN_OPCODE,
+} error_t;
+
+void TaleaSystem_Panic(error_t error);
+</pre>
+
+
+
+</div>
+<p>And set up some internals needed by SDL2 in the video structure:</p>
+<div class="codeblock">
+<span class="codeblock_name">{sdl video internals <a href="emu.html#10:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    SDL_Texture *texture;
+</pre>
+
+
+<p class="seealso">Used in section <a href="video.html#7:5">7:5</a></p>
+</div>
+<p>Thus, the header file is laid as follows:</p>
+<div class="codeblock">
+<span class="codeblock_name">{<strong>talea.h</strong> <a href="emu.html#10:1">1</a>}</span>
+<pre class="prettyprint lang-c">
+#pragma once
+
+#include &lt;stdint.h&gt;
+#include &lt;SDL2/SDL.h&gt;
+
+<span class="nocode pln">{implementation constants, <a href="emu.html#10:1">1</a>}</span>
+
+// #region Architecture
+<span class="nocode pln">{sizes, <a href="arch.html#1:1">1:1</a>}</span>
+<span class="nocode pln">{register indexes, <a href="arch.html#1:1">1:1</a>}</span>
+<span class="nocode pln">{ports, <a href="arch.html#1:2">1:2</a>}</span>
+// #endregion
+
+<span class="nocode pln">{interrupt interface, <a href="arch.html#1:3">1:3</a>}</span>
+
+// #region Error
+<span class="nocode pln">{error, <a href="emu.html#10:1">1</a>}</span>
+// #endregion
+
+// #region Clock
+<span class="nocode pln">{clock prototypes, <a href="emu.html#10:1">1</a>}</span>
+// #endregion
+
+// #region Cpu
+<span class="nocode pln">{cpu, <a href="cpu.html#3:1">3:1</a>}</span>
+// #endregion
+
+// #region Mmu
+<span class="nocode pln">{mmu, <a href="mmu.html#4:1">4:1</a>}</span>
+// #endregion
+
+// #region Tty
+<span class="nocode pln">{tty, <a href="tty.html#5:1">5:1</a>}</span>
+// #endregion
+
+// #region Keyboard
+<span class="nocode pln">{kb, <a href="kb.html#6:1">6:1</a>}</span>
+// #endregion
+
+// #region Video
+<span class="nocode pln">{video modes, <a href="video.html#7:1">7:1</a>}</span>
+<span class="nocode pln">{video controller, <a href="video.html#7:5">7:5</a>}</span>
+<span class="nocode pln">{video commands, <a href="video.html#7:2">7:2</a>}</span>
+<span class="nocode pln">{text mode commands prototypes, <a href="video.html#7:3">7:3</a>}</span>
+<span class="nocode pln">{graphic mode commands prototypes, <a href="video.html#7:4">7:4</a>}</span>
+// #endregion
+
+// #region Disk
+<span class="nocode pln">{sector, <a href="disk.html#8:1">8:1</a>}</span>
+<span class="nocode pln">{disk, <a href="disk.html#8:1">8:1</a>}</span>
+<span class="nocode pln">{disk commands, <a href="disk.html#8:2">8:2</a>}</span>
+<span class="nocode pln">{disk commands prototypes, <a href="disk.html#8:2">8:2</a>}</span>
+// #endregion
+
+// #region Instruction Set 
+<span class="nocode pln">{isa opcodes, <a href="isa.html#2:1">2:1</a>}</span>
+// #endregion
+
+// #region Addenda
+// For future system ampliations or custom devices
+<span class="nocode pln">{addenda header, <a href="addenda.html#9:1">9:1</a>}</span>
+// #endregion
+</pre>
+
+
+
+</div>
+</div>
+<a name="10:2"><div class="section"><h4>2. Implementation File</h4></a>
+<p>We will need I/O, timing, the Taleä System headers, inprint (for rendering bitmap text with sdl2, and an inline font in XBM format for the task:</p>
+<div class="codeblock">
+<span class="codeblock_name">{implementation includes <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+#include &lt;stdio.h&gt;
+#include &lt;time.h&gt;
+#include "talea.h"
+#include "isa.h"
+#include "include/inprint/SDL2_inprint.h"
+#include "include/inprint/inline_font.h"
+
+#define IV_KBINCHAR 0xfe // TODO: Remove this plz
+</pre>
+
+
+
+</div>
+<h3 id="clock-fucntions">Clock Fucntions</h3><p>We will start by implementing the clock functions that time the emulator execution. <code>Clock_FrameStart</code> will start counting, and <code>Clock_FrameEnd</code> will stop and calculate how much time it took to render. If it was less than 16ms (60 fps), it will delay execution until that lapse is reached.</p>
+<div class="codeblock">
+<span class="codeblock_name">{clock implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+void Clock_FrameStart(struct clock *clk)
+{
+    clk-&gt;start = clock();
+}
+
+void Clock_FrameEnd(struct clock *clk)
+{
+    clk-&gt;end = clock();
+    clk-&gt;cpu_time_used = ((double)(clk-&gt;end - clk-&gt;start)) / CLOCKS_PER_SEC;
+    clk-&gt;frame_took = 16 - (clk-&gt;cpu_time_used * 1000);
+    if (clk-&gt;frame_took &gt; 0)
+        SDL_Delay(clk-&gt;frame_took);
+}
+</pre>
+
+
+
+</div>
+<h3 id="helper-miscellaneous-functions">Helper Miscellaneous functions</h3><p>This is a little function used to ensure addresses are treated as 24bit numbers across the system.</p><ul><li><code>trimAddr</code> ensures that addresses (passed as <code>uint32_t</code> parameters for the lack of 24 bit numbers) stick to a 24bit limit.</li></ul>
+<div class="codeblock">
+<span class="codeblock_name">{helpers <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+
+static inline uint32_t trimAddr(uint32_t addr)
+{
+    return addr &amp; 0x00FFFFFF;
+}
+</pre>
+
+
+
+</div>
+<h3 id="cpu-module">Cpu Module</h3><p>We will now implement the functions already defined in @{cpu}. <code>Init</code> will initialize and allocate all memory to 0. <code>Reset</code> will reset all of the cpu memories to 0. <code>Destroy</code> will free all memory used by the module:</p>
+<div class="codeblock">
+<span class="codeblock_name">{cpu initialization and deinitialization <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+void Cpu_Init(cpu_t *cpu)
+{
+	cpu-&gt;InstructionPointer = 0;
+    cpu-&gt;Memory = malloc(sizeof(uint8_t) * MAX_MEMORY_SIZE);
+    memset(cpu-&gt;General, 0, sizeof(cpu-&gt;General));
+    memset(cpu-&gt;Segment, 0, sizeof(cpu-&gt;Segment));
+    memset(cpu-&gt;Cache, 0, sizeof(cpu-&gt;Cache));
+    memset(cpu-&gt;Memory, 0, sizeof(uint8_t) * MAX_MEMORY_SIZE);
+}
+
+void Cpu_Reset(cpu_t *cpu)
+{
+	cpu-&gt;InstructionPointer = 0;
+    memset(cpu-&gt;General, 0, sizeof(cpu-&gt;General));
+    memset(cpu-&gt;Segment, 0, sizeof(cpu-&gt;Segment));
+    memset(cpu-&gt;Cache, 0, sizeof(cpu-&gt;Cache));
+    memset(cpu-&gt;Memory, 0, sizeof(uint8_t) * MAX_MEMORY_SIZE);
+}
+
+void Cpu_Destroy(cpu_t *cpu)
+{
+    free(cpu-&gt;Memory);
+}
+</pre>
+
+
+
+</div>
+<p><code>Cycle</code> will perform a <code>fetch</code>, <code>decode</code>, <code>execute</code> cycle:</p>
+<div class="codeblock">
+<span class="codeblock_name">{FDE cycle <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+void Cpu_Cycle(cpu_t *cpu)
+{
+    error_t error = Cpu_Execute(cpu, Cpu_Fetch(cpu));
+
+    if (error != ERROR_NONE)
+    {
+        TaleaSystem_Panic(error);
+    }
+}
+</pre>
+<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p><code>Fetch</code> will fetch the next opcode to execute (a byte) from RAM:</p>
+<div class="codeblock">
+<span class="codeblock_name">{FDE cycle <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+uint32_t Cpu_Fetch(cpu_t *cpu)
+{
+    uint32_t instruction = 0;
+    instruction |= (uint32_t)cpu-&gt;Memory[trimAddr(cpu-&gt;InstructionPointer + 3)] &lt;&lt; 24;
+    instruction |= (uint32_t)cpu-&gt;Memory[trimAddr(cpu-&gt;InstructionPointer + 2)] &lt;&lt; 16;
+    instruction |= (uint32_t)cpu-&gt;Memory[trimAddr(cpu-&gt;InstructionPointer + 1)] &lt;&lt; 8;
+    instruction |= (uint32_t)cpu-&gt;Memory[trimAddr(cpu-&gt;InstructionPointer)];
+    return instruction;
+}
+</pre>
+<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p><code>Execute</code> will execute the correspondent instruction:</p>
+<div class="codeblock">
+<span class="codeblock_name">{FDE cycle <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
+{
+
+<span class="nocode pln">	{isa fields, <a href="isa.html#2:1">2:1</a>}</span>
+	
+    switch (opcode)
+    {
+<span class="nocode pln">    {isa lui, <a href="isa.html#2:1">2:1</a>}</span>
+<span class="nocode pln">	{isa auipc, <a href="isa.html#2:1">2:1</a>}</span>
+<span class="nocode pln">    {isa jal, <a href="isa.html#2:1">2:1</a>}</span>
+<span class="nocode pln">    {isa jalr, <a href="isa.html#2:1">2:1</a>}</span>
+
+<span class="nocode pln">	{isa branches, <a href="isa.html#2:1">2:1</a>}</span>
+<span class="nocode pln">    {isa loads, <a href="isa.html#2:1">2:1</a>}</span>
+<span class="nocode pln">    {isa stores, <a href="isa.html#2:1">2:1</a>}</span>
+<span class="nocode pln">    {isa mathi, <a href="isa.html#2:1">2:1</a>}</span>
+<span class="nocode pln">    {isa mathr, <a href="isa.html#2:1">2:1</a>}</span>
+    
+<span class="nocode pln">    {isa e, <a href="isa.html#2:1">2:1</a>}</span>
+    
+    default:
+        //TODO: Raise exception if opcode is not valid
+        printf("Unknown opcode: %x. Instruction: %x\n", opcode, instruction);
+        return ERROR_UNKNOWN_OPCODE;
+    }
+    //printf("executed instruction: %x, opcode: %x, func3, %b\n", instruction, opcode, funct3);
+    return ERROR_NONE;
+}
+</pre>
+<p class="seealso">Added to in section <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<h4 id="cpu-memory-access-functions">Cpu Memory Access Functions</h4><p>Now we will implement the functions used to get and set memory, as defined in @{cpu}. First to get and set <code>ip</code>:</p>
+<div class="codeblock">
+<span class="codeblock_name">{memory access <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+static inline uint32_t Cpu_GetIp(cpu_t *cpu) 
+{
+    return trimAddr(cpu-&gt;InstructionPointer);
+}
+
+static inline void Cpu_SetIp(cpu_t *cpu, uint32_t value)
+{
+    cpu-&gt;InstructionPointer = trimAddr(value);
+}
+</pre>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p>To get and set values on any index of the register file:</p>
+<div class="codeblock">
+<span class="codeblock_name">{memory access <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+static inline uint16_t Cpu_GetRegister(cpu_t *cpu, enum RegisterIndex index)
+{
+    return (index) ? cpu-&gt;General[index] : 0;
+}
+
+static inline void Cpu_SetRegister(cpu_t *cpu,  enum RegisterIndex index, uint16_t value)
+{
+    cpu-&gt;General[index] = value;
+}
+
+static inline uint32_t Cpu_GetSegRegister(cpu_t *cpu, enum RegisterIndex index)
+{
+    return (index) ? (uint32_t)cpu-&gt;Segment[index] &lt;&lt; 16 | cpu-&gt;General[index] : 0;
+}
+static inline void Cpu_SetSegRegister(cpu_t *cpu, enum RegisterIndex index, uint32_t value)
+{
+    cpu-&gt;Segment[index] = (value &gt;&gt; 16);
+    cpu-&gt;General[index] = (uint16_t)value;
+}
+</pre>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p>To get and set values on cache:</p>
+<div class="codeblock">
+<span class="codeblock_name">{memory access <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+inline uint8_t Cpu_GetCache8(cpu_t *cpu, uint8_t addr)
+{
+    return cpu-&gt;Cache[addr];
+}
+
+inline uint16_t Cpu_GetCache16(cpu_t *cpu, uint8_t addr)
+{
+    return (uint16_t)cpu-&gt;Cache[addr + 1] &lt;&lt; 8 | cpu-&gt;Cache[addr];
+}
+
+inline void Cpu_SetCache8(cpu_t *cpu, uint8_t addr, uint8_t value)
+{
+    cpu-&gt;Cache[addr] = value;
+}
+
+inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint16_t value)
+{
+    cpu-&gt;Cache[addr] = value &amp; 0xFF;
+    cpu-&gt;Cache[addr + 1] = value &gt;&gt; 8;
+}
+</pre>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p>To get and set values on main Memory:</p>
+<div class="codeblock">
+<span class="codeblock_name">{memory access <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+uint8_t Cpu_GetMemory8(cpu_t *cpu, uint32_t addr)
+{
+    return cpu-&gt;Memory[trimAddr(addr)];
+}
+
+uint16_t Cpu_GetMemory16(cpu_t *cpu, uint32_t addr)
+{
+    return (uint16_t)Cpu_GetMemory8(cpu, addr + 1) &lt;&lt; 8 | Cpu_GetMemory8(cpu, addr);
+}
+
+void Cpu_SetMemory8(cpu_t *cpu, uint32_t addr, uint8_t value)
+{
+    cpu-&gt;Memory[trimAddr(addr)] = value;
+}
+
+void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint16_t value)
+{
+    Cpu_SetMemory8(cpu, addr, value &amp; 0xFF);
+    Cpu_SetMemory8(cpu, addr + 1, value &gt;&gt; 8);
+}
+</pre>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p>And thus the Cpu module lays:</p>
+<div class="codeblock">
+<span class="codeblock_name">{cpu implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+// #region Cpu Module
+<span class="nocode pln">{cpu initialization and deinitialization, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{FDE cycle, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{memory access, <a href="emu.html#10:2">2</a>}</span>
+// #endregion
+</pre>
+
+
+
+</div>
+<h3 id="memory-management-unit">Memory Management Unit</h3><p>TODO: Implement mmu</p>
+<div class="codeblock">
+<span class="codeblock_name">{mmu implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+// TODO: Implement mmu
+</pre>
+
+
+
+</div>
+<h3 id="tty-module-implementation">Tty Module implementation</h3><p>The teletype implementation is fairly simple. We will use a file to emulate the printer output, in append mode. The data should persist between sessions, as is indeed <em>printed</em>:</p>
+<div class="codeblock">
+<span class="codeblock_name">{tty implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+error_t Tty_Write(tty_t *tty)
+{
+
+    FILE *file = fopen(tty-&gt;filename, "a");
+    int errno = fputc(tty-&gt;c, file);
+    if (errno == EOF)
+        return TTY_ERROR_WRITE_FAILED;
+
+    errno = fclose(file);
+    if (errno == EOF)
+        return TTY_ERROR_CLOSE_FAILED;
+
+    return ERROR_NONE;
+}
+</pre>
+
+
+
+</div>
+<p>We will also add a routine to check if characters were sent to the teletype. It will run every cycle, pretending to emulate the <em>effect</em> of an interrupt. Of course this is not the <em>behavior</em> of an interrupt, and maybe is a bit sloppy, but seems to perform well?</p>
+<div class="codeblock">
+<span class="codeblock_name">{tty implementation <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+void Tty_Execute(cpu_t *cpu, tty_t *tty)
+{
+    tty-&gt;c = Cpu_GetCache8(cpu, TTY_PORT_CHAR);
+    if (tty-&gt;c != 0x00)
+    {
+        Tty_Write(tty);
+    }
+    Cpu_SetCache8(cpu, TTY_PORT_CHAR, 0x00);
+}
+</pre>
+
+
+
+</div>
+<h3 id="keyboard-module-implementation">Keyboard Module Implementation</h3><p>The Keyboard Module Implementation is perhaps the clunkiest. It gets a keycode in the keyboard port if a key was pressed:</p>
+<div class="codeblock">
+<span class="codeblock_name">{kb implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+
+void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
+{
+
+    while (SDL_PollEvent(event))
+    {
+        switch (event-&gt;type)
+        {
+        case SDL_QUIT:
+            *quit = SDL_TRUE;
+            break;
+        case SDL_KEYDOWN:
+            Cpu_SetCache8(cpu, kb-&gt;port, event-&gt;key.keysym.sym);
+            kb-&gt;interrupt.ready = 1;
+            kb-&gt;interrupt.priority = 4;
+            kb-&gt;interrupt.vector = IV_KBINCHAR;
+            break;
+        }
+    }
+}
+
+</pre>
+
+
+
+</div>
+<h3 id="video-module-implementation">Video Module implementation</h3><p>We will start by implementing simple functions to get and set the video modes, namely:</p>
+<div class="codeblock">
+<span class="codeblock_name">{video modes implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+int Video_GetMode(video_t *video)
+{
+    return video-&gt;mode;
+}
+
+error_t Video_SetMode(video_t *video, int mode)
+{
+    if (mode &gt; GRAPHIC_MODE)
+        return VIDEO_ERROR_INVALID_MODE;
+    video-&gt;mode = mode;
+    return ERROR_NONE;
+};
+</pre>
+
+
+
+</div>
+<p>Now we will add the implementation for both, text and graphic mode commands:</p>
+<div class="codeblock">
+<span class="codeblock_name">{text mode commands implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, uint8_t c)
+{
+    if (x &lt; 0 || x &gt;= TEXT_MODE_WIDTH || y &lt; 0 || y &gt;= TEXT_MODE_HEIGHT)
+        return VIDEO_ERROR_INVALID_COORDINATE;
+    if (video-&gt;mode != TEXT_MODE)
+        return VIDEO_ERROR_INVALID_MODE;
+    video-&gt;charbuffer[x + y * TEXT_MODE_WIDTH] = c;
+    return ERROR_NONE;
+};
+</pre>
+
+
+
+</div>
+
+<div class="codeblock">
+<span class="codeblock_name">{graphic mode commands implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+void Video_SetPixelAbsolute(video_t* video, uint32_t index, uint8_t color)
+{
+    index = index &amp; 0x3ffff;
+    video-&gt;pixels[index] = color;
+}
+</pre>
+
+
+
+</div>
+<h4 id="video-module-initialization">Video Module Initialization</h4><p>The <code>Init</code> fucntion will be in charge of initializing <code>SDL2</code>, <code>inprint</code>, and the video memories. The emulator <em>shall</em> crash, should this function fail:</p>
+<div class="codeblock">
+<span class="codeblock_name">{video initialization <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+error_t Video_Init(video_t *video)
+{
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) == -1)
+    {
+        return VIDEO_ERROR_INIT_FAILED;
+    }
+
+    video-&gt;window = SDL_CreateWindow("Taleä System",
+                                     SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                                     WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
+    video-&gt;renderer = SDL_CreateRenderer(video-&gt;window, -1, RENDERER_FLAGS);
+    video-&gt;texture = SDL_CreateTexture(video-&gt;renderer,
+                                       SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STATIC, WINDOW_WIDTH, WINDOW_HEIGHT);
+    video-&gt;pixels = calloc(GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT, sizeof(uint8_t));
+    video-&gt;charbuffer = calloc(TEXT_MODE_WIDTH * TEXT_MODE_HEIGHT, sizeof(char));
+    video-&gt;line = calloc(TEXT_MODE_WIDTH, sizeof(char));
+
+    inrenderer(video-&gt;renderer);
+    prepare_inline_font();
+
+    if (video-&gt;window == NULL || video-&gt;renderer == NULL || video-&gt;texture == NULL)
+    {
+        return VIDEO_ERROR_INIT_FAILED;
+    }
+    else
+    {
+        return ERROR_NONE;
+    }
+}
+</pre>
+
+
+
+</div>
+<p>The <code>Destroy</code> funtction will be called on exit to free the memory used in the video module:</p>
+<div class="codeblock">
+<span class="codeblock_name">{video initialization <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+void Video_Destroy(video_t *video)
+{
+    SDL_DestroyTexture(video-&gt;texture);
+    SDL_DestroyRenderer(video-&gt;renderer);
+    SDL_DestroyWindow(video-&gt;window);
+    free(video-&gt;pixels);
+    free(video-&gt;charbuffer);
+    free(video-&gt;line);
+    SDL_Quit();
+}
+</pre>
+
+
+
+</div>
+<h4 id="video-module-rendering">Video Module Rendering</h4><p>This function is the most important in the video module, as it renders graphics or text to the screen. In graphic mode it simply blits the pixel data to the screen by means of an SDL_Texture. In text mode it prints the character memory row by row <strong>assuming an 8x8 pixel font</strong>.</p>
+<div class="codeblock">
+<span class="codeblock_name">{video render implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+error_t Video_Render(video_t *video)
+{
+
+    switch (video-&gt;mode)
+    {
+    case GRAPHIC_MODE:
+        SDL_UpdateTexture(video-&gt;texture, NULL,
+                          video-&gt;pixels, GRAPHIC_MODE_WIDTH * sizeof(uint8_t));
+        SDL_RenderClear(video-&gt;renderer);
+        SDL_RenderCopy(video-&gt;renderer, video-&gt;texture, NULL, NULL);
+        SDL_RenderPresent(video-&gt;renderer);
+        break;
+    case TEXT_MODE:
+        SDL_RenderClear(video-&gt;renderer);
+        for (int i = 0; i &lt; TEXT_MODE_HEIGHT; i++)
+        {
+            memcpy(video-&gt;line, video-&gt;charbuffer + i * TEXT_MODE_WIDTH, TEXT_MODE_WIDTH);
+            inprint(video-&gt;renderer, video-&gt;line, 0, i * 8);
+        }
+        SDL_RenderPresent(video-&gt;renderer);
+        break;
+    default:
+        return VIDEO_ERROR_INVALID_MODE;
+    }
+
+    return ERROR_NONE;
+}
+</pre>
+
+
+
+</div>
+<h4 id="video-mode-command-execution">Video Mode Command Execution</h4><p>Much like the Tty Module, the video module will execute the commands sent to it as a sort of <em>pseudo</em> interruption. This seems not to affect drastically the performance. However, it will <em>not</em> render the changes inmediatly, but on time with the frame.</p>
+<div class="codeblock">
+<span class="codeblock_name">{video execute implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+void Video_Execute(cpu_t *cpu, video_t *video)
+{
+    int x, y;
+    uint32_t index;
+    uint8_t data = Cpu_GetCache8(cpu, VIDEO_PORT_DATA);
+
+    switch (Cpu_GetCache8(cpu, VIDEO_PORT_CMD))
+    {
+    case Video_Command_Nop:
+        return;
+    case Video_Command_Clear:
+        memset(video-&gt;charbuffer, data, GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT * sizeof(uint8_t));
+    case Video_Command_SetMode_Text:
+        Video_SetMode(video, TEXT_MODE);
+        break;
+    case Video_Command_SetMode_Graphic:
+        Video_SetMode(video, GRAPHIC_MODE);
+        break;
+    case Video_Command_SetPixel:
+        index = Cpu_GetSegRegister(cpu, x5);
+        Video_SetPixelAbsolute(video, index, data);
+        break;
+    case Video_Command_SetChar:
+        x = Cpu_GetRegister(cpu, x5) &amp; 0x0f;
+        y = Cpu_GetRegister(cpu, x5) &gt;&gt; 8;
+        Video_SetChar(video, x, y, data);
+        break;
+    }
+
+    Cpu_SetCache8(cpu, VIDEO_PORT_CMD, 0x00);
+    Cpu_SetCache8(cpu, VIDEO_PORT_DATA, 0x00);
+}
+</pre>
+
+
+
+</div>
+<h4 id="video-module-implementation-structure">Video Module Implementation Structure</h4><p>Finally, the video module implementation is so:</p>
+<div class="codeblock">
+<span class="codeblock_name">{video implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+// #region Video Module Implementation
+<span class="nocode pln">{video initialization, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{video modes implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{video render implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{video execute implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{text mode commands implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{graphic mode commands implementation, <a href="emu.html#10:2">2</a>}</span>
+// #endregion
+</pre>
+
+
+
+</div>
+<h3 id="disk-drive-module-implementation">Disk Drive Module Implementation</h3><p>First we will implement a routine to create an emulated disk drive. It will be a direcoty with 16 binary files, filled each one with up to <code>0xffff</code> @{sector} data structures (i.e. 32Mb):</p>
+<div class="codeblock">
+<span class="codeblock_name">{disk create <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+error_t Disk_Create(const char *path, disk_t *disk, uint16_t sector_count)
+{
+
+    struct sector prototype_sector;
+    memset(prototype_sector.data, 0, SECTOR_SIZE);
+
+    disk-&gt;filename = path;
+    disk-&gt;fp = fopen(path, "wb");
+    disk-&gt;sector_count = sector_count;
+    if (disk-&gt;fp == NULL)
+        return DISK_ERROR_OPEN_FAILED;
+
+    for (int i = 0; i &lt;= sector_count; i++)
+    {
+        fwrite(&amp;prototype_sector, sizeof(struct sector), 1, disk-&gt;fp);
+    }
+
+    fclose(disk-&gt;fp);
+
+    return ERROR_NONE;
+}
+
+error_t Disk_CreateDrive(char *path, drive_t *drive, uint8_t disk_count)
+{
+    error_t error;
+    drive-&gt;disk_count = disk_count;
+    for (int i = 0; i &lt; disk_count; i++)
+    {
+        char filename[strlen(DISK_FILE_PATH) + 2]; //remember \0
+        sprintf(filename, "%s%X", DISK_FILE_PATH, i);
+        error = Disk_Create(filename, &amp;drive-&gt;disk_list[i], MAX_SECTOR_COUNT);
+
+        if (error != ERROR_NONE)
+        {
+              return error;
+        }
+    }
+    return ERROR_NONE;
+}
+</pre>
+
+
+
+</div>
+<h4 id="disk-drive-command-implementations">Disk Drive Command Implementations</h4><p>Then, we will implement the @{disk commands prototypes}. <code>LoadSector</code> will read a sector from disk into <code>&amp;sector</code>:</p>
+<div class="codeblock">
+<span class="codeblock_name">{disk commands implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+void Disk_LoadSector(disk_t *disk, uint16_t sector_number, struct sector *sector)
+{
+    fseek(disk-&gt;fp, sector_number * sizeof(struct sector), SEEK_SET);
+    fread(sector, sizeof(struct sector), 1, disk-&gt;fp);
+}
+</pre>
+
+
+
+</div>
+<p>Likewise <code>StoreSector</code> will store the sector <code>&amp;sector</code> on the specified sector of the disk:</p>
+<div class="codeblock">
+<span class="codeblock_name">{disk commands implementation <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+void Disk_StoreSector(disk_t *disk, uint16_t sector_number, struct sector *sector)
+{
+    fseek(disk-&gt;fp, sector_number * sizeof(struct sector), SEEK_SET);
+    fwrite(sector, sizeof(struct sector), 1, disk-&gt;fp);
+}
+</pre>
+
+
+
+</div>
+<p>The disk commands will then execute each cycle, in the sort of <em>pseudo</em> interruption we have already seen. Maybe I should search for a way to do this asynchronously.</p>
+<div class="codeblock">
+<span class="codeblock_name">{disk execute implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+void Disk_Execute(cpu_t *cpu, drive_t *drive)
+{
+    uint8_t data = Cpu_GetCache16(cpu, DISK_PORT_DATA);
+    uint8_t rr = (data &gt;&gt; 6) + x28;
+    uint8_t ss = ((data &amp; 0x30) &gt;&gt; 4) + x28;
+    drive-&gt;current_disk = &amp;drive-&gt;disk_list[data &amp; 0x0f]; 
+
+    uint16_t starting_point = Cpu_GetRegister(cpu, rr) * 512;
+    uint16_t sector_number = Cpu_GetRegister(cpu, ss);
+
+    struct sector tmp_sector;
+
+    switch (Cpu_GetCache8(cpu, DISK_PORT_CMD))
+    {
+    case Disk_Command_Nop:
+        return;
+    
+    case Disk_Command_LoadSector:
+        Disk_LoadSector(drive-&gt;current_disk, sector_number, &amp;tmp_sector);
+        memcpy(cpu-&gt;Memory + starting_point, &amp;tmp_sector, sizeof(struct sector));
+        break;
+    case Disk_Command_StoreSector:
+        memcpy(&amp;tmp_sector, cpu-&gt;Memory + starting_point, sizeof(struct sector));
+        Disk_StoreSector(drive-&gt;current_disk, sector_number, &amp;tmp_sector);
+        break;
+    }
+
+    Cpu_SetCache8(cpu, DISK_PORT_CMD, 0x00);
+    Cpu_SetCache8(cpu, DISK_PORT_DATA, 0x00);
+}
+</pre>
+
+
+
+</div>
+<p>And thus, the implementation:</p>
+<div class="codeblock">
+<span class="codeblock_name">{disk drive implementation <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+// #region Disk Drive
+<span class="nocode pln">{disk create, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{disk execute implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{disk commands implementation, <a href="emu.html#10:2">2</a>}</span>
+// #endregion
+</pre>
+
+
+
+</div>
+<h2 id="emulator-initialization-main-loop">Emulator Initialization &amp; Main loop</h2><p>Once we have implemented all the modules, the last thing to do is gluing all of them together. <code>Init</code> will initialize the system, <code>Run</code> will implement the main loop and <code>Destroy</code> will take care of freeing memory and tidying up before exiting.</p>
+<div class="codeblock">
+<span class="codeblock_name">{emulator initialization <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_t *kb, mmu_t * mmu)
+{
+	// Disable interrupts for Video and Drive Modules
+	video-&gt;interrupt.enable = 0;
+	drive-&gt;interrupt.enable = 0;
+
+	// Enable interrupts for Kb module
+	kb-&gt;interrupt.enable = 1;
+	kb-&gt;interrupt.ready = 0;
+	kb-&gt;interrupt.vector = 0;
+	
+    // Initialize systems
+    Cpu_Init(cpu);
+
+    tty-&gt;filename = TTY_FILE_PATH;
+
+    for (int i = 0; i &lt; MAX_DISK_COUNT; i++)
+    {
+        char filename[strlen(DISK_FILE_PATH) + 2]; //remember \0
+        sprintf(filename, "%s%X", DISK_FILE_PATH, i);
+
+        drive-&gt;disk_list[i].filename = filename;
+        drive-&gt;disk_list[i].fp = fopen(filename, "wb");
+        drive-&gt;disk_list[i].sector_count = MAX_SECTOR_COUNT;
+
+        if (drive-&gt;disk_list[i].fp == NULL)
+        {
+            printf("Failed to open disk file: %s\n", filename);
+            exit(1);
+        }
+    }
+    
+    kb-&gt;port = KB_PORT;
+
+    // MMU_Init(mmu);
+
+    error_t error = Video_Init(video);
+    if (error != ERROR_NONE)
+    {
+        
+        printf("Video init failed, error code %d\n", error);
+        return;
+    }
+
+    // Setup systems
+    Video_SetMode(video, TEXT_MODE);
+<span class="nocode pln">    {addenda init, <a href="addenda.html#9:3">9:3</a>}</span>
+}
+</pre>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p>Main loop:</p>
+<div class="codeblock">
+<span class="codeblock_name">{emulator initialization <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_t *kb)
+{
+
+    struct clock clock_fps;
+    int quit = SDL_FALSE;
+    SDL_Event event;
+    struct timespec frame_start, frame_end;
+    
+	Video_Render(video);
+    Kb_Execute(cpu, kb, &amp;event, &amp;quit);
+
+    while (!quit)
+    {
+        Clock_FrameStart(&amp;clock_fps);
+
+        // Before the render, perform 166666 cycles
+        for (size_t cycles = 0; cycles &lt; CYCLES_PER_FRAME; cycles++)
+        {
+            Cpu_Cycle(cpu);
+            handle_interrupts(cpu, video, drive, kb);
+            Tty_Execute(cpu, tty);
+<span class="nocode pln">            {addenda execute (after tty), <a href="addenda.html#9:3">9:3</a>}</span>
+        }
+
+        // Every 16ms check for events such as keypresses (83333 cycles at 10Mhz) perhaps too fast?
+        Kb_Execute(cpu, kb, &amp;event, &amp;quit);
+<span class="nocode pln">        {addenda execute (after kb), <a href="addenda.html#9:3">9:3</a>}</span>
+
+        // Every 16ms, render the screen (166666 cycles at 10Mhz)
+        Video_Render(video);
+
+        Clock_FrameEnd(&amp;clock_fps);
+    }
+}
+</pre>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p>Deinitialization:</p>
+<div class="codeblock">
+<span class="codeblock_name">{emulator initialization <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+void TaleaSystem_Destroy(cpu_t *cpu, video_t *video, drive_t *drive)
+{
+    // Destroy systems
+<span class="nocode pln">    {addenda destroy, <a href="addenda.html#9:3">9:3</a>}</span>
+    for (int i = 0; i &lt; MAX_DISK_COUNT; i++)
+    {
+        fclose(drive-&gt;disk_list[i].fp);
+    }
+
+    Cpu_Destroy(cpu);
+    Video_Destroy(video);
+}
+</pre>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p>We will also implement a <code>panic</code> function, that will log error to <code>stdout</code>:</p>
+<div class="codeblock">
+<span class="codeblock_name">{emulator initialization <a href="emu.html#10:2">2</a>} +=</span>
+<pre class="prettyprint lang-c">
+void TaleaSystem_Panic(error_t error)
+{
+    printf("Error: %d", error); // TODO: make this better
+}
+</pre>
+<p class="seealso">Added to in sections <a href="emu.html#10:2">2</a> and <a href="emu.html#10:2">2</a></p>
+
+
+</div>
+<p>And now, finally, the <code>main</code> function, entry point of the program:</p>
+<div class="codeblock">
+<span class="codeblock_name">{main <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+int main(int argc, char const *argv[])
+{
+
+    cpu_t cpu;
+    tty_t tty;
+    video_t video;
+    drive_t drive;
+    kb_t kb;
+    mmu_t mmu;
+<span class="nocode pln">    {addenda creation, <a href="addenda.html#9:3">9:3</a>}</span>
+
+    if (argc &gt; 1)
+    {
+        if (strcmp(argv[1], "createDrive") == 0)
+        {
+            if (Disk_CreateDrive(DISK_FILE_PATH, &amp;drive, MAX_DISK_COUNT) == ERROR_NONE)
+            {
+                printf("Drive created succesfully\n");
+                return 0;
+            }
+
+            printf("Error creating drive\n");
+            return -1;
+        }
+    }
+
+    TaleaSystem_Init(&amp;cpu, &amp;video, &amp;tty, &amp;drive, &amp;kb, &amp;mmu);
+
+	if (argc == 3)
+    {
+        if (strcmp(argv[1], "load") == 0)
+        {
+        	FILE * program = fopen(argv[2], "rb");
+			fseek(program, 0, SEEK_END);
+			long psize = ftell(program);
+			fseek(program, 0, SEEK_SET);
+
+			uint8_t *hex = malloc(psize + 1);
+			fread(hex, psize, 1, program);
+			fclose(program);
+
+			for (int i = 0; i&lt;psize; i++)
+			{
+				Cpu_SetMemory8(&amp;cpu, i, hex[i]);
+			}
+
+			free(hex);
+		}
+    }	    	    
+
+    TaleaSystem_Run(&amp;cpu, &amp;video, &amp;tty, &amp;drive, &amp;kb);
+
+    TaleaSystem_Destroy(&amp;cpu, &amp;video, &amp;drive);
+
+    return 0;
+}
+</pre>
+
+
+
+</div>
+<h3 id="sewing-all-together">Sewing All Together</h3><p>Summing up, the implementation file, <code>talea.c</code>, looks like this:</p>
+<div class="codeblock">
+<span class="codeblock_name">{<strong>talea.c</strong> <a href="emu.html#10:2">2</a>}</span>
+<pre class="prettyprint lang-c">
+<span class="nocode pln">{implementation includes, <a href="emu.html#10:2">2</a>}</span>
+
+<span class="nocode pln">{helpers, <a href="emu.html#10:2">2</a>}</span>
+
+<span class="nocode pln">{clock implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{cpu implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{mmu implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{tty implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{kb implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{video implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{disk drive implementation, <a href="emu.html#10:2">2</a>}</span>
+<span class="nocode pln">{addenda implementation, <a href="addenda.html#9:2">9:2</a>}</span>
+
+<span class="nocode pln">{interrupt handler, <a href="arch.html#1:3">1:3</a>}</span>
+
+<span class="nocode pln">{emulator initialization, <a href="emu.html#10:2">2</a>}</span>
+
+<span class="nocode pln">{main, <a href="emu.html#10:2">2</a>}</span>
+</pre>
+
+
+
+</div>
+
+</div>
+<br><a style="float:left;" class="chapter-nav" href="addenda.html">Previous Chapter</a></body>

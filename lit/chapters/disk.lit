@@ -1,0 +1,80 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Disk Drive
+
+@s
+
+The Disk Drive shipped whith the Taleä Tabula System is based on that of its antecessor, the Taleä Codex, but where the latter could only manage one disk, thus limiting tits maximum capacity to only 32 Mb, this one can manage up to 16 of those disks in a cluster, capping at 512 Mb.
+
+The device provides a secondary persistent storage to the system, and can be addressed by `sector`. Each sector contains 512 bytes of memory:
+
+--- sector
+#define SECTOR_SIZE 512
+
+struct sector
+{
+    uint8_t data[SECTOR_SIZE];
+};
+---
+
+One disk contains up to 0xffff sectors:
+
+--- disk
+#define MAX_SECTOR_COUNT 0xffff
+
+typedef struct 
+{
+    const char *filename;
+    FILE *fp;
+    uint16_t sector_count;
+} disk_t;
+---
+
+And a drive manages up to 16 disks:
+
+--- disk +=
+#define MAX_DISK_COUNT 16
+
+typedef struct
+{
+        uint8_t disk_count;
+        disk_t disk_list[MAX_DISK_COUNT];
+        disk_t *current_disk;
+
+        struct interrupt_interface interrupt;
+} drive_t;
+---
+
+@s Disk Drive Commands
+
+--- disk commands
+enum DiskCommands
+{
+    Disk_Command_Nop = 0x0,
+    Disk_Command_StoreSector,
+    Disk_Command_LoadSector,
+};
+---
+
+Much like the Video Controller, the *cpu* makes use of the Disk Drive through a series of commands, but simpler. The structure of a command to the disk drive is simple: the command number in the `cmd` port and argument of one byte in `data`. The `data` argument contains various fields that allow the drive to manage multiple disks:
+
+$$ RR SS DDDD $$
+
++ `RR`: a 2bit field, referencing a register (`x28-31`), that contains a 15bit number. This number determines the starting point in memory of the sector, aligned to a 512 byte boundary ($ addr = &gN * 512 $). There are exactly 32768 of this loading points.
+
++ `SS`: another reference to a register (`x28-31`), that contains the index of the sector to load (a word).
+
++ `DDDD`: a 4bit field, referencing one of the 16 disks the drive is capable to manage.
+
++ `LoadSector`: Loads a sector as specified in `data` port to a block of memory. 
+
+--- disk commands prototypes
+void Disk_LoadSector(disk_t *disk, uint16_t sector_number, struct sector *sector);
+---
+
++ `StoreSector`: Stores a block of memory into disk as specified by `data` port. 
+
+--- disk commands prototypes +=
+void Disk_StoreSector(disk_t *disk, uint16_t sector_number, struct sector *sector);
+---

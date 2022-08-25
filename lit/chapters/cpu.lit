@@ -1,0 +1,65 @@
+ç@code_type c .c
+@comment_type /* %s */
+
+@title Central Processing Unit
+
+@s
+
+As exposed in the first chapter ([System Architecture](lit/chaptters/arch.lit)), the
+Central Processing Unit is the module responible for the coordination of the whole 
+system as for the execution of the instructions explained in [Instruction Set](lit/chapters/isa.lit).
+To do this, the *cpu* follows the `fetch`, `decode`, `execute` cycle:
+
+--- cpu
+typedef struct
+{
+    uint16_t General[REGISTER_COUNT];
+    uint8_t Segment[REGISTER_COUNT];
+    uint32_t InstructionPointer;
+    uint32_t Ssp;
+    uint32_t Usp;
+    uint8_t Cache[CACHE_SIZE];
+    uint16_t Psr;
+    uint8_t *Memory;
+} cpu_t;
+
+uint32_t Cpu_Fetch(cpu_t *cpu);
+error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction);
+void Cpu_Cycle(cpu_t *cpu);
+---
+
+To access the different regions of memory, the *cpu* will make use of a set of
+routines (to `get` and `set` a *byte*, to `get` and `set`a *word*). Thus, to target
+registers it will use:
+
+--- cpu +=
+static inline uint16_t Cpu_GetRegister(cpu_t *cpu, enum RegisterIndex index);
+static inline void Cpu_SetRegister(cpu_t *cpu,  enum RegisterIndex index, uint16_t value);
+static inline uint32_t Cpu_GetSegRegister(cpu_t *cpu, enum RegisterIndex index);
+static inline void Cpu_SetSegRegister(cpu_t *cpu, enum RegisterIndex index, uint32_t value);
+---
+
+Or to access the `Instruction Pointer` directly ensuring treatment as a 24bit number:
+
+--- cpu +=
+static inline uint32_t Cpu_GetIp(cpu_t *cpu);
+static inline void Cpu_SetIp(cpu_t *cpu, uint32_t value);
+---
+
+For the cache:
+
+--- cpu +=
+static inline uint8_t Cpu_GetCache8(cpu_t *cpu, uint8_t addr);
+static inline uint16_t Cpu_GetCache16(cpu_t *cpu, uint8_t addr);
+static inline void Cpu_SetCache8(cpu_t *cpu, uint8_t addr, uint8_t value);
+static inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint16_t value);
+---
+
+And for Main Memory (RAM). Note the use of `uint32_t` for addresses, as 24-bit types are not a thing in modern systems:
+
+--- cpu +=
+uint8_t Cpu_GetMemory8(cpu_t *cpu, uint32_t addr);
+uint16_t Cpu_GetMemory16(cpu_t *cpu, uint32_t addr);
+void Cpu_SetMemory8(cpu_t *cpu, uint32_t addr, uint8_t value);
+void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint16_t value);
+---

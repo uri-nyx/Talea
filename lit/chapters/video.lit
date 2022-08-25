@@ -1,0 +1,97 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Video Controller Module
+
+The Video Controller Module provides the system with an interface to the major
+output device it posess: a 256 color screen. Almost another computer on its own
+(although reduced and graphic-based), it is the most complex module after the *cpu*.
+
+@s Modes
+
+The module can operate in two modes: `text` and `graphic`. The text mode suites most
+business applications such as text editing, system management, or communications;
+whereas the `graphic` mode can serve specialized purposes like graph calculation,
+image manipulation or *videogames*:
+
+--- video modes
+#define Pixel 1 * Byte
+#define Character 1 * Byte
+
+enum Video_Mode {
+    TEXT_MODE = 0,
+    GRAPHIC_MODE,
+};
+---
+
+The `text` mode provides the user with 80 columns of characters and 50 rows viewport
+and the graphic mode with an 640 pixels wide by 400:
+
+--- video modes +=
+const int TEXT_MODE_WIDTH = 80 * Character;
+const int TEXT_MODE_HEIGHT = 50 * Character;
+
+const int GRAPHIC_MODE_WIDTH = 640 * Pixel;
+const int GRAPHIC_MODE_HEIGHT = 400 * Pixel;
+---
+
+@s
+## Video Module Commands
+
+To operate the Video Module, the *cpu* must send one of many commands to the module
+through the specified `port`. The text mode command are those which follow:
+
+--- video commands
+enum Video_Commands {
+    Video_Command_Nop = 0x00,
+    Video_Command_Clear,
+    Video_Command_SetMode_Text,
+    Video_Command_SetMode_Graphic,
+
+    @{text mode commands}
+    
+    @{graphic mode commands}
+};
+---
+
+@s Text Mode Commands
+
+--- text mode commands
+Video_Command_SetChar,
+---
+
++ `SetChar`: takes the character from the `data` port and outputs it at x = `x5l` and y = `x5h` (`x5` register high and low bytes)
+
+--- text mode commands prototypes
+error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, uint8_t c);
+---
+
+@s Graphic Mode Commands
+
+--- graphic mode commands
+Video_Command_SetPixel
+---
+
++ `SetPixel`: takes the color (in `RGB332` format) from the `data` port and outputs it at the absolute `video memory` adress pointed by `sx5` (register `x5` in conjunction with its segment register)
+
+--- graphic mode commands prototypes
+void Video_SetPixelAbsolute(video_t* video, uint32_t addr, uint8_t color);
+---
+
+@s 
+## Video Module Controller
+
+The Video Module internals hold a flag representing the mode, a 256 Kb buffer for pixel data, a 4 Kb buffer for character data, and the necessary bits and pieces to provide an image from the data:
+
+--- video controller
+typedef struct
+{
+    enum Video_Mode mode;
+    uint8_t *pixels;
+    char *charbuffer;
+    char *line;
+    struct interrupt_interface interrupt;
+
+    @{sdl video internals}
+} video_t;
+---

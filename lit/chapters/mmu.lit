@@ -1,0 +1,11 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Memory Mapping Unit
+
+@s
+
+--- mmu
+typedef int mmu_t;
+// TODO: Implement mmu
+---

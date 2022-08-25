@@ -1,0 +1,50 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Addenda: Expansions and Custom Devices
+
+@s Headers
+
+In the following codeblock can be defined the deisred expansion or custom devices for the system, and they will be installed within the emulator:
+
+--- addenda header
+// Custom devices
+---
+
+@s Implemeentation
+
+In the following codeblock can be implemented the behavior of the defined expansions or devices:
+
+--- addenda implementation
+// Custom devices functions
+---
+
+@s Emulator integration
+
+The following code blocks integrate the addendas with the emulator main loop, initialization, and destruction. The routines will execute after the tty.
+
+--- addenda creation
+// Custom devices variable declaration on int main()
+---
+
+--- addenda init
+// Custom devices initialization
+---
+
+--- addenda handle interrupts
+// Custom devices interrupt handling
+---
+
+--- addenda execute (after tty)
+// Custom devices execution
+---
+
+--- addenda execute (after kb)
+// Custom devices execution
+---
+
+--- addenda destroy
+// Custom devices destruction
+---
+
+@s A simple Bootloader

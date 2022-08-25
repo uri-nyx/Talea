@@ -1,0 +1,146 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title System Architecture
+
+@s Register and Buses specification
+
+Taleä Tabula is a 16-bit, little endian system with a 24-bit wide address 
+space (up to 16 Mb of addressable memory), and a 256 byte cache. Its byte 
+and word sizes are 8 and 16-bit respectively:
+
+--- sizes
+#define Bit 1
+
+const int DATA_BUS_SIZE = 16 * Bit;
+const int ADDRESS_BUS_SIZE = 24 * Bit;
+
+#define BYTE_SIZE 8
+#define WORD_SIZE 16
+
+#define MAX_MEMORY_SIZE (1 << ADDRESS_BUS_SIZE)
+#define CACHE_SIZE (1 << 12)
+---
+
+The register arrangement of the system is built upon of that of the real architecture
+RISC-V, with some modifications to adapt it to a 16bit machine with 24bit addresses.
+There is a `zero` register, 31 general purpose 16bit registers, and a 24bit instruction
+pointer. In addition, there is another set of 31 8bit segment descriptor registers, one for each general
+purpose one used when calculating addresses.
+
+In addition, there is an 8bit Processor Status Register, used to enable interrupts, priority levels and privilege modes.
+
+--- sizes +=
+#define Byte 1
+#define Word 2
+
+#define REGISTER_SIZE Word
+#define SREGISTER_SIZE Byte
+
+#define INSTRUCION_POINTER_SIZE (3 * Byte)
+#define PSR_SIZE Byte
+
+#define REGISTER_COUNT 32
+---
+
+--- register indexes
+enum RegisterIndex {
+	x0 = 0,
+	x1,x2,x3,x4,x5,x6,x7,x8,x9,
+	x10,x11,x12,x13,x14,x15,x16,
+	x17,x18,x19,x20,x21,x22,x23,
+	x24,x25,x26,x27,x28,x29,x30,
+	x31,
+};
+---
+
+@s Cache Memory & I/sO Ports
+
+The 256 bytes of cache are used as a sort of I/O port file and intermediate memory
+betweeen registers and RAM. It is accessible trough specific instructions that 
+refer to its physical addresses. The devices mentioned in the preface are thus 
+mapped to arbitrary locations or `ports` in the cache:
+
+--- ports
+enum Port {
+    KB_PORT = 0x00,
+    TTY_PORT_CHAR,
+
+    VIDEO_PORT_DATA,
+    VIDEO_PORT_CMD,
+
+    DISK_PORT_DATA,
+    DISK_PORT_CMD,
+};
+---
+
+@s Interrupt System and Interrupt Handler
+
+The system provides a very simple interrupt system. It specifies a hardware interface for devices to interact with the cpu, and defines instruction `Trap` to handle 
+software interrupts. It also defines `Rti`, to return from any interrupt.
+
++ `enable`: whether or not interrupts are enabled to the device.
++ `ready`: wether or not the device requests an interrupt.
++ `priority`: the priority (0-7) of the interrupt (0 less).
++ `vector`: an 8bit code pointing to the interrupt vector in the table to execute. It undergoes the next operation: $address = 0x0100 \| (vector << 1)$ there are 128 vectors available.
+
+--- interrupt interface
+struct interrupt_interface
+{
+    uint8_t enable: 1;
+    uint8_t ready: 1;
+    uint8_t priority: 3;
+    uint8_t vector: 8;
+};
+---
+
+A generic interrupt handler works as below: if the enable and ready bits are set and the priority of the requested interrupt is higher than that of the current process (stated in Psr register):
+
+1. The ready bit is cleared
+2. if the processor is in user mode, the Usp is replaced by the Ssp
+3. Psr and Ip are pushed into the Supervisor Stack
+4. Set the Supervisor Mode
+5. Finally, transfer control to the ISR at address m16(vector)
+
+--- interrupt handler
+void interrupt_handler(cpu_t *cpu, struct interrupt_interface *interrupt)
+{
+    if ((interrupt->enable && interrupt->ready) && (interrupt->priority > (cpu->Psr & 0x7)))
+    {
+        // TODO: Tidy up and refactor to bitfields maybe?
+            interrupt->ready = 0;
+            if (cpu->Psr & 0x8000) {
+            // Swap stack pointer and supervisor stack pointer to enter supervisor mode
+                cpu->Usp = Cpu_GetSegRegister(cpu, x2);
+                Cpu_SetSegRegister(cpu, x2, cpu->Ssp);
+            }
+            // Push Psr into Supervisor Stack
+            Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, x2) - 2, cpu->Psr);
+            // Push ip into Supervisor stack (ip was updated by instruction executed before interrupt)
+            Cpu_SetMemory16(cpu, Cpu_GetSegRegister(cpu, x2) - 4, Cpu_GetIp(cpu));
+            
+            // Update Ssp
+            Cpu_SetSegRegister(cpu, x2, Cpu_GetSegRegister(cpu, x2) - 4);
+
+            // Set CPU in Supervisor mode (or leave it in it)
+            cpu->Psr &= 0x7fff;
+            // Load ip with the address stored in the interrupt vector
+            Cpu_SetIp(cpu, Cpu_GetMemory16(cpu, 0x0100 | (interrupt->vector << 1)));
+            printf("triggered interrupt: %x\n", interrupt->vector);
+    }
+}
+---
+
+The Main Interrupt Handler for the Taleä Tabula System is implemented thus:
+
+--- interrupt handler +=
+void handle_interrupts(cpu_t *cpu, video_t *video, drive_t *drive, kb_t *kb)
+{
+    if (Cpu_GetCache8(cpu, VIDEO_PORT_CMD)) Video_Execute(cpu, video);
+    if (Cpu_GetCache8(cpu, DISK_PORT_CMD)) Disk_Execute(cpu, drive);
+    interrupt_handler(cpu, &kb->interrupt);
+    interrupt_handler(cpu, &video->interrupt);
+    interrupt_handler(cpu, &drive->interrupt);
+    @{addenda handle interrupts}
+}
+---

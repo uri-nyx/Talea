@@ -1,0 +1,31 @@
+@book
+@title Taleä Tabula System Emulator
+
+## *A Fantasy Computer for a Fantasy World*
+
+Taleä Tabula is a fantasy computer heavily inspired in the first IBM PC. It is
+used in a fantasy world, and was designed to serve every need that may arise
+to any successful merchant business across the sea.
+
+It belongs to the family of Taleä architectures, and stands as the most powerful system
+for consumers in its range. It shares it's architecture and instruction set with whe less
+powerful Taleä Codex.
+
+Taleä Tabula uses a 16-bit processor, clocked at almost 10Mhz, that can adress up to 16Mb of memory. The
+system features an 640x400 256 color screen, a printer style teletype, a keyboard, and a
+32 Mb disk.
+
+This document defines its specification and constitues an emulator.
+
+[System Architecture](lit/chapters/arch.lit)
+[Instruction Set](lit/chapters/isa.lit)
+[Central Processing Unit](lit/chapters/cpu.lit)
+[Memory Management Unit](lit/chapters/mmu.lit)
+[Teletype Printer](lit/chapters/tty.lit)
+[Keyboard](lit/chapters/kb.lit)
+[Video Controller](lit/chapters/video.lit)
+[Disk Drive](lit/chapters/disk.lit)
+[Addenda: Expansions and Custom Devices](lit/chapters/addenda.lit)
+
+[Emulator Implementation](lit/chapters/emu.lit)
+

@@ -1,0 +1,965 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Emulator Implementation
+
+Once we have explained the different modules that compose both the system and the emulator, we can start to implement it. The language of implementation will be C, and we will use [SDL2](https://www.libsdl.org/download-2.0.php) for graphics and [Inprint](https://github.com/driedfruit/SDL_inprint) for fonts and text mode.
+
+The emulator implementation spans across only two files: a main file that implements functionality, `talea.c`, and a header file with the architectural prototypes, data structures and constants, `talea.h`.
+
+@s Header File
+
+The contents of the header file have already been defined in previous chapters, save for some constants that are more related to the implementaation than the architecture itself:
+
+--- frequencies
+#define FPS 60
+#define MHz 1000000
+#define SYSTEM_CLOCK_FREQUENCY 10 * MHz
+#define CYCLES_TO_RENDER 666
+const int CYCLES_PER_FRAME = (SYSTEM_CLOCK_FREQUENCY / FPS) - CYCLES_TO_RENDER;
+const int MILLISECONDS_PER_FRAME = 1000 / FPS;
+---
+
+--- paths
+#define TTY_FILE_PATH "devices/tty.txt"
+#define DISK_FILE_PATH "devices/drive0/disk"
+---
+
+--- renderer flags
+#define RENDERER_FLAGS SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+#define WINDOW_WIDTH 640
+#define WINDOW_HEIGHT 400
+---
+
+--- implementation constants
+@{paths}
+
+@{renderer flags}
+
+@{frequencies}
+---
+
+Along with the frequencies, we will define a clock to coordinate video rendering and cpu execution:
+
+--- clock prototypes
+struct clock
+{
+    clock_t start, end;
+    double cpu_time_used;
+    double frame_took;
+};
+
+// CLock functions are used to time a frame roughly to 16 ms
+void Clock_FrameStart(struct clock *clk);
+void Clock_FrameEnd(struct clock *clk);
+---
+
+We will also define some error codes and an error handler (different from the exception handler of the cpu):
+
+--- error
+typedef enum {
+    ERROR_UNKNOWN = -1,
+    ERROR_NONE = 0,
+
+    // Tty errors
+    TTY_ERROR_WRITE_FAILED,
+    TTY_ERROR_CLOSE_FAILED,
+
+    // Video errors
+    VIDEO_ERROR_INIT_FAILED,
+    VIDEO_ERROR_INVALID_MODE,
+    VIDEO_ERROR_INVALID_COORDINATE,
+
+    DISK_ERROR_OPEN_FAILED,
+
+    ERROR_UNKNOWN_OPCODE,
+} error_t;
+
+void TaleaSystem_Panic(error_t error);
+---
+
+And set up some internals needed by SDL2 
+in the video structure:
+
+--- sdl video internals
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    SDL_Texture *texture;
+---
+
+Thus, the header file is laid as follows:
+
+--- talea.h
+#pragma once
+
+#include <stdint.h>
+#include <SDL2/SDL.h>
+
+@{implementation constants}
+
+// #region Architecture
+@{sizes}
+@{register indexes}
+@{ports}
+// #endregion
+
+@{interrupt interface}
+
+// #region Error
+@{error}
+// #endregion
+
+// #region Clock
+@{clock prototypes}
+// #endregion
+
+// #region Cpu
+@{cpu}
+// #endregion
+
+// #region Mmu
+@{mmu}
+// #endregion
+
+// #region Tty
+@{tty}
+// #endregion
+
+// #region Keyboard
+@{kb}
+// #endregion
+
+// #region Video
+@{video modes}
+@{video controller}
+@{video commands}
+@{text mode commands prototypes}
+@{graphic mode commands prototypes}
+// #endregion
+
+// #region Disk
+@{sector}
+@{disk}
+@{disk commands}
+@{disk commands prototypes}
+// #endregion
+
+// #region Instruction Set 
+@{isa opcodes}
+// #endregion
+
+// #region Addenda
+// For future system ampliations or custom devices
+@{addenda header}
+// #endregion
+---
+
+@s Implementation File
+
+We will need I/O, timing, the Taleä System headers, inprint (for rendering bitmap text with sdl2, and an inline font in XBM format for the task:
+
+--- implementation includes
+#include <stdio.h>
+#include <time.h>
+#include "talea.h"
+#include "isa.h"
+#include "include/inprint/SDL2_inprint.h"
+#include "include/inprint/inline_font.h"
+
+#define IV_KBINCHAR 0xfe // TODO: Remove this plz
+---
+
+### Clock Fucntions
+
+We will start by implementing the clock functions that time the emulator execution. `Clock_FrameStart` will start counting, and `Clock_FrameEnd` will stop and calculate how much time it took to render. If it was less than 16ms (60 fps), it will delay execution until that lapse is reached.
+
+--- clock implementation 
+void Clock_FrameStart(struct clock *clk)
+{
+    clk->start = clock();
+}
+
+void Clock_FrameEnd(struct clock *clk)
+{
+    clk->end = clock();
+    clk->cpu_time_used = ((double)(clk->end - clk->start)) / CLOCKS_PER_SEC;
+    clk->frame_took = 16 - (clk->cpu_time_used * 1000);
+    if (clk->frame_took > 0)
+        SDL_Delay(clk->frame_took);
+}
+---
+
+### Helper Miscellaneous functions
+
+This is a little function used to ensure addresses are treated as 24bit numbers across the system.
+
++ `trimAddr` ensures that addresses (passed as `uint32_t` parameters for the lack of 24 bit numbers) stick to a 24bit limit.
+
+--- helpers
+
+static inline uint32_t trimAddr(uint32_t addr)
+{
+    return addr & 0x00FFFFFF;
+}
+---
+
+### Cpu Module
+        
+We will now implement the functions already defined in @{cpu}. `Init` will initialize and allocate all memory to 0. `Reset` will reset all of the cpu memories to 0. `Destroy` will free all memory used by the module:
+
+--- cpu initialization and deinitialization
+void Cpu_Init(cpu_t *cpu)
+{
+	cpu->InstructionPointer = 0;
+    cpu->Memory = malloc(sizeof(uint8_t) * MAX_MEMORY_SIZE);
+    memset(cpu->General, 0, sizeof(cpu->General));
+    memset(cpu->Segment, 0, sizeof(cpu->Segment));
+    memset(cpu->Cache, 0, sizeof(cpu->Cache));
+    memset(cpu->Memory, 0, sizeof(uint8_t) * MAX_MEMORY_SIZE);
+}
+
+void Cpu_Reset(cpu_t *cpu)
+{
+	cpu->InstructionPointer = 0;
+    memset(cpu->General, 0, sizeof(cpu->General));
+    memset(cpu->Segment, 0, sizeof(cpu->Segment));
+    memset(cpu->Cache, 0, sizeof(cpu->Cache));
+    memset(cpu->Memory, 0, sizeof(uint8_t) * MAX_MEMORY_SIZE);
+}
+
+void Cpu_Destroy(cpu_t *cpu)
+{
+    free(cpu->Memory);
+}
+---
+
+`Cycle` will perform a `fetch`, `decode`, `execute` cycle:
+
+--- FDE cycle
+void Cpu_Cycle(cpu_t *cpu)
+{
+    error_t error = Cpu_Execute(cpu, Cpu_Fetch(cpu));
+
+    if (error != ERROR_NONE)
+    {
+        TaleaSystem_Panic(error);
+    }
+}
+---
+
+`Fetch` will fetch the next opcode to execute (a byte) from RAM:
+
+--- FDE cycle +=
+uint32_t Cpu_Fetch(cpu_t *cpu)
+{
+    uint32_t instruction = 0;
+    instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer + 3)] << 24;
+    instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer + 2)] << 16;
+    instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer + 1)] << 8;
+    instruction |= (uint32_t)cpu->Memory[trimAddr(cpu->InstructionPointer)];
+    return instruction;
+}
+---
+
+`Execute` will execute the correspondent instruction:
+
+--- FDE cycle +=
+error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
+{
+
+	@{isa fields}
+	
+    switch (opcode)
+    {
+    @{isa lui}
+	@{isa auipc}
+    @{isa jal}
+    @{isa jalr}
+
+	@{isa branches}
+    @{isa loads}
+    @{isa stores}
+    @{isa mathi}
+    @{isa mathr}
+    
+    @{isa e}
+    
+    default:
+        //TODO: Raise exception if opcode is not valid
+        printf("Unknown opcode: %x. Instruction: %x\n", opcode, instruction);
+        return ERROR_UNKNOWN_OPCODE;
+    }
+    //printf("executed instruction: %x, opcode: %x, func3, %b\n", instruction, opcode, funct3);
+    return ERROR_NONE;
+}
+---
+
+#### Cpu Memory Access Functions
+
+Now we will implement the functions used to get and set memory, as defined in @{cpu}. First to get and set `ip`:
+
+--- memory access
+static inline uint32_t Cpu_GetIp(cpu_t *cpu) 
+{
+    return trimAddr(cpu->InstructionPointer);
+}
+
+static inline void Cpu_SetIp(cpu_t *cpu, uint32_t value)
+{
+    cpu->InstructionPointer = trimAddr(value);
+}
+---
+
+To get and set values on any index of the register file:
+
+--- memory access +=
+static inline uint16_t Cpu_GetRegister(cpu_t *cpu, enum RegisterIndex index)
+{
+    return (index) ? cpu->General[index] : 0;
+}
+
+static inline void Cpu_SetRegister(cpu_t *cpu,  enum RegisterIndex index, uint16_t value)
+{
+    cpu->General[index] = value;
+}
+
+static inline uint32_t Cpu_GetSegRegister(cpu_t *cpu, enum RegisterIndex index)
+{
+    return (index) ? (uint32_t)cpu->Segment[index] << 16 | cpu->General[index] : 0;
+}
+static inline void Cpu_SetSegRegister(cpu_t *cpu, enum RegisterIndex index, uint32_t value)
+{
+    cpu->Segment[index] = (value >> 16);
+    cpu->General[index] = (uint16_t)value;
+}
+---
+
+To get and set values on cache:
+
+--- memory access +=
+inline uint8_t Cpu_GetCache8(cpu_t *cpu, uint8_t addr)
+{
+    return cpu->Cache[addr];
+}
+
+inline uint16_t Cpu_GetCache16(cpu_t *cpu, uint8_t addr)
+{
+    return (uint16_t)cpu->Cache[addr + 1] << 8 | cpu->Cache[addr];
+}
+
+inline void Cpu_SetCache8(cpu_t *cpu, uint8_t addr, uint8_t value)
+{
+    cpu->Cache[addr] = value;
+}
+
+inline void Cpu_SetCache16(cpu_t *cpu, uint8_t addr, uint16_t value)
+{
+    cpu->Cache[addr] = value & 0xFF;
+    cpu->Cache[addr + 1] = value >> 8;
+}
+---
+
+To get and set values on main Memory:
+
+--- memory access +=
+uint8_t Cpu_GetMemory8(cpu_t *cpu, uint32_t addr)
+{
+    return cpu->Memory[trimAddr(addr)];
+}
+
+uint16_t Cpu_GetMemory16(cpu_t *cpu, uint32_t addr)
+{
+    return (uint16_t)Cpu_GetMemory8(cpu, addr + 1) << 8 | Cpu_GetMemory8(cpu, addr);
+}
+
+void Cpu_SetMemory8(cpu_t *cpu, uint32_t addr, uint8_t value)
+{
+    cpu->Memory[trimAddr(addr)] = value;
+}
+
+void Cpu_SetMemory16(cpu_t *cpu, uint32_t addr, uint16_t value)
+{
+    Cpu_SetMemory8(cpu, addr, value & 0xFF);
+    Cpu_SetMemory8(cpu, addr + 1, value >> 8);
+}
+---
+
+And thus the Cpu module lays:
+
+--- cpu implementation
+// #region Cpu Module
+@{cpu initialization and deinitialization}
+@{FDE cycle}
+@{memory access}
+// #endregion
+---
+
+### Memory Management Unit
+
+TODO: Implement mmu
+
+--- mmu implementation
+// TODO: Implement mmu
+---
+
+### Tty Module implementation
+
+The teletype implementation is fairly simple. We will use a file to emulate the printer output, in append mode. The data should persist between sessions, as is indeed *printed*:
+
+--- tty implementation
+error_t Tty_Write(tty_t *tty)
+{
+
+    FILE *file = fopen(tty->filename, "a");
+    int errno = fputc(tty->c, file);
+    if (errno == EOF)
+        return TTY_ERROR_WRITE_FAILED;
+
+    errno = fclose(file);
+    if (errno == EOF)
+        return TTY_ERROR_CLOSE_FAILED;
+
+    return ERROR_NONE;
+}
+---
+
+We will also add a routine to check if characters were sent to the teletype. It will run every cycle, pretending to emulate the *effect* of an interrupt. Of course this is not the *behavior* of an interrupt, and maybe is a bit sloppy, but seems to perform well?
+
+--- tty implementation +=
+void Tty_Execute(cpu_t *cpu, tty_t *tty)
+{
+    tty->c = Cpu_GetCache8(cpu, TTY_PORT_CHAR);
+    if (tty->c != 0x00)
+    {
+        Tty_Write(tty);
+    }
+    Cpu_SetCache8(cpu, TTY_PORT_CHAR, 0x00);
+}
+---
+
+### Keyboard Module Implementation
+
+The Keyboard Module Implementation is perhaps the clunkiest. It gets a keycode in the keyboard port if a key was pressed:
+
+--- kb implementation
+
+void Kb_Execute(cpu_t *cpu, kb_t *kb, SDL_Event *event, int *quit)
+{
+
+    while (SDL_PollEvent(event))
+    {
+        switch (event->type)
+        {
+        case SDL_QUIT:
+            *quit = SDL_TRUE;
+            break;
+        case SDL_KEYDOWN:
+            Cpu_SetCache8(cpu, kb->port, event->key.keysym.sym);
+            kb->interrupt.ready = 1;
+            kb->interrupt.priority = 4;
+            kb->interrupt.vector = IV_KBINCHAR;
+            break;
+        }
+    }
+}
+
+---
+
+### Video Module implementation
+
+We will start by implementing simple functions to get and set the video modes, namely:
+
+--- video modes implementation
+int Video_GetMode(video_t *video)
+{
+    return video->mode;
+}
+
+error_t Video_SetMode(video_t *video, int mode)
+{
+    if (mode > GRAPHIC_MODE)
+        return VIDEO_ERROR_INVALID_MODE;
+    video->mode = mode;
+    return ERROR_NONE;
+};
+---
+
+Now we will add the implementation for both, text and graphic mode commands:
+
+--- text mode commands implementation
+error_t Video_SetChar(video_t *video, uint8_t x, uint8_t y, uint8_t c)
+{
+    if (x < 0 || x >= TEXT_MODE_WIDTH || y < 0 || y >= TEXT_MODE_HEIGHT)
+        return VIDEO_ERROR_INVALID_COORDINATE;
+    if (video->mode != TEXT_MODE)
+        return VIDEO_ERROR_INVALID_MODE;
+    video->charbuffer[x + y * TEXT_MODE_WIDTH] = c;
+    return ERROR_NONE;
+};
+---
+
+--- graphic mode commands implementation
+void Video_SetPixelAbsolute(video_t* video, uint32_t index, uint8_t color)
+{
+    index = index & 0x3ffff;
+    video->pixels[index] = color;
+}
+---
+
+#### Video Module Initialization
+
+The `Init` fucntion will be in charge of initializing `SDL2`, `inprint`, and the video memories. The emulator *shall* crash, should this function fail:
+
+--- video initialization
+error_t Video_Init(video_t *video)
+{
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) == -1)
+    {
+        return VIDEO_ERROR_INIT_FAILED;
+    }
+
+    video->window = SDL_CreateWindow("Taleä System",
+                                     SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                                     WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
+    video->renderer = SDL_CreateRenderer(video->window, -1, RENDERER_FLAGS);
+    video->texture = SDL_CreateTexture(video->renderer,
+                                       SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STATIC, WINDOW_WIDTH, WINDOW_HEIGHT);
+    video->pixels = calloc(GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT, sizeof(uint8_t));
+    video->charbuffer = calloc(TEXT_MODE_WIDTH * TEXT_MODE_HEIGHT, sizeof(char));
+    video->line = calloc(TEXT_MODE_WIDTH, sizeof(char));
+
+    inrenderer(video->renderer);
+    prepare_inline_font();
+
+    if (video->window == NULL || video->renderer == NULL || video->texture == NULL)
+    {
+        return VIDEO_ERROR_INIT_FAILED;
+    }
+    else
+    {
+        return ERROR_NONE;
+    }
+}
+---
+
+The `Destroy` funtction will be called on exit to free the memory used in the video module:
+
+--- video initialization +=
+void Video_Destroy(video_t *video)
+{
+    SDL_DestroyTexture(video->texture);
+    SDL_DestroyRenderer(video->renderer);
+    SDL_DestroyWindow(video->window);
+    free(video->pixels);
+    free(video->charbuffer);
+    free(video->line);
+    SDL_Quit();
+}
+---
+
+#### Video Module Rendering
+
+This function is the most important in the video module, as it renders graphics or text to the screen. In graphic mode it simply blits the pixel data to the screen by means of an SDL_Texture. In text mode it prints the character memory row by row **assuming an 8x8 pixel font**.
+
+--- video render implementation
+error_t Video_Render(video_t *video)
+{
+
+    switch (video->mode)
+    {
+    case GRAPHIC_MODE:
+        SDL_UpdateTexture(video->texture, NULL,
+                          video->pixels, GRAPHIC_MODE_WIDTH * sizeof(uint8_t));
+        SDL_RenderClear(video->renderer);
+        SDL_RenderCopy(video->renderer, video->texture, NULL, NULL);
+        SDL_RenderPresent(video->renderer);
+        break;
+    case TEXT_MODE:
+        SDL_RenderClear(video->renderer);
+        for (int i = 0; i < TEXT_MODE_HEIGHT; i++)
+        {
+            memcpy(video->line, video->charbuffer + i * TEXT_MODE_WIDTH, TEXT_MODE_WIDTH);
+            inprint(video->renderer, video->line, 0, i * 8);
+        }
+        SDL_RenderPresent(video->renderer);
+        break;
+    default:
+        return VIDEO_ERROR_INVALID_MODE;
+    }
+
+    return ERROR_NONE;
+}
+---
+
+#### Video Mode Command Execution
+
+Much like the Tty Module, the video module will execute the commands sent to it as a sort of *pseudo* interruption. This seems not to affect drastically the performance. However, it will *not* render the changes inmediatly, but on time with the frame.
+
+--- video execute implementation
+void Video_Execute(cpu_t *cpu, video_t *video)
+{
+    int x, y;
+    uint32_t index;
+    uint8_t data = Cpu_GetCache8(cpu, VIDEO_PORT_DATA);
+
+    switch (Cpu_GetCache8(cpu, VIDEO_PORT_CMD))
+    {
+    case Video_Command_Nop:
+        return;
+    case Video_Command_Clear:
+        memset(video->charbuffer, data, GRAPHIC_MODE_WIDTH * GRAPHIC_MODE_HEIGHT * sizeof(uint8_t));
+    case Video_Command_SetMode_Text:
+        Video_SetMode(video, TEXT_MODE);
+        break;
+    case Video_Command_SetMode_Graphic:
+        Video_SetMode(video, GRAPHIC_MODE);
+        break;
+    case Video_Command_SetPixel:
+        index = Cpu_GetSegRegister(cpu, x5);
+        Video_SetPixelAbsolute(video, index, data);
+        break;
+    case Video_Command_SetChar:
+        x = Cpu_GetRegister(cpu, x5) & 0x0f;
+        y = Cpu_GetRegister(cpu, x5) >> 8;
+        Video_SetChar(video, x, y, data);
+        break;
+    }
+
+    Cpu_SetCache8(cpu, VIDEO_PORT_CMD, 0x00);
+    Cpu_SetCache8(cpu, VIDEO_PORT_DATA, 0x00);
+}
+---
+
+#### Video Module Implementation Structure
+
+Finally, the video module implementation is so:
+
+--- video implementation
+// #region Video Module Implementation
+@{video initialization}
+@{video modes implementation}
+@{video render implementation}
+@{video execute implementation}
+@{text mode commands implementation}
+@{graphic mode commands implementation}
+// #endregion
+---
+
+### Disk Drive Module Implementation
+
+First we will implement a routine to create an emulated disk drive. It will be a direcoty with 16 binary files, filled each one with up to `0xffff` @{sector} data structures (i.e. 32Mb):
+
+--- disk create
+error_t Disk_Create(const char *path, disk_t *disk, uint16_t sector_count)
+{
+
+    struct sector prototype_sector;
+    memset(prototype_sector.data, 0, SECTOR_SIZE);
+
+    disk->filename = path;
+    disk->fp = fopen(path, "wb");
+    disk->sector_count = sector_count;
+    if (disk->fp == NULL)
+        return DISK_ERROR_OPEN_FAILED;
+
+    for (int i = 0; i <= sector_count; i++)
+    {
+        fwrite(&prototype_sector, sizeof(struct sector), 1, disk->fp);
+    }
+
+    fclose(disk->fp);
+
+    return ERROR_NONE;
+}
+
+error_t Disk_CreateDrive(char *path, drive_t *drive, uint8_t disk_count)
+{
+    error_t error;
+    drive->disk_count = disk_count;
+    for (int i = 0; i < disk_count; i++)
+    {
+        char filename[strlen(DISK_FILE_PATH) + 2]; //remember \0
+        sprintf(filename, "%s%X", DISK_FILE_PATH, i);
+        error = Disk_Create(filename, &drive->disk_list[i], MAX_SECTOR_COUNT);
+
+        if (error != ERROR_NONE)
+        {
+              return error;
+        }
+    }
+    return ERROR_NONE;
+}
+---
+
+#### Disk Drive Command Implementations
+
+Then, we will implement the @{disk commands prototypes}. `LoadSector` will read a sector from disk into `&sector`:
+
+--- disk commands implementation
+void Disk_LoadSector(disk_t *disk, uint16_t sector_number, struct sector *sector)
+{
+    fseek(disk->fp, sector_number * sizeof(struct sector), SEEK_SET);
+    fread(sector, sizeof(struct sector), 1, disk->fp);
+}
+---
+
+Likewise `StoreSector` will store the sector `&sector` on the specified sector of the disk:
+
+--- disk commands implementation +=
+void Disk_StoreSector(disk_t *disk, uint16_t sector_number, struct sector *sector)
+{
+    fseek(disk->fp, sector_number * sizeof(struct sector), SEEK_SET);
+    fwrite(sector, sizeof(struct sector), 1, disk->fp);
+}
+---
+
+The disk commands will then execute each cycle, in the sort of *pseudo* interruption we have already seen. Maybe I should search for a way to do this asynchronously.
+
+--- disk execute implementation 
+void Disk_Execute(cpu_t *cpu, drive_t *drive)
+{
+    uint8_t data = Cpu_GetCache16(cpu, DISK_PORT_DATA);
+    uint8_t rr = (data >> 6) + x28;
+    uint8_t ss = ((data & 0x30) >> 4) + x28;
+    drive->current_disk = &drive->disk_list[data & 0x0f]; 
+
+    uint16_t starting_point = Cpu_GetRegister(cpu, rr) * 512;
+    uint16_t sector_number = Cpu_GetRegister(cpu, ss);
+
+    struct sector tmp_sector;
+
+    switch (Cpu_GetCache8(cpu, DISK_PORT_CMD))
+    {
+    case Disk_Command_Nop:
+        return;
+    
+    case Disk_Command_LoadSector:
+        Disk_LoadSector(drive->current_disk, sector_number, &tmp_sector);
+        memcpy(cpu->Memory + starting_point, &tmp_sector, sizeof(struct sector));
+        break;
+    case Disk_Command_StoreSector:
+        memcpy(&tmp_sector, cpu->Memory + starting_point, sizeof(struct sector));
+        Disk_StoreSector(drive->current_disk, sector_number, &tmp_sector);
+        break;
+    }
+
+    Cpu_SetCache8(cpu, DISK_PORT_CMD, 0x00);
+    Cpu_SetCache8(cpu, DISK_PORT_DATA, 0x00);
+}
+---
+
+And thus, the implementation:
+
+--- disk drive implementation
+// #region Disk Drive
+@{disk create}
+@{disk execute implementation}
+@{disk commands implementation}
+// #endregion
+---
+
+## Emulator Initialization & Main loop
+
+Once we have implemented all the modules, the last thing to do is gluing all of them together. `Init` will initialize the system, `Run` will implement the main loop and `Destroy` will take care of freeing memory and tidying up before exiting.
+
+--- emulator initialization
+void TaleaSystem_Init(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_t *kb, mmu_t * mmu)
+{
+	// Disable interrupts for Video and Drive Modules
+	video->interrupt.enable = 0;
+	drive->interrupt.enable = 0;
+
+	// Enable interrupts for Kb module
+	kb->interrupt.enable = 1;
+	kb->interrupt.ready = 0;
+	kb->interrupt.vector = 0;
+	
+    // Initialize systems
+    Cpu_Init(cpu);
+
+    tty->filename = TTY_FILE_PATH;
+
+    for (int i = 0; i < MAX_DISK_COUNT; i++)
+    {
+        char filename[strlen(DISK_FILE_PATH) + 2]; //remember \0
+        sprintf(filename, "%s%X", DISK_FILE_PATH, i);
+
+        drive->disk_list[i].filename = filename;
+        drive->disk_list[i].fp = fopen(filename, "wb");
+        drive->disk_list[i].sector_count = MAX_SECTOR_COUNT;
+
+        if (drive->disk_list[i].fp == NULL)
+        {
+            printf("Failed to open disk file: %s\n", filename);
+            exit(1);
+        }
+    }
+    
+    kb->port = KB_PORT;
+
+    // MMU_Init(mmu);
+
+    error_t error = Video_Init(video);
+    if (error != ERROR_NONE)
+    {
+        
+        printf("Video init failed, error code %d\n", error);
+        return;
+    }
+
+    // Setup systems
+    Video_SetMode(video, TEXT_MODE);
+    @{addenda init}
+}
+---
+
+Main loop:
+
+--- emulator initialization +=
+void TaleaSystem_Run(cpu_t *cpu, video_t *video, tty_t *tty, drive_t *drive, kb_t *kb)
+{
+
+    struct clock clock_fps;
+    int quit = SDL_FALSE;
+    SDL_Event event;
+    struct timespec frame_start, frame_end;
+    
+	Video_Render(video);
+    Kb_Execute(cpu, kb, &event, &quit);
+
+    while (!quit)
+    {
+        Clock_FrameStart(&clock_fps);
+
+        // Before the render, perform 166666 cycles
+        for (size_t cycles = 0; cycles < CYCLES_PER_FRAME; cycles++)
+        {
+            Cpu_Cycle(cpu);
+            handle_interrupts(cpu, video, drive, kb);
+            Tty_Execute(cpu, tty);
+            @{addenda execute (after tty)}
+        }
+
+        // Every 16ms check for events such as keypresses (83333 cycles at 10Mhz) perhaps too fast?
+        Kb_Execute(cpu, kb, &event, &quit);
+        @{addenda execute (after kb)}
+
+        // Every 16ms, render the screen (166666 cycles at 10Mhz)
+        Video_Render(video);
+
+        Clock_FrameEnd(&clock_fps);
+    }
+}
+---
+
+Deinitialization:
+
+--- emulator initialization +=
+void TaleaSystem_Destroy(cpu_t *cpu, video_t *video, drive_t *drive)
+{
+    // Destroy systems
+    @{addenda destroy}
+    for (int i = 0; i < MAX_DISK_COUNT; i++)
+    {
+        fclose(drive->disk_list[i].fp);
+    }
+
+    Cpu_Destroy(cpu);
+    Video_Destroy(video);
+}
+---
+We will also implement a  `panic` function, that will log error to `stdout`:
+
+--- emulator initialization +=
+void TaleaSystem_Panic(error_t error)
+{
+    printf("Error: %d", error); // TODO: make this better
+}
+---
+
+And now, finally, the `main` function, entry point of the program:
+
+--- main
+int main(int argc, char const *argv[])
+{
+
+    cpu_t cpu;
+    tty_t tty;
+    video_t video;
+    drive_t drive;
+    kb_t kb;
+    mmu_t mmu;
+    @{addenda creation}
+
+    if (argc > 1)
+    {
+        if (strcmp(argv[1], "createDrive") == 0)
+        {
+            if (Disk_CreateDrive(DISK_FILE_PATH, &drive, MAX_DISK_COUNT) == ERROR_NONE)
+            {
+                printf("Drive created succesfully\n");
+                return 0;
+            }
+
+            printf("Error creating drive\n");
+            return -1;
+        }
+    }
+
+    TaleaSystem_Init(&cpu, &video, &tty, &drive, &kb, &mmu);
+
+	if (argc == 3)
+    {
+        if (strcmp(argv[1], "load") == 0)
+        {
+        	FILE * program = fopen(argv[2], "rb");
+			fseek(program, 0, SEEK_END);
+			long psize = ftell(program);
+			fseek(program, 0, SEEK_SET);
+
+			uint8_t *hex = malloc(psize + 1);
+			fread(hex, psize, 1, program);
+			fclose(program);
+
+			for (int i = 0; i<psize; i++)
+			{
+				Cpu_SetMemory8(&cpu, i, hex[i]);
+			}
+
+			free(hex);
+		}
+    }	    	    
+
+    TaleaSystem_Run(&cpu, &video, &tty, &drive, &kb);
+
+    TaleaSystem_Destroy(&cpu, &video, &drive);
+
+    return 0;
+}
+---
+
+### Sewing All Together
+
+Summing up, the implementation file, `talea.c`, looks like this:
+
+--- talea.c
+@{implementation includes}
+
+@{helpers}
+
+@{clock implementation}
+@{cpu implementation}
+@{mmu implementation}
+@{tty implementation}
+@{kb implementation}
+@{video implementation}
+@{disk drive implementation}
+@{addenda implementation}
+
+@{interrupt handler}
+
+@{emulator initialization}
+
+@{main}
+---

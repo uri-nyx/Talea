@@ -1,0 +1,20 @@
+@code_type c .c
+@comment_type /* %s */
+
+@title Teletpye Printer
+
+@s
+
+The Teletype printer module is the simplest output device of the system. As the
+reciever end of a teletype, it prints characters, one at a time. However, it does
+not provide input:
+
+--- tty
+typedef struct
+{
+    char *filename;
+    uint8_t c;
+} tty_t;
+
+error_t Tty_Write(tty_t *tty);
+---
