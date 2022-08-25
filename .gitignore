@@ -255,3 +255,4 @@ cython_debug/
 src/includes/SDL2/
 src/lib
 talea
+.vscode/
