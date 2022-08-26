@@ -1,0 +1,35 @@
+
+
+token =  LDI(R3, toin);      ; r2 := >IN */
+         LD(R1, space);      ; r1 := ' ' (0x20) (ADD can't use imm 0x20, too big) */
+skipws = LDR(R0, R3, 0);     ; r0 := mem[>IN] */
+         BRZ(readln);        ; (r0 == '\0') ? read another TIB */
+         AND(R2, R3, R3);    ; r2 := r3 (r2 is start of the token) */
+         ADD(R3, R3, 1);     ; r3 := r3 + 1, next char */
+         ADD(R0, R0, R1);    ; (r0 == ' ')  ? skip whitespace */
+         BRZ(skipws);
+         ADD(R3, R3, -1);    ; r3 := r3 - 1, roll back one char for the next loop */
+findws = ADD(R3, R3, 1);     ; r3 := r3 + 1, go to next char */
+         LDR(R0, R3, 0);     ; r0 := mem[r3] */
+         BRZ(tokend);        ; (r0 == '\0') ? done */
+         ADD(R0, R0, R1);    ; (r0 <> ' ')  ? not a space, continue */
+         BRNP(findws);
+tokend = STI(R3, toin);      ; >IN := r3 */
+         NOT(R1, R2);        ; r1 := ~r2 */
+         ADD(R1, R1, 1);     ; r1 := ~r2 + 1 */
+         ADD(R3, R3, R1);    ; r3 := r3 + (~r2 + 1) OR r3 := r3 - r2 (len = end-start) */
+         RET();
+
+
+ /* readln: read a line until CR and fill in the TIB */
+readln = LD(R1, tib);        /* load TIB address */
+         LD(R0, toin);       /* load >IN address */
+         STR(R1, R0, 0);     /* make >IN point at the start of TIB */
+readlp = TRAP(0x20);         /* r0 = getchar() */
+         STR(R0, R1, 0);     /* mem[r1] = r0 */
+         ADD(R1, R1, 1);     /* r1 = r1 + 1 */
+         ADD(R0, R0, -10);   /* is r0 == '\n' ? */
+         BRNP(readlp);       /* no: read another character */
+         ADD(R1, R1, -1);    /* r1 = r1 - 1 to erase newline */
+         STR(R0, R1, 0);     /* write 0 instead */
+         BR(token);          /* try to parse first token */

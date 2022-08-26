@@ -10,35 +10,41 @@ def main(argv):
     output_format = argv[1]
     source_file = argv[2]
     output_file = argv[3]
-    options = None if len(argv) == 4 else argv[4:]
+    options = [None] if len(argv) == 4 else argv[4:]
     
-    formats = ["raw"]
+    formats = ["org3", "raw"]
     
+    with open(source_file, "r") as f:
+        source = f.read()
+        
+    if "macro" in options:
+        source = asmodule.macro.expand_macros_and_remove_definitions(source)
+        
+    assembler = asmodule.asm.Assembler(source)
+    hex_string = assembler.assemble_raw()
+    
+    if "debug" in options:
+        debug_info = str(assembler.labels) + "\n"
+        debug_info += str(assembler.section_start_addresses) + "\n"
+        debug_info += str(assembler.sections) + "\n"
+        debug_info += "Assembler Dump\n" + str(assembler.debug_info)
+        
+        with open(output_file + ".debug", "w") as f:
+            f.write(debug_info + "\n\n" + hex_string)
+            
     if output_format not in formats:
         print("Invalid output format: " + output_format)
         return
     
-    if output_format == "raw":
-        with open(source_file, "r") as f:
-            source = f.read()
-            
-        if "macro" in options:
-            source = asmodule.macro.expand_macros_and_remove_definitions(source)
-            
-        assembler = asmodule.asm.Assembler(source)
-        hex_string = assembler.assemble_raw()
-        
+    elif output_format == "org3":
         with open(output_file, "wb") as f:
             f.write(bytes.fromhex(hex_string))
+    
+    elif output_format == "raw":
+        with open(output_file, "wb") as f:
+            f.write(bytes.fromhex(hex_string)[3:])
         
-        if "debug" in options:
-            debug_info = str(assembler.labels) + "\n"
-            debug_info += str(assembler.section_start_addresses) + "\n"
-            debug_info += str(assembler.sections) + "\n"
-            debug_info += "Assembler Dump\n" + str(assembler.debug_info)
-            
-            with open(output_file + ".debug", "w") as f:
-                f.write(debug_info + "\n\n" + hex_string)
+        
         
 
 if __name__ == "__main__":

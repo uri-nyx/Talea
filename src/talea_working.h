@@ -36,6 +36,10 @@ const int MILLISECONDS_PER_FRAME = 1000 / FPS;
 
 // #region Architecture
 /* sizes */
+#define TVT_START 0xfc00 // Starting address of trap vector table
+#define IVT_START (TVT_START + 0x200) // Interrupt vector table follows tvt
+
+
 #define Bit 1
 
 const int DATA_BUS_SIZE = 16 * Bit;

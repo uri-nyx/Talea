@@ -1,8 +1,6 @@
-    .org 0
 ; the TRAP vector table
-    jal zero $400    ; vectors 0  and  1 are reserved for the jump to the system entry point at 1k (1024 bytes)
-    ;.word BAD_TRAP  ; x00
-    ;.word BAD_TRAP  ; x01
+    .word BAD_TRAP  ; x00
+    .word BAD_TRAP  ; x01
     .word BAD_TRAP  ; x02
     .word BAD_TRAP  ; x03
     .word BAD_TRAP  ; x04

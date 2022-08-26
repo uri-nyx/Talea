@@ -11,6 +11,21 @@
 int dbg;
 
 /* helpers */
+inline uint16_t getIVT(cpu_t* cpu, uint8_t index)
+{
+    // Gets the word at index from the Interrupt vector table. It is stored in cache memory
+    // IVT starts at 0xfe00 in cache (and it is 512 bytes long)
+    return Cpu_GetCache16(cpu, IVT_START + (index * Word));
+}
+
+/* helpers */
+inline uint16_t getTVT(cpu_t* cpu, uint8_t index)
+{
+    // Gets the word at index from the Trap vector table. It is stored in cache memory
+    // TVT starts at 0xfc00 in cache (and it is 512 bytes long)
+    return Cpu_GetCache16(cpu, TVT_START + (index * Word));
+}
+
 void setfont(SDL_Renderer* renderer,  const char * fname)
 {
     if (fname == NULL) {infont(NULL); return;}
@@ -360,7 +375,7 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
             // Set CPU in Supervisor mode
             cpu->Psr &= 0x7fff;
             // Load ip with the address stored in the trap vector at imm_8 << 1
-            Cpu_SetIp(cpu, Cpu_GetMemory16(cpu, 0x00ff & (imm_8 << 1)));
+            Cpu_SetIp(cpu, getTVT(cpu, imm_8));
             break;
         case Ssr:                                                 // Set segment register
             imm_8 = (instruction & 0x0ff00000) >> 20;
@@ -418,6 +433,14 @@ error_t Cpu_Execute(cpu_t *cpu, uint32_t instruction)
         {
         TaleaSystem_RaiseException(cpu, VECTOR_EXCEPTION_ILLEGAL_OPCODE);
         printf("Illegal opcode: %x. Instruction: %x at address@ip: %x\n", opcode, instruction, Cpu_GetIp(cpu));
+        printf("TIB: \n");
+        for (int i = 0; i < 256; i++)
+        {
+            if (i % 16 == 0) printf("\n%x: ", 0x1000 + i);
+            printf(" [%c %x] ", (char)cpu->Memory[0x1000 + i], cpu->Memory[0x1000 + i]);
+        }
+
+        printf("\n---------[word start: %x][length: %d]\n", Cpu_GetSegRegister(cpu, x12), Cpu_GetRegister(cpu, x13));
         
         return ERROR_UNKNOWN_OPCODE;
         }
@@ -987,7 +1010,7 @@ void interrupt_handler(cpu_t *cpu, struct interrupt_interface *interrupt)
         // Set CPU in Supervisor mode (or leave it in it)
         cpu->Psr &= 0x7fff;
         // Load ip with the address stored in the interrupt vector
-        Cpu_SetIp(cpu, Cpu_GetMemory16(cpu, (0x0100 + interrupt->vector) << 1));
+        Cpu_SetIp(cpu, getIVT(cpu, interrupt->vector));
         //printf("triggered interrupt: vector %x, in address %x\n", interrupt->vector, 0x0100 | (0x0100 + interrupt->vector) << 1);
         //printf("State after interrupt:\n");
         //printf("IP: %d\n", Cpu_GetIp(cpu));
@@ -996,7 +1019,6 @@ void interrupt_handler(cpu_t *cpu, struct interrupt_interface *interrupt)
 
 void exception_handler(cpu_t *cpu, struct interrupt_interface *exception)
 {
-    uint16_t ex_hand = Cpu_GetMemory16(cpu, (0x0100 + exception->vector) << 1);
     if (exception->enable && exception->ready) // Exceptions are allways triggered
     {
         // TODO: Tidy up and refactor to bitfields maybe?
@@ -1018,7 +1040,7 @@ void exception_handler(cpu_t *cpu, struct interrupt_interface *exception)
         // Set CPU in Supervisor mode (or leave it in it)
         cpu->Psr &= 0x7fff;
         // Load ip with the address stored in the interrupt vector
-        Cpu_SetIp(cpu, ex_hand);
+        Cpu_SetIp(cpu, getIVT(cpu, exception->vector));
     }
 }
 
@@ -1233,7 +1255,38 @@ int main(int argc, char const *argv[])
     {
         if (strcmp(argv[1], "load") == 0)
         {
-            if (strcmp(argv[2], "bios") == 0) cpu.InstructionPointer = 0x200; // Set ip to entry point of bios or systems if it is loaded
+            if (strcmp(argv[2], "vtables") == 0){ // Flag to the emulator that the file contains vtables. Sloppy
+                // Load vector tables in Cache Memory
+                FILE *vtables = fopen(argv[argc - 1], "rb");
+                fseek(vtables, 0, SEEK_END);
+
+                int vtsize = 1024;
+                if (ftell(vtables) < vtsize) 
+                {
+                    printf("Aborting: A file with vector tables must be at least 1024 bytes long: %lu", ftell(vtables));
+                    return -1;
+                }
+
+                fseek(vtables, 0, SEEK_SET);
+
+                uint8_t *hex = malloc(vtsize + 1);
+                fread(hex, vtsize + 3, 1, vtables);
+                fclose(vtables);
+
+                // TODO: not a todo, but NOTE CLEARLY THAT VECTOR TABLES ARE ALLWAYS A 1024 BYTE FILE, WITH NO HEADERS
+
+
+                for (int i = 0; i < vtsize; i++)
+                {
+                    Cpu_SetCache8(&cpu, TVT_START + i, hex[i + 3]);
+                }
+
+                free(hex);
+
+                Cpu_SetIp(&cpu, 1024); // set ip to the entry point
+            }
+
+
             FILE *program = fopen(argv[argc - 1], "rb");
             fseek(program, 0, SEEK_END);
             long psize = ftell(program);
