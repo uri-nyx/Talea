@@ -1,0 +1,5 @@
+MIT:
+= https://spdx.org/licenses/MIT
+- This
+- git https://github.com/Hejsil/zig-clap
+- git https://github.com/MasterQ32/zig-network
