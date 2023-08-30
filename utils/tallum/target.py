@@ -1,7 +1,7 @@
 # Abstract interfaces for target platforms
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from . import ir
+import ir
 
 @dataclass
 class VMmap:
@@ -24,6 +24,7 @@ class Target(ABC):
         self.word = bits / 8
         self.map: VMmap = vmmap
         self.static = {}
+        self.data = []
     
     @abstractmethod
     def push(self, segment: str, index: int, lineno: int) -> str:
@@ -59,12 +60,22 @@ class Target(ABC):
     def function(self, func: str, nlocals: int) -> str:
         pass
     @abstractmethod
-    def ret(self, ) -> str:
+    def ret(self) -> str:
         pass
+    @abstractmethod
+    def cstring(self, s: str) -> str:
+        pass
+    
     @abstractmethod
     def optimize(self, asm: str) -> str:
         pass
     
+    def emit_static(self) -> str:
+        return "\n".join([self.static[i] for i in self.static])
+    
+    def emit_data(self) -> str:
+        return "\n".join(self.data)
+        
     def translate(self, s: str, lineno: int) -> str:
         ss = s.split()
         if len(s) == 0 or len(ss) == 0:
@@ -115,6 +126,13 @@ class Target(ABC):
                     return self.call(func, arg)
             case ir.RETURN:
                 return self.ret()
+            
+            case ir.CSTRING:
+                err, string = ir.check_string(s, lineno)
+                if err:
+                    return string
+                else:
+                    return self.cstring(string)
             
             case _:
                 ir.error(f"`{command}` is not a valid instruction", lineno)

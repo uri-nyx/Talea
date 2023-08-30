@@ -3,27 +3,34 @@
     #addr_end 10000
     #outp 8 * 0
 }
+#bankdef bss {
+    #addr 30000
+    #addr_end 40000
+    #outp 8 * 30000
+}
+#bankdef data {
+    #addr 40000
+    #addr_end 50000
+    #outp 8 * 40000
+}
+#bank text
+
+CB = 0xed_17_f0 ; 15538160
+FB = 0xed_3f_f0 ; 15548400
 
 li  a0, 0b1_1_0_010_111110_11111111_000000000000
 ssreg a0                ; supervisor, intterupt enabled, mmu disabled
                         ; priority 2, ivt at 0xf800, pdt at 0xff00
 jal ra, INITIALIZE_IVT
 
+;26 Initialize video
+li t0, 0x205
+V_COMMAND = 0x10 + 0x0
+shd t0, V_COMMAND(zero)
+
 li s2, 10000
 li s7, 20000
 
-; li s2, 1
-; li s3, 2
-; li s4, 3
-; li s5, 4
-; li ra, 0xfefefe
-; push ra, s7
-; save s2, s5, s7
-; restore s2, s5, s7
-; pop ra, s7
-; trace s2, s3, s4, s5
-; trace ra, zero, zero, zero
-; j [0]
 pop ra, s7
 push ra, s7    
 save s2, s6, s7
@@ -33,6 +40,13 @@ trace s8, zero, zero, zero
 
 end:
 j end
+
+bios:
+    .trace:
+        trace s8, zero, zero, zero
+        pop s8, s2
+        ret
+
 
 ; Interrupt Service Routines:
 INITIALIZE_IVT:
@@ -150,9 +164,5 @@ ISR_VIDEO_REFRESH:
     trace t0, zero, zero, zero
     sysret
 
-#bankdef bss {
-    #addr 30000
-    #addr_end 40000
-    #outp 8 * 30000
-}
-#include "Main.s"
+
+#include "jack.s"

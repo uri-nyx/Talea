@@ -1,9 +1,10 @@
 # Code generator and target description for Sirius (freestanding)
-from utils.tallum.target import VMmap
-from .. import target, ir
+import sys, re
+sys.path.append("..") 
+import target, ir
 
 SIRIUS_MAP = target.VMmap(
-    arg   = "s2",
+    sp   = "s2",
     lcl  = "s3",
     arg  = "s4",
     this = "s5",
@@ -25,10 +26,11 @@ class Sirius(target.Target):
         match segment:
             case segment if segment in [ir.ARGUMENT, ir.LOCAL]:
                     s = self.map.arg if segment == ir.ARGUMENT else self.map.lcl
-                    return f"push {self.map.self.map.acc}, {self.map.sp}\nlw {self.map.self.map.acc}, -{index * 4}({s})"
-            case segment if segment in [ir.THIS, ir.THAT]:
-                    s = self.map.this if segment == ir.THIS else self.map.that
-                    return f"push {self.map.self.map.acc}, {self.map.sp}\nlw {self.map.self.map.acc}, {index * 4}({s})"
+                    return f"push {self.map.acc}, {self.map.sp}\nlw {self.map.acc}, -{index * 4}({s})"
+            case ir.THIS:
+                    return f"push {self.map.acc}, {self.map.sp}\nlw {self.map.acc}, {index}*4({self.map.this})"
+            case ir.THAT:
+                    return f"push {self.map.acc}, {self.map.sp}\nlb {self.map.acc}, {index}({self.map.that})"
             case ir.POINTER:
                 pointer = self.map.this if ir.get_pointer(index, lineno) else self.map.that
                 return f"push {self.map.acc}, {self.map.sp}\nmv {self.map.acc}, {pointer}"
@@ -38,7 +40,7 @@ class Sirius(target.Target):
                     ir.error("Temp segment addresses only 0 to 7, not " + str(index), lineno)
                     return(";! segment error: invalid temp offset " + str(index))
                 
-                return f"push {self.map.acc}, {self.map.sp}\nmv {self.map.acc}, {self.map.tem[index]}"
+                return f"push {self.map.acc}, {self.map.sp}\nmv {self.map.acc}, {self.map.temp[index]}"
             case ir.CONSTANT:
                 if index < 0:
                     ir.error("Constant segment self.map.accepts only positive integers: " + str(index), lineno)
@@ -63,9 +65,10 @@ class Sirius(target.Target):
             case segment if segment in [ir.ARGUMENT, ir.LOCAL]:
                     s = self.map.arg if segment == ir.ARGUMENT else self.map.lcl
                     return f"sw {self.map.acc}, -{index * 4}({s})\npop {self.map.acc}, {self.map.sp}"
-            case segment if segment in [ir.THIS, ir.THAT]:
-                    s = self.map.this if segment == ir.THIS else self.map.that
-                    return f"sw {self.map.acc}, {index * 4}({s})\npop {self.map.acc}, {self.map.sp}"
+            case ir.THIS:
+                    return f"sw {self.map.acc}, {index}*4({self.map.this})\npop {self.map.acc}, {self.map.sp}"
+            case ir.THAT:
+                    return f"sb {self.map.acc}, {index}({self.map.that})\npop {self.map.acc}, {self.map.sp}"
             case ir.POINTER:
                 pointer = self.map.this if ir.get_pointer(index, lineno) else self.map.that
                 return f"mv {pointer}, {self.map.acc}\npop {self.map.acc}, {self.map.sp}"
@@ -145,21 +148,21 @@ class Sirius(target.Target):
     def call(self, func: str, args: int) -> str:
         # prepare a stack frame: push compiler registers to callstack and parameters to data stack    
         # Compiler registers
-        asm  = f"push ra, {self.map.callstack}    ; save return addr\n"
+        asm  = f"push ra, {self.map.callstack}\n" #save return addr
         asm += f"save {self.map.sp}, {self.map.that}, {self.map.callstack}\n"
         # Parameters
         if args > 0:
-            asm += f"push {self.map.acc}, {self.map.sp} ; push ACC to args\n"
-            asm += f"addi {self.map.arg}, {self.map.sp}, {(args - 1) * 4} ; relocate argument segment\n"
+            asm += f"push {self.map.acc}, {self.map.sp}\n" #push ACC to args
+            asm += f"addi {self.map.arg}, {self.map.sp}, {(args - 1) * 4}\n" #relocate argument segment
         
-        asm += f"subi {self.map.lcl}, {self.map.sp}, 4   ; relocate local segment\n"
+        asm += f"subi {self.map.lcl}, {self.map.sp}, 4\n" #relocate local segment
         asm += f"call {func}\n"
         asm += f"pop ra, {self.map.callstack}"
         return asm
     
     def function(self, func: str, nlocals: int) -> str:
         # declare a function
-        asm  = f"{func.replace(ir.get_name, '', 1)}:\n"
+        asm  = f"{func.replace(ir.get_name(), '', 1)}:\n"
         if nlocals == 0:
             return asm
         else:
@@ -175,6 +178,39 @@ class Sirius(target.Target):
         asm += f"ret"
         return asm
     
+    def _optimize_literal_string(self, asm: str):
+        # String optimizations
+        regex = r"^push constant \d+\ncall String\.new 1\n(?:push constant \d+\ncall String.appendChar 2\n)+(pop \w+ \d+\n)"
+        matches = re.finditer(regex, asm, re.MULTILINE)
+        
+        for matchNum, match in enumerate(matches, start=1):
+            print ("Match {matchNum} was found at {start}-{end}: {match}".format(matchNum = matchNum, start = match.start(), end = match.end(), match = match.group()))
+            for groupNum in range(0, len(match.groups())):
+                groupNum = groupNum + 1
+                
+                print ("Group {groupNum} found at {start}-{end}: {group}".format(groupNum = groupNum, start = match.start(groupNum), end = match.end(groupNum), group = match.group(groupNum)))
+
+    def cstring(self, s: str) -> str:
+        label = f".d{len(self.data)}"
+        
+        dat  = f"{label}:\n"
+        dat += f"\t#d32 {len(s)}\n"
+        dat += f'\t#d "{s}"\n'
+        dat +=  "\t#align 32\n"
+        self.data.append(dat)
+        
+        asm  = f"push {self.map.acc}, {self.map.sp}\n" 
+        asm += f"la {self.map.acc}, DATA_{ir.get_name()}{label}\n"
+        return asm 
+        
     def optimize(self, asm: str) -> str:
         optimized = asm.replace(f"pop {self.map.acc}, {self.map.sp}\npush {self.map.acc}, {self.map.sp}\n", "") #remove redundancies
         return optimized
+    
+    def emit_static(self) -> str:
+        if not self.supervisor:
+            return f"STATIC_{ir.get_name()}:\n" + super().emit_static()
+        else:
+            return ""
+    def emit_data(self) -> str:
+        return f"DATA_{ir.get_name()}:\n" + super().emit_data()

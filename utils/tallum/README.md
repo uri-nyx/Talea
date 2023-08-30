@@ -2,4 +2,6 @@
 
 TALLUM is a backend and abstract VM architecture aimed to the Taleä Computer system, but machine agnostic in nature.
 
-It specifies and implements a simple stack machine based on the one presented in Nand2Tetris
+It specifies and implements a simple stack machine based on the one presented in Nand2Tetris.
+Currently, the only frontends compatible with this implementation are compilers for the JACK
+programming language.

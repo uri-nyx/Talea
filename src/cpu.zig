@@ -264,7 +264,7 @@ pub const Sirius = struct {
             @as(Register, @enumFromInt(r2)), self.getReg(r2),
             @as(Register, @enumFromInt(r3)), self.getReg(r3),
             @as(Register, @enumFromInt(r4)), self.getReg(r4),
-            0xb
+            0x07
         });
     }
 

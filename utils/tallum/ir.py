@@ -4,6 +4,8 @@ from typing import List
 import re
 
 # Segments
+PUSH = "push"
+POP = "pop"
 ARGUMENT = "argument"
 LOCAL    = "local"
 STATIC   = "static"
@@ -48,6 +50,9 @@ IFGOTO = "if-goto"
 FUNCTION = "function"
 CALL = "call"
 RETURN = "return"
+
+# EXTENSIONS
+CSTRING = "#cstring"
 
 
 # Bookeeping
@@ -115,6 +120,15 @@ def check_func(ss: List[str], number: int) -> (bool, str, int):
         return (True, ";! syntax error: argument mismatch at line " + str(number))
     
     return(False, ss[1], int(ss[2]))
+
+def check_string(s: str, number: int) -> (bool, str):
+    string = re.search("\"([^\"]*)\"", s)
+    if string != None:
+        string = string.group(1)
+        return (False, string)
+    else:
+        error("`#cstring` takes a constant string enclosed in `\"`", number)
+        return (True, ";! syntax error: no string provided to #cstring at line " + str(number))
 
 def remove_comments(asm: str) -> str:
     asm = re.sub(";.*?(\r\n?|\n)", "", asm.strip())
