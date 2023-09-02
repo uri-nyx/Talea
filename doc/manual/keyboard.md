@@ -3,16 +3,16 @@
 The keyboard is simple, and can be configured either to trigger an interrupt on the reception of scancodes or characters. The registers are:
 
     ╭─────────┬────╮
-    │CHARACTER│0x00│
+    │MODIFIERS│0x00│
     ├─────────┼────┤
-    │CODE     │0x01│
+    │CHARACTER│0x01│
     ├─────────┼────┤
-    │MODIFIERS│0x02│
+    │SCANCODE │0x02│
     ├─────────┼────┤
-    │KBDMODE  │0x03│
+    │KBDMODE  │0x00│
     ╰─────────┴────╯
 
-The modes are `0` for `character mode` and `1` for `scancode mode`. The `modifiers` register exposes the modifiers pressed in any given moment in the keyboard: `shift`, `control`, `alt` or `logo`:
+The modes are `0` for `character mode` (fire interrupt on character reception) and `1` for `scancode mode` (fire interrupt on scancode reception). The `scancode` register is 2 bytes long. The `modifiers` register exposes the modifiers pressed in any given moment in the keyboard: `shift`, `control`, `alt` or `logo`:
 
     ╭──────────┬───────┬──────┬─────┬──────╮
     │reserved:4│shift:1│ctrl:1│alt:1│logo:1│

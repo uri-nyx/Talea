@@ -95,7 +95,11 @@ def check_push_pop(ss: List[str], number: int) -> (bool, str, int):
                 + str(SEGMENTS) + " are valid", number)
         return (True, ";! syntax error: invalid segment " + segment + " at line " + str(number), 0)
     
-    if not ss[2].isdigit():
+    if not re.search("^-?[0-9]+$", ss[2]):
+        if ss[2][1] == "-" and ss[1] != CONSTANT:
+            error("`index` argument to pop/push must be positive except in the chonstant segment", number)
+            return (True, ";! syntax error: invalid index " + ss[2] + " at line " + str(number), 0)
+        
         error("`index` argument to pop/push must be an integer", number)
         return (True, ";! syntax error: invalid index " + ss[2] + " at line " + str(number), 0)
         

@@ -3,3 +3,5 @@ MIT:
 - This
 - git https://github.com/Hejsil/zig-clap
 - git https://github.com/MasterQ32/zig-network
+- git https://github.com/nektro/zig-extras
+- git https://github.com/nektro/zig-time

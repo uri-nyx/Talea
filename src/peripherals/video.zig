@@ -190,8 +190,8 @@ pub const VideoDevice = struct {
                 }
             },
             @intFromEnum(Command.setMode) => {
-                std.debug.print("Set mode\n", .{});
                 self.mode = @as(arch.VideoMode, @enumFromInt(self.registers[DATAH]));
+                std.debug.print("Set video mode {}\n", .{self.mode});
             },
             @intFromEnum(Command.setFont) => {
                 self.font = @as(arch.VideoFont, @enumFromInt(self.registers[DATAH]));

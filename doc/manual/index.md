@@ -1,6 +1,6 @@
 # The Taleä Computer System User's Manual
 
-IN THE NAME OF THE PRINCE OF TALANDEL, and by His order, this manual has been printed to come in aid of any who uses a *computing system*, to instruct in its good uses, and to warn about it's traps. Know now all who reads, that whomever to use the system will be held accountable in the Courts of Justice of the City of Talandel, and shall abide by the Laws of Commerce and submit to the authority of His Highness The Prince.
+IN THE NAME OF THE PRINCE OF TALANDEL, and by His order, this manual has been printed to come in aid of any who uses a *computing system*, to instruct in its good uses, and to warn about it's traps. Know now all who read, that whomever to use the system will be held accountable in the Courts of Justice of the City of Talandel, and shall abide by the Laws of Commerce and submit to the authority of His Highness The Prince.
 
 ## Table of Contents
 

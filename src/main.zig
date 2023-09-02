@@ -11,6 +11,7 @@ const storage = @import("peripherals/storage.zig");
 const timers = @import("peripherals/timer.zig");
 const video = @import("peripherals/video.zig");
 const keyboard = @import("peripherals/keyboard.zig");
+const sys = @import("peripherals/sys.zig");
 
 // DEFAULTS
 var firmware_path: []const u8 = "utils/firmware/default.bin";
@@ -113,6 +114,30 @@ const Device2 = struct {
     }
 };
 
+const DeviceF = struct {
+    pub const Self = @This();
+
+    sys: *sys.Sys,
+    dev: memory.Device,
+
+    pub fn init(sysdev: *sys.Sys) DeviceF {
+        return DeviceF{ .sys = sysdev, .dev = memory.Device{
+            .write = write,
+            .read = read,
+        } };
+    }
+
+    pub fn write(dev: *memory.Device, address: u4, data: u8) void {
+        const self = @fieldParentPtr(DeviceF, "dev", dev);
+        self.sys.write(address, data);
+    }
+
+    pub fn read(dev: *memory.Device, address: u4) u8 {
+        const self = @fieldParentPtr(DeviceF, "dev", dev);
+        return self.sys.read(address);
+    }
+};
+
 fn teletype_receive(port: *serial.Serial, client: network.Socket) !void {
     while (true) {
         try port.receiveOne(client);
@@ -207,6 +232,8 @@ pub fn main() !void {
 
     // DEVICE INSTALLATION ====================================================
     const numdevices = 3;
+    var system_device = sys.Sys.init(&irq, master_frequency, numdevices);
+
     var devices = try allocator.alloc(*memory.Device, arch.DATA_SIZE / arch.DeviceSize);
     defer allocator.free(devices);
 
@@ -223,17 +250,24 @@ pub fn main() !void {
     var device0 = Device0.init(&serial_controller, &timer, &kb);
     var device1 = Device1.init(&gpu);
     var device2 = Device2.init(&disk_controller, &tps_controller);
+    var deviceF = DeviceF.init(&system_device);
 
     devices[0] = &device0.dev;
     devices[1] = &device1.dev;
     devices[2] = &device2.dev;
+    devices[0xF] = &deviceF.dev;
     var data_bus = memory.DataBus{
         .devices = devices,
     };
 
+    // REGISTER DEVICES ====================================================
+    _ = try data_bus.writeu8(arch.DEVICE_MAP + 0, @intFromEnum(arch.DEVID.STK));
+    _ = try data_bus.writeu8(arch.DEVICE_MAP + 1, @intFromEnum(arch.DEVID.VIDEO));
+    _ = try data_bus.writeu8(arch.DEVICE_MAP + 2, @intFromEnum(arch.DEVID.DRIVE));
+
+    _ = try data_bus.writeBeu16(0xff00, 0x0020);
     // MMU ====================================================================
-    var mmu = memory.Mmu.init(allocator, &main_bus, &data_bus);
-    defer mmu.deinit();
+    var mmu = memory.Mmu.init(&main_bus, &data_bus);
 
     // FIRMWARE LOADING ========================================================
     const file = try std.fs.cwd().openFile(firmware_path, .{ .mode = .read_only });
@@ -265,11 +299,12 @@ pub fn main() !void {
     const timer_cycles_per_tick = sirius.frequency / timer.frequency;
 
     var alive = true;
-    while (alive) {
+    var poweroff = false;
+    while (alive and !poweroff) {
         var target = sirius.cycles + frame;
 
         while (sirius.cycles < target) {
-            try sirius.checkExceptions();
+            poweroff = try sirius.checkExceptions();
             if (sirius.cycles % timer_cycles_per_tick == 0) {
                 timer.cycleOne();
             }

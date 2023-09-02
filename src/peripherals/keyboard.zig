@@ -12,6 +12,7 @@ pub const Keyboard = struct {
     modifiers: u16,
     character: u8,
     keycode: u16,
+    charmode: bool,
 
     comptime base: u4 = 0xc,
     interrupt_controller: *cpu.InterruptController,
@@ -21,6 +22,7 @@ pub const Keyboard = struct {
             .modifiers = 0,
             .character = 0,
             .keycode = 0,
+            .charmode = true,
 
             .base = base_addr,
             .interrupt_controller = irq,
@@ -29,9 +31,9 @@ pub const Keyboard = struct {
 
     pub fn write(self: *Self, address: u4, data: u8) void {
         // writing to the keyboard is a NOP
-        _ = self;
-        _ = address;
-        _ = data;
+        if (address == self.base + 0) {
+            self.charmode = if (data == 1) false else true;
+        }
         return;
     }
 
@@ -47,13 +49,17 @@ pub const Keyboard = struct {
 
     pub fn character_in(self: *Self, c: u8) void {
         self.character = c;
-        self.interrupt_controller.set(true, 4, @intFromEnum(arch.Interrupt.KeyboardCharacter));
+        if (self.charmode){
+            self.interrupt_controller.set(true, 4, @intFromEnum(arch.Interrupt.KeyboardCharacter));
+        }
     }
 
     pub fn keyboard_in(self: *Self, key: u16, mod: u16) void {
         //std.debug.print("key: {x}, mod: {x}\n", .{key, mod});
         self.keycode = key;
         self.modifiers = mod;
-        self.interrupt_controller.set(true, 4, @intFromEnum(arch.Interrupt.KeyboardScancode));
+        if (!self.charmode){
+            self.interrupt_controller.set(true, 4, @intFromEnum(arch.Interrupt.KeyboardScancode));
+        }
     }
 };

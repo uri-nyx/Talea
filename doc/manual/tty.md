@@ -26,6 +26,4 @@ An interrupt will be fired when there is data incoming from the serial device at
 
 ## Controlling the Serial Port
 
-(WIP)
-
 Writing `0x00` to the `CTRL` register will swicht the port to a FIFO for readings. The default (`0x01`) is LIFO. If the buffer contained data before the swicht took place, no warranties are made about the rearrangement of the data, its loss, or its corruption, and reading from a port in that state can lead to *undefined behaviour*.

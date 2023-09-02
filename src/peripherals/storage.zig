@@ -7,9 +7,11 @@ pub const Command = enum(u8) {
     store,
     load,
     isBootable,
+    isPresent,
     open,
     close,
     setCurrent,
+    size
 };
 
 pub const Sector = struct { data: [arch.SectorSize]u8 };
@@ -175,6 +177,29 @@ pub const DiskController = struct {
                     self.registers[STATUSL] = 0;
                 }
             },
+            @intFromEnum(Command.isPresent) => {
+                std.debug.print("Testing if disk {s} is present... ", .{self.drive.disk[self.drive.current].file_name});
+                const dir = try std.fs.cwd().openIterableDir(arch.DiskPath, .{});
+                var iterator = dir.iterate();
+                var present = false;
+                while (try iterator.next()) |path| {
+                    if (std.mem.eql(u8, path.name, self.drive.disk[self.drive.current].file_name)) {
+                        present = true;
+                        break;
+                    }
+                }
+                if (present) {
+                    self.registers[STATUSL] = 1;
+                    std.debug.print("Disk {s} is present!\n", .{self.drive.disk[self.drive.current].file_name});
+                } else {
+                    self.registers[STATUSL] = 0;
+                    std.debug.print("Disk {s} isn't present!\n", .{self.drive.disk[self.drive.current].file_name});
+                }
+            },
+            @intFromEnum(Command.size) => {
+                self.registers[STATUSH] = self.drive.disk.len;
+                self.registers[STATUSL] = arch.SectorSize / 256;
+            },
             else => {
                 self.registers[STATUSH] = 0xde;
                 self.registers[STATUSL] = 0xad;
@@ -333,6 +358,25 @@ pub const TpsController = struct {
                     std.debug.print("Tps {s} isn't bootable!\n", .{self.drive.tps[self.drive.current].file_name});
                 }
             },
+            @intFromEnum(Command.isPresent) => {
+                std.debug.print("Testing if Tps {s} is present... ", .{self.drive.tps[self.drive.current].file_name});
+                const dir = try std.fs.cwd().openIterableDir(arch.TpsPath, .{});
+                var iterator = dir.iterate();
+                var present = false;
+                while (try iterator.next()) |path| {
+                    if (std.mem.eql(u8, path.name, self.drive.tps[self.drive.current].file_name)) {
+                        present = true;
+                        break;
+                    }
+                }
+                if (present) {
+                    self.registers[STATUSL] = 1;
+                    std.debug.print("Tps {s} is present!\n", .{self.drive.tps[self.drive.current].file_name});
+                } else {
+                    self.registers[STATUSL] = 0;
+                    std.debug.print("Tps {s} isn't present!\n", .{self.drive.tps[self.drive.current].file_name});
+                }
+            },
             @intFromEnum(Command.open) => {
                 std.debug.print("Opening TPS {s}\n", .{self.drive.tps[self.drive.current].file_name});
                 self.drive.tps[self.drive.current] = Tps.open(self.drive.tps[self.drive.current].file_name) catch std.debug.panic("Failed to open TPS", .{});
@@ -342,6 +386,10 @@ pub const TpsController = struct {
             },
             @intFromEnum(Command.setCurrent) => {
                 self.drive.current = @as(u1, @truncate(self.registers[DATA]));
+            },
+            @intFromEnum(Command.size) => {
+                self.registers[STATUSH] = 255;
+                self.registers[STATUSL] = arch.SectorSize / 256;
             },
             else => {
                 self.registers[STATUSH] = 0xde;

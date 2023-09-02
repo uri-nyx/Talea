@@ -103,6 +103,12 @@ GSREG    = SYS @ 0x3
 SSREG    = SYS @ 0x4
 TRACE   = SYS @ 0x5
 SYSRET   = SYS @ 0x6
+MMUTOGGLE = SYS @ 0x7
+MMUMAP = SYS @ 0x8
+MMUUNMAP = SYS @ 0x9
+MMUSTAT = SYS @ 0xa
+MMUSETPT = SYS @ 0xb
+MMUUPDATE = SYS @ 0xc
 
 
 #ruledef reg {
@@ -342,6 +348,14 @@ SYSRET   = SYS @ 0x6
     ssreg   {rs1: reg} => SSREG @ rs1 @ BLANK10 @ BLANK10
     trace   {r1: reg}, {r2: reg}, {r3: reg}, {r4: reg} => TRACE @ r1 @ r2 @ r3 @ r4 @ BLANK5
     sysret  => SYSRET @ BLANK15 @ BLANK10
+
+    mmu.toggle  {r1: reg} => MMUTOGGLE @ r1@ BLANK10 @ BLANK10
+    mmu.map     {r1: reg}, {r2: reg}, {r3: reg}, ({w: u1}, {x: u1}) => MMUMAP @ r1 @ r2 @ r3 @ BLANK5 @ 0b000 @ w @ x
+    mmu.unmap   {r1: reg} => MMUUNMAP @ r1@ BLANK10 @ BLANK10
+    mmu.stat    {rd: reg}, {rs1: reg} => MMUSTAT @ rd @ rs1 @ BLANK15
+    mmu.setpt   {r1: reg}, {r2: reg}, {imm: u12} => MMUSETPT @ r1 @ r2 @ 0b000 @ imm
+    mmu.update  {r1: reg}, {r2: reg}, ({dirty: u1}, {present: u1}) => MMUUPDATE @ r1 @ r2 @ BLANK10 @ 0b000 @ dirty @ present
+
 }
 
 

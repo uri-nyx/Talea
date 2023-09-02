@@ -1,4 +1,7 @@
 ///! Provides configuration constants and architecture specs
+pub const ID: u8 = 'S'; // 'S' for Sirius
+pub const VENDOR: u8 = 'T'; // 'T' for Taleä
+pub const DEVICE_MAP = 0x100;
 pub const DATA_SIZE = 1 << 16;
 pub const MAIN_SIZE = 1 << 24;
 pub const DeviceSize = 16;
@@ -9,6 +12,12 @@ pub const DiskPath = "dev/disk/dsk"; //TODO: this must be an absolute path dynam
 pub const TpsPath = "dev/tps/"; //TODO: this must be an absolute path dynamically generated
 
 // Video Module configurations
+
+pub const DEVID = enum(u8) {
+    VIDEO = 'V',
+    STK = 'K', // Serial, timer, and Keyboard
+    DRIVE = 'D',
+};
 
 pub const VideoConfig = struct {
     pub const WindowName = "The Taleä Sirius System";
@@ -42,13 +51,49 @@ pub const VideoDefaultPalette = [16]c_uint{
 
 // CPU and ISA stuff
 pub const IVTSize: usize = 1024;
-pub const Exception = enum(u8) { Reset = 0x00, BusError = 0x02, AddressError, IllegalInstruction, DivisionZero, PrivilegeViolation, PageFault, AccessViolation };
+pub const Exception = enum(u8) { 
+    Reset = 0x00, 
+    BusError = 0x02, 
+    AddressError, 
+    IllegalInstruction, 
+    DivisionZero, 
+    PrivilegeViolation, 
+    PageFault, 
+    AccessViolation 
+};
 
-pub const Interrupt = enum(u8) { SerialIncoming = 0x0a, KeyboardCharacter, KeyboardScancode, TPSFinished, DiskFinished, TimerTimeout, TimerInterval, VideoRefresh };
+pub const Interrupt = enum(u8) { 
+    SerialIncoming = 0x0a, 
+    KeyboardCharacter, 
+    KeyboardScancode, 
+    TPSFinished, 
+    DiskFinished, 
+    TimerTimeout, 
+    TimerInterval, 
+    VideoRefresh 
+};
 
-pub const ProcessorError = error{ Reset, BusError, AddressError, IllegalInstruction, DivisionZero, PrivilegeViolation, PageFault, AccessViolation };
+pub const ProcessorError = error{ 
+    Reset, 
+    BusError, 
+    AddressError, 
+    IllegalInstruction, 
+    DivisionZero, 
+    PrivilegeViolation, 
+    PageFault, 
+    AccessViolation 
+};
 
-pub const InterruptRaised = error{ SerialIncoming, KeyboardCharacter, KeyboardScancode, TPSFinished, DiskFinished, TimerTimeout, TimerInterval, VideoRefresh };
+pub const InterruptRaised = error{ 
+    SerialIncoming, 
+    KeyboardCharacter, 
+    KeyboardScancode, 
+    TPSFinished, 
+    DiskFinished, 
+    TimerTimeout, 
+    TimerInterval, 
+    VideoRefresh 
+};
 
 pub const MmuSizes = .{
     .Entry = 2,
@@ -93,6 +138,12 @@ pub const SYS = enum(u4) {
     SsReg = 0x4,
     Sysret = 0x6,
     Trace = 0x5,
+    MmuToggle = 0x7,
+    MmuMap = 0x8,
+    MmuUnmap = 0x9,
+    MmuStat = 0xa,
+    MmuSetPT = 0xb,
+    MmuUpdate = 0xc,
 };
 
 pub const MEM = enum(u4) {
@@ -189,6 +240,12 @@ pub const Instruction = enum(u7) {
     SsReg = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.SsReg)),
     Sysret = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.Sysret)),
     Trace = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.Trace)),
+    MmuToggle = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuToggle)),
+    MmuMap = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuMap)),
+    MmuUnmap = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuUnmap)),
+    MmuStat = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuStat)),
+    MmuUpdate = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuUpdate)),
+    MmuSetPT = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuSetPT)),
 
     Copy = (@as(u7, @intFromEnum(Group.MEM)) << 4 | @intFromEnum(MEM.Copy)),
     Swap = (@as(u7, @intFromEnum(Group.MEM)) << 4 | @intFromEnum(MEM.Swap)),

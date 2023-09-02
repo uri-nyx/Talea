@@ -22,13 +22,13 @@ This chapter discusses the nucleus of the Taleä Computer System. The Central Pr
 
 ## Registers
 
-The first step to understand Sirius (the Central Processing Unit) is to understand its basic components: the registers.
+The first step to understand Sirius (the Central Processing Unit) is to understand its basic component: the registers.
 
 The registers are cells of quick access memory, and hold the data on wich the machine is operating in the moment. There are varius type of registers inside Sirius:
 
 *General purpose registers*: there are 32 of these registers, labeled `x0` to `x31`, or by the names in the [Appendix A](appendix.md#A#registers). They hold 32-bit integer values, and are the source or the destination of the majority of the operations that the machine can perform. However, it's worth to notice that `x0` is special: it behaves as a *constant zero*, wirtes do not affect this register, which always reads as `0`.
 
-*Program Counter*: it is a single 32-bit register, that keeps track of the memory location that Sirius will execute in the next cycle.
+*Program Counter*: it is a single 24-bit register, that keeps track of the memory location that Sirius will execute in the next cycle.
 
 *Stack Pointer*: though the stack pointer corresponds to `x2`, it should be noticed that this register is different at different privilege modes.
 
@@ -45,29 +45,38 @@ The registers are cells of quick access memory, and hold the data on wich the ma
 
 To perform task and complex calculations, a machine needs to manage data. As the registers are few, the system provides *memory*, a file of 8-bit wide cells (bytes), that can be read and written at will, though slower than registers. Memory also serves another main purpose in this machine: it provides itself the instructions to execute.
 
-The Taleä Computer System provides two different types of memory: *main* memory, that can be read, written, and executed; and *data* memory, that can *only* be read or written and is *only* accesible in *supervisor* or *privileged* mode. It is possible to address up to 24 bits of addresses in *main* memory (roughly sixteen million seven hundred and fifty thousand bytes, 16 Mib), and 16 bits of addresses in *data* (sixty five thousand five hundred thirty six bytes, 64 Kib). *Data* memory serves thus as a way of tidily managing the system: many important structures, such as the interrupt vector table, input buffers, paging structures adn I/O ports sit in this memory. This is the **default** memory map for the system:
+The Taleä Computer System provides two different types of memory: *main* memory, that can be read, written, and executed; and *data* memory, that can *only* be read or written and is *only* accesible in *supervisor* or *privileged* mode. It is possible to address up to 24 bits of addresses in *main* memory (roughly sixteen million seven hundred and fifty thousand bytes, 16 Mib), and 16 bits of addresses in *data* (sixty five thousand five hundred thirty six bytes, 64 Kib). *Data* memory serves thus as a way of tidily managing the system: many important structures, such as the interrupt vector table, input buffers, paging structures and I/O ports sit in this memory. This is the **default** memory map for the system:
 
     ╭───────────────────╮
     │╭────────╮╭───────╮│
-    ││Teletype││ 0x0000││ 6  bytes DEVICE 0
+    ││Teletype││ 0x0000││ 6  bytes DEVICE 0x0
     │╰────────╯╰───────╯│
     │╭────────╮╭───────╮│
-    ││Timer   ││ 0x0006││ 4  bytes DEVICE 0
+    ││Timer   ││ 0x0006││ 6  bytes DEVICE 0x0
     │╰────────╯╰───────╯│
     │╭────────╮╭───────╮│
-    ││Keyboard││ 0x000a││ 4  bytes DEVICE 0
+    ││Keyboard││ 0x000c││ 4  bytes DEVICE 0x0
     │╰────────╯╰───────╯│
     │╭────────╮╭───────╮│
-    ││Video   ││ 0x0010││ 16 bytes DEVICE 1
+    ││Video   ││ 0x0010││ 16 bytes DEVICE 0x1
     │╰────────╯╰───────╯│
     │╭────────╮╭───────╮│
-    ││TPS     ││ 0x0020││ 6  bytes DEVICE 2
+    ││TPS     ││ 0x0020││ 6  bytes DEVICE 0x2
     │╰────────╯╰───────╯│
     │╭────────╮╭───────╮│
-    ││Disk    ││ 0x0026││ 8  bytes DEVICE 2
+    ││Disk    ││ 0x0026││ 8  bytes DEVICE 0x2 
     │╰────────╯╰───────╯│
     │╭────────╮╭───────╮│
     ││Custom  ││ 0x0030││
+    │╰────────╯╰───────╯│
+    │╭────────╮╭───────╮│
+    ││........││.......││
+    │╰────────╯╰───────╯│
+    │╭────────╮╭───────╮│
+    ││System  ││ 0x00f0││ DEVICE 0xF
+    │╰────────╯╰───────╯│
+    │╭────────╮╭───────╮│
+    ││Dev Map ││ 0x0100││ DEVICE 0x10 (16)
     │╰────────╯╰───────╯│
     │╭────────╮╭───────╮│
     ││........││.......││
@@ -80,7 +89,24 @@ The Taleä Computer System provides two different types of memory: *main* memory
     │╰────────╯╰───────╯│
     ╰───────────────────╯
 
-The Taleä System default configuration reserves data memory from `0x0000` to `0x00ff` for i/o devices, and provides three different coupled devices.
+The Taleä System default configuration reserves data memory from `0x0000` to `0x00ff` for i/o devices, and provides three different coupled devices. Hardware devices contain up to 16 byte-size accessible registers for interface with the machine.
+
+It's worth noticing that devides 15 and 16 correspond to pseudo devices that provide information about the system and it's configuration:
+
+The system device is comprised by the following registers:
+
+- [0x0] MEMSIZE: indicates the total available memory of the system (normal configurations include 1, 2, 4, 8 or 16 MB), encoded as a byte `(n * (64 * 1024) + (64 * 1024))`.
+- [0x1] CLOCK: clock speed, in Mhz (turbo speed is around 20-25 Mhz).
+- [0x2] INT: last interrupt raised (8 bit vector). Writing or reading to this register sets it to 1 (no exception).
+- [0x3] POWER: if written to, the machine will halt and power off.
+- [0x4..0x9] YEAR, MONTH, DAY, HOUR, MINUTE, SECOND.
+- [0xA, 0xB] RESERVED.
+- [0xC] DEVICES: number of connected devices.
+- [0xD] ARCHITECTURE: architecture ID.
+- [0xE] VENDOR: vendor ID.
+- [0xF] RESERVED.
+
+The device map (device 0x10) stores the device id for each device or 0 if it's not installed.
 
 ## Instruction Set
 
@@ -162,6 +188,8 @@ These operations use the group code `0b101`, and load the result of the operatio
 - *SHift Immediate Rigth Arithmetic*, `shira rd, rs1, imm`. `0x8`: `rd <- rs1 >> ±imm`.
 - *SHift Immediate Rigth Logical*, `shirl rd, rs1, imm`. `0x9`: `rd <- rs1 >>> ±imm`.
 - *SHift Immediate Left Logical*, `shill rd, rs1, imm`. `0xa`: `rd <- rs1 << ±imm`.
+- *Set Less Than Immediate*, `slti rd, rs1, imm`. `0xb`: `rd <- rs1 < ±imm ? 1 : 0`.
+- *Set Less Than Unsigned Immediate*, `sltiu rd, rs1, imm`. `0xc`: `rd <- rs1 < +imm ? 1 : 0`, treats both the register and the immediate value as unsigned integers.
 
 ### S instructions
 
@@ -213,6 +241,8 @@ M instructions deal with data in bulk and data structures like stacks or buffers
 - *SAVE registers*, `save start, end, dest`, `0xb`: Saves the values of the range of registers between `start` to `end` (including this last one) to location `dest`. The actual register number is used, **not its value**.
 - *RESTORE registers*, `restore start, end, src`, `0xc`: Restores the values of the range of registers between `start` to `end` (including this last one) from location `src`. The actual register number is used, **not its value**.
 - *EXCHANGE registers*, `exch rs1, rs2`, `0xd`: Exchanges the values of the registers.
+- *Set Less Than*, `slt rd, rs1, rs2`, `0xe`: `rd <- rs1 < rs2 ? 1 : 0`.
+- *Set Less Than Unsigned*, `sltu rd, rs1, rs2`, `0xe`: `rd <- rs1 < rs2 ? 1 : 0` treating both registers as unsigned integers.
 
 ### T instructions
 
@@ -222,7 +252,7 @@ T instructions are system management instructions. They use the group code `0b00
 - *Get Status REGister* `gsreg rd`, `0x3`: `rd <- psr`.
 - *Set Status REGister* `ssreg rs1`, `0x4`, **supervisor**: `psr <- rs1`.
 - *SYStem call RETurn* `sysret`, `0x6`, **supervisor**: Returns from a system call or from an interrupt/exception handler and lowers privileges to **unprivileged** mode.
-- *TRACE registers* `trace`, `0x5`: logs the values of up to four registers.
+- *TRACE registers* `trace rs1, rs2, rs3, rs4`, `0x5`: logs the values of up to four registers.
 
 ## Interrupts and Exceptions
 
@@ -279,11 +309,11 @@ When enabled, every read, write, or instruction fetch that Sirius executes, will
 1. The *virtual* address will be decomposed in various parts: a prefix to a page table directory (PDT), that lies in Data memory, and whose address is configurable by writing to `psr` `pdt` field (`pdt_address = pdt * 256`), a *page table* index, and and offset within tat page.
 2. The entry in the PDT shall contain a *page table* address, a *real* address pointing to another table in main memory.
 3. This *page table* will contain entries that indicate the physical locations of pages and their status at the index indicated by the *virtual* address (`page_table[page_table_index] = page_real_address`).
-4. The *physical* address shall then be the page's real address pluss the offset supplied.
+4. The *physical* address shall then be the page's real address plus the offset supplied.
 
 The actual sizes of PDT, page tables and pages can be configured **in hardware**, but Sirius accounts for some status bits: `w`, wether the page is writable or not, `x`, wether it is executable, `d`, wether it has been written, and `p`, wether it is present and mapped to a frame in main memory. Trying to perform operations on pages that are not configured accordinly may raise exceptions, though none except `p` apply in supervisor mode.
 
-By default, entries in the page table must be 2 bytes long, (a halfword) and contain this fields:
+Entries in the page table must be 2 bytes long, (a halfword) and contain this fields:
 
     ╭────────────────┬────────────────────────┬───┬───┬───────┬─────────╮
     │Page Table Entry│Physical page address:12│w:1│x:1│dirty:1│present:1│
@@ -292,7 +322,7 @@ By default, entries in the page table must be 2 bytes long, (a halfword) and con
     │Page Directory Table Entry│Physical address of Page Table:12│reserved:4│
     ╰──────────────────────────┴─────────────────────────────────┴──────────╯
 
-The default values for entries, and sizes, in bytes, are the following:
+The values for entries, and sizes, in bytes, are the following:
 
 - Entry size: 2
 - Page size: 4096

@@ -89,9 +89,23 @@ pub const InterruptController = struct {
     cpu: *Sirius,
     interrupts: [7]Interrupt,
     highest: u3,
+    last_exception: u8,
 
     pub fn init() InterruptController {
-        return InterruptController{ .cpu = undefined, .interrupts = [7]Interrupt{ Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 } }, .highest = 0 };
+        return InterruptController{ 
+            .cpu = undefined, 
+            .interrupts = [7]Interrupt{ 
+                Interrupt{ .asserted = false, .vector = 0 }, 
+                Interrupt{ .asserted = false, .vector = 0 }, 
+                Interrupt{ .asserted = false, .vector = 0 }, 
+                Interrupt{ .asserted = false, .vector = 0 }, 
+                Interrupt{ .asserted = false, .vector = 0 }, 
+                Interrupt{ .asserted = false, .vector = 0 }, 
+                Interrupt{ .asserted = false, .vector = 0 } 
+            }, 
+            .highest = 0,
+            .last_exception = 0,
+            };
     }
 
     pub fn set(self: *Self, state: bool, priority: u3, vector: u8) void {
@@ -110,6 +124,10 @@ pub const InterruptController = struct {
             self.highest -= 1;
         }
         return ack;
+    }
+
+    pub fn poweroff(self: *Self) void {
+        self.cpu.poweroff = true;
     }
 };
 
@@ -151,6 +169,7 @@ pub const Sirius = struct {
     mmu: *memory.Mmu,
     interrupt_controller: *InterruptController,
     allocator: std.mem.Allocator,
+    poweroff: bool,
 
     pub fn init(frequency: u64, registers: *[Register.count]u32, irq: *InterruptController, main_bus: *memory.MainBus, data_bus: *memory.DataBus, mmu: *memory.Mmu, allocator: std.mem.Allocator) Sirius {
         const state = State.init(registers);
@@ -163,6 +182,7 @@ pub const Sirius = struct {
             .mmu = mmu,
             .interrupt_controller = irq,
             .allocator = allocator,
+            .poweroff = false,
         };
     }
 
@@ -175,14 +195,19 @@ pub const Sirius = struct {
 
     fn translate(self: *Self, addr: u24) Error!memory.PhysicalAddr {
         if (self.state.psr.mmu_enable) {
-            const pdt = @as(u16, self.state.psr.pdt) * 256;
-            return self.mmu.translate(addr, pdt);
+            return try self.mmu.translate(addr);
         } else {
             return memory.PhysicalAddr{ .addr = addr, .x = true, .w = true };
         }
     }
 
-    pub fn checkExceptions(self: *Self) Error!void {
+    fn setDirty(self: *Self, addr: u24) void {
+        if (self.state.psr.mmu_enable) {
+            self.mmu.update(addr, true, true);
+        }
+    }
+
+    pub fn checkExceptions(self: *Self) Error!bool {
         self.cycle() catch |err| {
             try switch (err) {
                 error.AccessViolation => self.exception(@intFromEnum(arch.Exception.AccessViolation), false),
@@ -206,6 +231,7 @@ pub const Sirius = struct {
                 else => std.debug.panic("Fatal Error: {any}", .{err}),
             };
         };
+        return self.poweroff;
     }
 
     fn getPc(self: *Self) u24 {
@@ -300,6 +326,7 @@ pub const Sirius = struct {
     }
 
     fn exception(self: *Self, vector: u8, is_interrupt: bool) Error!void {
+        self.interrupt_controller.last_exception = vector;
         // The difference between Excetpion and fault is that the last
         // tries to fix the problem that caused it and **TRIES** to
         // execute again th instruction that triggered it
@@ -332,9 +359,7 @@ pub const Sirius = struct {
     }
 
     fn setupNormalException(self: *Self, vector: u8, is_interrupt: bool) Error!void {
-        std.debug.print("Raising exception {any} at pc {x}\n", .{ @as(arch.Exception, @enumFromInt(vector)), self.getPc() });
         const pc = @as(u32, self.getPc());
-        //std.debug.print("Pushed PC: {x}\n", .{pc});
         try self.pushWord(pc);
         try self.pushWord(self.state.psr.tou32());
         self.setSupervisor();
@@ -378,6 +403,7 @@ pub const Sirius = struct {
         try self.setPc(pc +% 4);
         //A misaligned program counter **should** be unreachable
         const instruction = self.readMainBeu32(pc) catch unreachable;
+        self.setDirty(pc);
         return instruction;
     }
 
@@ -413,8 +439,73 @@ pub const Sirius = struct {
                 try self.requireSupervisor();
                 try self.sysret();
             },
-            @intFromEnum(arch.Instruction.Trace) => { //TODO: document this
+            @intFromEnum(arch.Instruction.Trace) => {
                 self.trace(r1, r2, r3, r4);
+            },
+            @intFromEnum(arch.Instruction.MmuToggle) => { // TODO: document this
+                // Toggles mmu and jumps to address in r: mmu.toggle a0
+                try self.requireSupervisor();
+                self.state.psr.mmu_enable = !self.state.psr.mmu_enable;
+                std.debug.print("Toggled MMU {s}\n", .{if (self.state.psr.mmu_enable) "on" else "off"});
+                try self.setPc(@truncate(self.getReg(r1)));
+            },
+            @intFromEnum(arch.Instruction.MmuMap) => { // TODO: document this
+                // Maps physical page in r1 to logical r2 
+                // setting the write and execute bits as per r3 or immediate: 
+                // mmu.map phy, log, r, (w, x)
+                try self.requireSupervisor();
+                var w = false;
+                var x = false;
+                if (r3 == @intFromEnum(Register.x0)) {
+                    w = if (imm_15 & 0x2 != 0) true else false;
+                    x = if (imm_15 & 0x1 != 0) true else false;
+                } else {
+                    const flags = self.getReg(r3);
+                    w = if (flags & 0x2 != 0) true else false;
+                    x = if (flags & 0x1 != 0) true else false;
+                }
+                self.mmu.map(@truncate(self.getReg(r1)), @truncate(self.getReg(r2)), w, x);
+            },
+            @intFromEnum(arch.Instruction.MmuUnmap) => { // TODO: document this
+                // Unmaps logical page: mmu.unmap a0
+                try self.requireSupervisor();
+                self.mmu.unmap(@truncate(self.getReg(r1)));
+            },
+            @intFromEnum(arch.Instruction.MmuUpdate) => { // TODO: document this
+                // Updates a maping in the page table with the flags in registers or immediate
+                // mmu.update a0, r, (dirty, present)
+                try self.requireSupervisor();
+                var dirty = false;
+                var present = false;
+                if (r2 == @intFromEnum(Register.x0)) {
+                    dirty = if (imm_15 & 0x2 != 0) true else false;
+                    present = if (imm_15 & 0x1 != 0) true else false;
+                } else {
+                    const flags = self.getReg(r2);
+                    dirty = if (flags & 0x2 != 0) true else false;
+                    present = if (flags & 0x1 != 0) true else false;
+                }
+                self.mmu.update(@truncate(self.getReg(r1)), dirty, present);
+            },
+            @intFromEnum(arch.Instruction.MmuStat) => { // TODO: document this
+                // returns in rd the status for the page in rs1 as a set of flags (x, w, dirty, present -- low byte, low nibble)
+                // if not mapped, returns -1 (0xff_ff_ff_ff)
+                // mmu.stat rd, rs1
+                try self.requireSupervisor();
+                self.setReg(r1, self.mmu.status(@truncate(self.getReg(r2))));
+            },
+            @intFromEnum(arch.Instruction.MmuSetPT) => { // TODO: document this
+                // Loads a page table from memory. Entries must be 16 bits long and in this format physical:12 w:1 x:1 reserved:2
+                // The page location is specified by a pointer in r1 and the length by r2 or immediate (not more than 12 bits)
+                // mmu.setpt ptr, len, lenimm
+                try self.requireSupervisor();
+                var len: u12 = 0;
+                if (r2 == @intFromEnum(Register.x0)) {
+                    len = @truncate(imm_15);
+                } else {
+                    len  = @truncate(self.getReg(r2));
+                }
+                try self.mmu.set_page_table(@truncate(self.getReg(r1)), len);
             },
             @intFromEnum(arch.Instruction.Copy) => {
                 const src = @as(u24, @truncate(self.getReg(r1)));
@@ -766,7 +857,13 @@ pub const Sirius = struct {
 
     pub fn writeMain(self: *Self, address: u24, data: []const u8) Error!usize {
         const entry = try self.translate(address);
-        if (entry.w) return self.main_bus.write(entry.addr, data) else return error.AccessViolation;
+        if (entry.w) {
+            const r = self.main_bus.write(entry.addr, data);
+            self.setDirty(address);
+            return r;
+        } else {
+           return error.AccessViolation;
+        }
     }
 
     pub fn readMain(self: *Self, address: u24, buff: []u8) Error!usize {

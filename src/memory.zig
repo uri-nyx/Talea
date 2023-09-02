@@ -2,6 +2,25 @@
 const std = @import("std");
 const arch = @import("root").arch;
 
+pub const Sys = enum(u4) {
+    memSize,
+    clock,
+    err,
+    power,
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    reservedA,
+    reservedB,
+    deviceNum,
+    archID,
+    vendorID,
+    reservedF,
+};
+
 pub const MainBus = struct {
     pub const Error = error{BusError};
     pub const Self = @This();
@@ -190,76 +209,86 @@ pub const DataBus = struct {
 
 pub const PageDirectoryEntry = packed struct { physical_addr: u12, reserved: u4 };
 
-pub const PageTableEntry = packed struct { physical_addr: u12, w: bool, x: bool, dirty: bool, present: bool };
+pub const PageTableEntry = packed struct { 
+    physical_addr: u24, 
+    w: bool, 
+    x: bool, 
+    dirty: bool, 
+    present: bool,
+    mapped: bool,
+};
 
 pub const PhysicalDescriptor = struct { addr: u16, w: bool, x: bool };
 
-pub const PhysicalAddr = struct { addr: u24, w: bool, x: bool };
-
-const Tlb = struct {
-    const Self = @This();
-    tlb: std.AutoHashMap(u16, PhysicalDescriptor),
-
-    pub fn init(allocator: std.mem.Allocator) Tlb {
-        return Tlb{ .tlb = std.AutoHashMap(u16, PhysicalDescriptor).init(allocator) };
-    }
-
-    pub fn record(self: *Self, linear: u16, physical: PhysicalDescriptor) !void {
-        try self.tlb.put(linear, physical);
-    }
-
-    pub fn invalidate(self: *Self, entry: u16) void {
-        _ = self.tlb.remove(entry);
-    }
-
-    pub fn get(self: *Self, linear: u16) ?PhysicalDescriptor {
-        return self.tlb.get(linear);
-    }
-};
+pub const PhysicalAddr = struct { addr: u24, w: bool, x: bool}; //TODO: maybe readable bit too?
 
 pub const Mmu = struct {
     pub const Self = @This();
-    const PT_SHIFT: u5 = @popCount(@as(u32, @truncate(arch.MmuSizes.PageTableEntries)));
-    const PT_MASK: u24 = (arch.PageDirectoryEntries) << PT_SHIFT;
-    const PD_SHIFT: u5 = @popCount(@as(u32, @truncate(arch.PageDirectoryEntries))) + PT_SHIFT;
-    const PD_MASK: u24 = arch.PageDirectoryEntries - 1;
-    const OFFSET_MASK: u24 = arch.MmuSizes.Page - 1;
-    tlb: Tlb,
+    page_table: [4096]PageTableEntry,
     bus_main: *MainBus,
     bus_data: *DataBus,
 
-    pub fn init(allocator: std.mem.Allocator, bus_main: *MainBus, bus_data: *DataBus) Mmu {
+    pub fn init(bus_main: *MainBus, bus_data: *DataBus) Mmu {
         return Mmu{
-            .tlb = Tlb.init(allocator),
+            .page_table = [_]PageTableEntry{.{.physical_addr = 0, .w = false, .x = false, .dirty = false, .present = false, .mapped = false}} ** 4096,
             .bus_main = bus_main,
             .bus_data = bus_data,
         };
     }
 
-    pub fn deinit(self: *Self) void {
-        self.tlb.tlb.clearAndFree();
+    pub fn set_page_table(self: *Self, pointer: u24, length: u12) !void {
+        std.debug.print("Set Page table from 0x{x}\n", .{pointer});
+        for (0..length) |i| {
+            const raw = try self.bus_main.readBeu16(pointer +% @as(u24, @truncate(i * 2)));
+            const physical: u24 = (raw & 0xfff0) << 8;
+            const w = if (raw & 0x8 != 0) true else false;
+            const x = if (raw & 0x4 != 0) true else false;
+            self.map(physical, @truncate(i), w, x);
+        }
     }
 
-    pub fn translate(self: *Self, linear: u24, directory: u16) !PhysicalAddr {
-        const entry = self.tlb.get(@as(u16, @truncate(linear >> PT_SHIFT)));
-        if (entry != null)
-            return PhysicalAddr{ .addr = @as(u24, entry.?.addr) << PT_SHIFT | linear & OFFSET_MASK, .w = entry.?.w, .x = entry.?.x }
-        else {
-            const table_entry =
-                @as(u24, @as(PageDirectoryEntry, @bitCast(try self.bus_data.readBeu16(directory + @as(u16, @truncate(linear >> PD_SHIFT)) & @as(u16, @truncate(PD_MASK))))).physical_addr) << PT_SHIFT;
-            const page_offset = (linear >> PT_SHIFT) & PT_MASK;
-            const page = @as(PageTableEntry, @bitCast(try self.bus_main.readBeu16(table_entry | page_offset)));
-            const w = page.w;
-            const x = page.x;
-            if (!page.present) {
-                std.debug.print("Page Fault: {any}", .{page});
-                return error.PageFault;
-            }
-            const page_addr = @as(u24, page.physical_addr) << PT_SHIFT;
-            const physical = page_addr | (linear & OFFSET_MASK);
-            try self.tlb.record(@as(u16, @truncate(linear >> PT_MASK)), PhysicalDescriptor{ .addr = (@as(u16, @truncate(page_addr >> PT_MASK))), .w = w, .x = x });
-            return PhysicalAddr{ .addr = physical, .w = w, .x = x };
-            // TODO: account for the flags and those things Implement dirty bit
+    pub fn map(self: *Self, physical: u24, linear: u24, w: bool, x: bool) void {
+        self.page_table[linear >> 12] = PageTableEntry{
+            .physical_addr = physical & 0xfff000,
+            .w = w, .x = x, .dirty = false, .present = true, .mapped = true
+        };
+        std.debug.print("Mapped Real 0x{x} to Linear {x} (w:{}, x:{})\n", .{physical, linear, w, x});
+    }
+
+    pub fn unmap(self: *Self, linear: u24) void {
+        self.page_table[linear >> 12] = PageTableEntry{
+            .physical_addr = 0,
+            .w = false, .x = false, .dirty = false, .present = false, .mapped = false
+        };
+    }
+
+    pub fn update(self: *Self, linear: u24, dirty: bool, present: bool) void {
+        self.page_table[linear >> 12].dirty = dirty;
+        self.page_table[linear >> 12].present = present;
+    }
+
+    pub fn status(self: *Self, linear: u24) u32 { 
+        const entry = self.page_table[linear >> 12];
+        if (!entry.mapped) 
+            return 0xff_ff_ff_ff;
+        const stat: u32 = @as(u32, @intFromBool(entry.x)) << 3 | 
+                          @as(u32, @intFromBool(entry.w)) << 2 | 
+                          @as(u32, @intFromBool(entry.dirty)) << 1 | 
+                          @as(u32, @intFromBool(entry.present));
+        return stat;
+    }
+
+    pub fn translate(self: *Self, linear: u24) !PhysicalAddr {
+        const offset = linear & 0xfff;
+        const index =  linear >> 12;
+        const table_entry = self.page_table[index];
+        if (!table_entry.mapped) {
+            std.debug.print("Page 0x{} not mapped", .{index});
+            return error.PageFault;
+        } else if (!table_entry.present) {
+            std.debug.print("Page 0x{} not present", .{index});
+            return error.PageFault;
         }
+        return PhysicalAddr{.addr = table_entry.physical_addr + offset, .w = table_entry.w, .x = table_entry.x};
     }
 };

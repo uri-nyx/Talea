@@ -41,11 +41,7 @@ class Sirius(target.Target):
                     return(";! segment error: invalid temp offset " + str(index))
                 
                 return f"push {self.map.acc}, {self.map.sp}\nmv {self.map.acc}, {self.map.temp[index]}"
-            case ir.CONSTANT:
-                if index < 0:
-                    ir.error("Constant segment self.map.accepts only positive integers: " + str(index), lineno)
-                    return(";! constant error: " + str(index))
-                
+            case ir.CONSTANT:         
                 return f"push {self.map.acc}, {self.map.sp}\nli {self.map.acc}, {index}"
             case ir.STATIC:
                 if self.supervisor:
@@ -177,18 +173,6 @@ class Sirius(target.Target):
         asm  = f"restore {self.map.sp}, {self.map.that}, {self.map.callstack}\n"
         asm += f"ret"
         return asm
-    
-    def _optimize_literal_string(self, asm: str):
-        # String optimizations
-        regex = r"^push constant \d+\ncall String\.new 1\n(?:push constant \d+\ncall String.appendChar 2\n)+(pop \w+ \d+\n)"
-        matches = re.finditer(regex, asm, re.MULTILINE)
-        
-        for matchNum, match in enumerate(matches, start=1):
-            print ("Match {matchNum} was found at {start}-{end}: {match}".format(matchNum = matchNum, start = match.start(), end = match.end(), match = match.group()))
-            for groupNum in range(0, len(match.groups())):
-                groupNum = groupNum + 1
-                
-                print ("Group {groupNum} found at {start}-{end}: {group}".format(groupNum = groupNum, start = match.start(groupNum), end = match.end(groupNum), group = match.group(groupNum)))
 
     def cstring(self, s: str) -> str:
         label = f".d{len(self.data)}"
