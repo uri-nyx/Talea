@@ -24,13 +24,13 @@ The final version of the emulator is implemented in Zig, and uses software rende
 ### Tools & Utilities
 
 - Cross assembler: under `utils/asm` there are several files that implement the custom architecture, to use with [customasm](https://github.com/hlorenzi/customasm).
-- Jack cross compiler: [JackCompiler](https://github.com/uri-nyx/JackCompiler) a simple semi-optimizing compiler for a superset of the Jack Programming Language from Nand2Tetris.
+- Jack cross compiler: ~[JackCompiler](https://github.com/uri-nyx/JackCompiler)~ a simple semi-optimizing compiler for a superset of the Jack Programming Language from Nand2Tetris.
 - TALLUM: a very simple and in development backend targeting among other Sirius and the Taleä System (in `utils/tallum`), the compiler uses this backend.
 - Firmware: a very simple and minimal firmware called minimal (in `utils/firmware`), and a template runtime for freestanding Jack programs (`irs.s`).
 
 ### Native software
 
-- Sirius Forth: a simple forth system inspired (translated in essence) by Itsy Forth, and amplied with vocabulary from CAMEL FORTH (the original one) and FORTH83. It's a bit buggy yet, and it runs over serial. Written in assembly as a freestanding program: [SiriusForth](https://github.com/uri-nyx/SiriusForth).
+- Sirius Forth: a simple forth system inspired (translated in essence) by Itsy Forth, and amplied with vocabulary from CAMEL FORTH (the original one) and FORTH83. It's a bit buggy yet, and it runs over serial. Written in assembly as a freestanding program: ~[SiriusForth](https://github.com/uri-nyx/SiriusForth).~
 
 ## Changelog
 

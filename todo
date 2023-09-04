@@ -5,5 +5,6 @@
 - [] Patch register layout in all instances of `sys.asm`
 - [] Not panic on storage module command executions, raise exceptions
 - [] Solve issue with file paths and file names in disks
-- Add graphic modes and clean video module
-- Consider adding a mouse device
+- [] Add graphic modes and clean video module
+- [] Consider adding a mouse device
+- [] Use a file to record serial if not connected

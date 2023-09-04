@@ -45,7 +45,6 @@ pub const Serial = struct {
         switch (address) {
             RX => {
                 const d = [_]u8{data};
-                //std.debug.print("Sending char {x} ({c}) to Serial Port\n", .{data, data});
                 _ = self.socket.send(&d) catch |err| std.debug.panic("Send Error: {s} ", .{@errorName(err)});
             },
             TX => {
