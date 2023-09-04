@@ -179,7 +179,7 @@ These operations use the group code `0b101`, and load the result of the operatio
 
 - *MULtiply by Immediate*, `muli rd, rs1, imm`. `0x0`: `rd <- (rs1 * ±imm)[0:31]`, if the result exceeds 32 bits, only the lower half is loaded into `rd`.
 - *MULtiply by Immediate and take High word*, `mulih rd, rs1, imm`. `0x1`: `rd <- (rs1 * ±imm)[32:63]`, the upper half of the result is loaded into `rd`.
-- *Integer DIVIsion*, `idivi rd, rs1, imm`. `0x2`: `rd <- rs1/±imm`, notice it will throw an exception if triying to divide by zero.
+- *Integer DIVision Immediate*, `idivi rd, rs1, imm`. `0x2`: `rd <- rs1/±imm`, notice it will throw an exception if triying to divide by zero.
 - *ADD Immediate*, `addi rd, rs1, imm`. `0x3`: `rd <- rs1 + ±imm`
 - *SUBtract Immediate*, `Subi rd, rs1, imm`. `0x4`: `rd <- rs1 - ±imm`.
 - *bitwise OR with Immediate*, `ori rd, rs1, imm`. `0x5`: `rd <- rs1 | ±imm`.

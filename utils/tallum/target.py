@@ -43,6 +43,22 @@ class Target(ABC):
         pass
     
     @abstractmethod
+    def immediate(self, op: str, immediate: int) -> str:
+        pass
+    
+    @abstractmethod
+    def move(self, segd: str, dindex: int, segs: str, sindex: int) -> str:
+        pass
+    
+    @abstractmethod
+    def moveimmediate(self, segd: str, dindex: int, segs: str, sindex: int, op: str, immediate: int) -> str:
+        pass
+    
+    @abstractmethod
+    def dup(self, seg: str, index: int) -> str:
+        pass
+    
+    @abstractmethod
     def label(self, label: str) -> str:
         pass
         

@@ -289,9 +289,9 @@ MMUUPDATE = SYS @ 0xc
     ori   {rd: reg}, {rs1: reg}, {imm: i15} => OR_I @ rd @ rs1 @ imm
     andi  {rd: reg}, {rs1: reg}, {imm: i15} => AND_I @ rd @ rs1 @ imm
     xori  {rd: reg}, {rs1: reg}, {imm: i15} => XOR_I @ rd @ rs1 @ imm
-    shira {rd: reg}, {rs1: reg}, {imm: i15} => SHIRA @ rd @ rs1 @ imm
-    shirl {rd: reg}, {rs1: reg}, {imm: i15} => SHIRL @ rd @ rs1 @ imm
-    shill {rd: reg}, {rs1: reg}, {imm: i15} => SHILL @ rd @ rs1 @ imm
+    shrai {rd: reg}, {rs1: reg}, {imm: i15} => SHIRA @ rd @ rs1 @ imm
+    shrli {rd: reg}, {rs1: reg}, {imm: i15} => SHIRL @ rd @ rs1 @ imm
+    shlli {rd: reg}, {rs1: reg}, {imm: i15} => SHILL @ rd @ rs1 @ imm ;TODO: add change of i to documentation
 
     slti  {rd: reg}, {rs1: reg}, {imm: i15} => SLTI @ rd @ rs1 @ imm
     sltiu {rd: reg}, {rs1: reg}, {imm: u15} => SLTIU @ rd @ rs1 @ imm

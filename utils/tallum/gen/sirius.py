@@ -22,6 +22,38 @@ class Sirius(target.Target):
         super().__init__("Sirius (freestanding)", 32, SIRIUS_MAP)
         self.supervisor = supervisor
     
+    def map_segment(self, segment: str, index: int) -> str:
+        match segment:
+            case segment if segment in [ir.ARGUMENT, ir.LOCAL]:
+                    s = self.map.arg if segment == ir.ARGUMENT else self.map.lcl
+                    return f"-{index * 4}({s})"
+            case ir.THIS:
+                    return f"{index}*4({self.map.this})"
+            case ir.THAT:
+                    return f"{index}({self.map.that})"
+            case ir.POINTER:
+                pointer = self.map.this if ir.get_pointer(index, None) else self.map.that
+                return f"{pointer}"
+            case ir.TEMP:
+                if index < 0 or index > 7:
+                    ir.error("Temp segment addresses only 0 to 7, not " + str(index), None)
+                    return(";! segment error: invalid temp offset " + str(index))
+                
+                return f"{self.map.temp[index]}"
+            case ir.CONSTANT:         
+                return f"{index}"
+            case ir.STATIC:
+                if self.supervisor:
+                    if index not in self.static:
+                        self.static[index] = ir.get_static(len(self.static) * 4)
+                    
+                    return f" {str(index) * 4}({self.map.static_reg})"
+                else:
+                    if index not in self.static:
+                        self.static[index] = f".s{str(index)}: #d32 0"
+                    
+                    return f"STATIC_{ir.get_name() + '.s' + str(index)}"
+                
     def push(self, segment: str, index: int, lineno: int) -> str:
         match segment:
             case segment if segment in [ir.ARGUMENT, ir.LOCAL]:
@@ -131,12 +163,65 @@ class Sirius(target.Target):
                 asm += f"addi {self.map.acc}, {self.map.acc}, -1"          
         return asm
     
+    def immediate(self, op: str, immediate: int) -> str:
+        if immediate < -16_384 or immediate > 16_383:
+            # Sirius immediates are 15 bits, if it's not in range, we have to revert to loading values in registers
+            asm  = f"li {self.map.var1}, {immediate}"
+            asm += self.binary(op)
+            return asm
+        
+        asm = ""
+        match op:
+            case o if o in [ir.ADD, ir.SUB, ir.AND, ir.OR, ir.XOR, ir.SHRA, ir.SHRL, ir.SHLL]:
+                asm += f"{o}i {self.map.acc}, {self.map.acc}, {immediate}"
+            case ir.MUL:
+                asm += f"mul {self.map.acc}, {self.map.acc}, {immediate}" # we get only the low byte
+            case ir.DIV:
+                asm += f"idivi {self.map.acc}, {self.map.acc}, {immediate}" # we get only the quotient
+            case ir.MOD:
+                asm += f"li {self.map.var1}, {immediate}" #there's no modulus immediate in sirius
+                asm += f"idiv zero, {self.map.acc}, {self.map.acc}, {self.map.var1}" # we get only the remainder
+            
+            #TODO: Consider using 1 as true instead of -1 (The ISA lends towards that)
+            case ir.EQ:
+                asm += f"subi {self.map.acc}, {self.map.acc}, {immediate}\n" 
+                asm += f"snez {self.map.acc}, {self.map.acc}\n"       
+                asm += f"addi {self.map.acc}, {self.map.acc}, -1"
+            case ir.NEQ:
+                asm += f"subi {self.map.acc}, {self.map.acc}, {immediate}\n"
+                asm += f"seqz {self.map.acc}, {self.map.acc}\n"       
+                asm += f"addi {self.map.acc}, {self.map.acc}, -1"
+            case ir.GT:
+                if immediate > 16_383:
+                    asm  = f"li {self.map.var1}, {immediate}"
+                    asm += self.binary(op)
+                    return asm
+                asm += f"slti {self.map.acc}, {self.map.acc}, {immediate + 1}\n" 
+                asm += f"addi {self.map.acc}, {self.map.acc}, -1"   
+            case ir.LT:
+                asm += f"slti {self.map.acc}, {self.map.acc}, {immediate}\n" 
+                asm += f"neg {self.map.acc}, {self.map.acc}"
+            case ir.GE:
+                asm += f"slti {self.map.acc}, {self.map.acc}, {immediate}\n" 
+                asm += f"addi {self.map.acc}, {self.map.acc}, -1"
+            case ir.LE:
+                if immediate > 16_383:
+                    asm  = f"li {self.map.var1}, {immediate}"
+                    asm += self.binary(op)
+                    return asm
+                asm += f"slti {self.map.acc}, {self.map.acc}, {immediate + 1}\n" 
+                asm += f"neg {self.map.acc}, {self.map.acc}"
+    
+        return asm
+    
+    def dup(self, seg: str, index: int) -> str:
+        pass
+    
     def label(self, label: str) -> str:
         return f"{label}:"
         
     def goto(self, label: str) -> str:
         return f"j {label}"
-
 
     def if_goto(self, label: str) -> str:
         return f"mv {self.map.bcc}, {self.map.acc}\npop {self.map.acc}, {self.map.sp}\nbnez {self.map.bcc}, {label}"

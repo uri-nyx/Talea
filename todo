@@ -1,10 +1,9 @@
 # TODO
-! BROKEN BUILD SYSTEM. NOT FIXING BECAUSE PACKAGES INCOMPATIBLE. SOURCE FOR ZIG 0.10.0
-- Add FIFO mode docs and to Rust (eventually)
-- Upgrade Tty to async socket when stage2 is updated (this is a problem of the compiler)
-- Patch register layout in all instances of `sys.asm`
-- Not panic on storage module command executions, raise exceptions
-- Solve issue with file paths and file names in disks
-- Why does it allways says tpsB is len 0?
+
+- [x] Add FIFO mode docs and to Rust (eventually)
+- [] Upgrade Tty to async socket when stage2 is updated (this is a problem of the compiler)
+- [] Patch register layout in all instances of `sys.asm`
+- [] Not panic on storage module command executions, raise exceptions
+- [] Solve issue with file paths and file names in disks
 - Add graphic modes and clean video module
 - Consider adding a mouse device

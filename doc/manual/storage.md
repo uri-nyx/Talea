@@ -24,7 +24,7 @@ The commands available to address the TPS drive are the following:
 
 - (`0x00`) Nop: does nothing.
 - (`0x01`) Store Sector: stores the sector specified in `pointh-pointl` into the sector `data`.
-- (`0x02`) Load Sector: stores the sector specified in `data` into `pointh-pointl`.
+- (`0x02`) Load Sector: loads the sector specified in `data` into `pointh-pointl` (final address computed multiplying by sector size).
 - (`0x03`) Is Bootable: returns `1` in `STATUSL` if the selected drive is bootable.
 - (`0x04`) Is Present: returns `1` in `STATUSL` if the selected drive is present.
 - (`0x05`) Open: opens the selected drive.

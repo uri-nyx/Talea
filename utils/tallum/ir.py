@@ -1,7 +1,7 @@
 # IR description, instructions and parser
 from sys import stderr
 from typing import List
-import re
+import re, operator
 
 # Segments
 PUSH = "push"
@@ -53,6 +53,10 @@ RETURN = "return"
 
 # EXTENSIONS
 CSTRING = "#cstring"
+IMMEDIATE = "#immediate"
+MOVE = "#move"
+MOVEIMMEDIATE = "#moveimmediate"
+DUP = "#dup"
 
 
 # Bookeeping
@@ -137,3 +141,79 @@ def check_string(s: str, number: int) -> (bool, str):
 def remove_comments(asm: str) -> str:
     asm = re.sub(";.*?(\r\n?|\n)", "", asm.strip())
     return "\n".join(filter(lambda l: l.strip() != "", asm.split("\n")))
+
+def optimize_constant_arithmetic(asm: str) -> str:
+    # Get patterns like push constant n; push constant m; add; 
+    # and replace them for push constant n+m (recursively until this pattern is not found)
+    
+    # Constant folding for unary operations
+    ops = {
+        NOT: operator.inv,
+        NEG: operator.neg,
+    }
+
+    unary = f"push constant (-?\d+)\n({'|'.join(UNARY)})";
+    while re.search(unary, asm, re.MULTILINE) != None:
+        for m in re.finditer(unary, asm, re.MULTILINE):
+            n = int(m.group(1))
+            op = m.group(2)
+            folded = ops[op](n)
+            asm = asm.replace(m.group(0), f"push constant {folded}")
+        
+    # Constant folding for binary operations
+    ops = {
+        ADD : operator.add,
+        SUB : operator.sub,
+        MUL : operator.mul,
+        DIV : operator.floordiv,
+        MOD : operator.mod,
+        AND : operator.and_,
+        OR : operator.or_,
+        XOR : operator.xor,
+        SHRA : operator.rshift,
+        SHRL : lambda n, m: (n & 0xff_ff_ff_ff) >> m, # python has no shift right logical
+        SHLL : operator.lshift,
+        EQ : operator.eq,
+        NEQ : operator.ne,
+        GT : operator.gt,
+        LT : operator.lt,
+        GE : operator.ge,
+        LE : operator.le,
+    }
+    
+    binary = f"push constant (-?\d+)\npush constant (-?\d+)\n({'|'.join(BINARY)})";
+    while re.search(binary, asm, re.MULTILINE) != None:
+        for m in re.finditer(binary, asm, re.MULTILINE):
+            n = int(m.group(1))
+            m = int(m.group(2))
+            op = m.group(3)
+            folded = ops[op](n, m)
+            asm = asm.replace(m.group(0), f"push constant {folded}")
+        
+        
+    # Constant integration as inline values
+    # the idea is to search for patterns like push constant n; add; and replace them for addi n
+    
+    const_arithmetic = f"push constant (-?\d+)\n({'|'.join(BINARY)})";
+    immediate_arithmetic = r"#immediate \2 \1"
+    asm = re.sub(const_arithmetic, immediate_arithmetic, asm)
+    
+    return asm
+
+def optimize_transfer_immediate(asm: str) -> str:
+    # Get metapatterns like push segment n; #immediate add x; pop semgment m 
+    # and replace them with #moveimmediate segment m segment n add x;
+    transfer = f"push (\w+) (-?\d+)\n#immediate ({'|'.join(BINARY)}) (\d+)\n pop (\w+) (-?\d+)"
+    imm_transfer = r"#moveimmediate \5 \6 \1 \2 \3 \4"
+    asm = re.sub(transfer, imm_transfer, asm)
+
+def optimize_segment_transfer(asm: str) -> str:
+    # Get patterns like push segment n; pop segment m; and replace them with move segment m segment n
+    push_pop_transfer = f"push (\w+) (-?\d+)\npop (\w+) (-?\d+)"
+    move_transfer = r"#move \3 \4 \1 \2"
+    asm = re.sub(push_pop_transfer, move_transfer, asm)
+    
+    push_pop_copy = f"pop (\w+) (-?\d+)\push \1"
+    copy_transfer = r"#dup \1 \2"
+    asm = re.sub(push_pop_copy, copy_transfer, asm)
+    return asm

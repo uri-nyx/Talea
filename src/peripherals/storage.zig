@@ -327,7 +327,6 @@ pub const TpsController = struct {
     }
 
     pub fn read(self: *Self, address: u4) u8 {
-        std.debug.print("Reading from tps: addr {}\n", .{address});
         return if (address - self.base < 6) self.registers[address - self.base] else 0;
     }
 
