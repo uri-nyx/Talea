@@ -3,6 +3,7 @@
 /zig-cache
 /zig-out
 /.vscode
+/docs/cheatsheet.md
 /dev/disk/*
 /dev/tps/*
 *.bin
