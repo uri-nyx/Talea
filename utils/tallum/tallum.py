@@ -37,7 +37,7 @@ def add_extensions(source: List[str]) -> List[str]:
 
 def generate(target: target.Target, filename: str, standard: str, source: List[str]) -> (str, str, str):
     if standard == "tal":
-        source = add_extensions(source);
+        source = add_extensions(source)
     
     ir.set_name(filename)
     asm = f"{filename}:\n"
@@ -81,9 +81,19 @@ if __name__ == "__main__":
         bss.append("#bank bss")
         
     for fname in arguments["<file>"]:
+        ir.FNAME = fname
         name = fname.split("/")[-1].split(".")[0]
         with open(fname, "r") as f:
-            asm, dat, static = generate(cpu, name, standard, f.readlines())
+            if arguments["-O"]:
+                a = f.read()
+                a = "".join(add_extensions(a.splitlines(keepends=True)))
+                a = ir.optimize_constant_arithmetic(a)
+                #with open(f"{name}_ir.vm", "w+") as fi:
+                #    fi.write(a)
+                asm, dat, static = generate(cpu, name, standard, a.splitlines(keepends=True))
+            else:
+                asm, dat, static = generate(cpu, name, standard, f.readlines())
+                
             text.append(asm)
             data.append(dat)
             bss.append(static)

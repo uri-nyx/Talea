@@ -92,20 +92,12 @@ pub const InterruptController = struct {
     last_exception: u8,
 
     pub fn init() InterruptController {
-        return InterruptController{ 
-            .cpu = undefined, 
-            .interrupts = [7]Interrupt{ 
-                Interrupt{ .asserted = false, .vector = 0 }, 
-                Interrupt{ .asserted = false, .vector = 0 }, 
-                Interrupt{ .asserted = false, .vector = 0 }, 
-                Interrupt{ .asserted = false, .vector = 0 }, 
-                Interrupt{ .asserted = false, .vector = 0 }, 
-                Interrupt{ .asserted = false, .vector = 0 }, 
-                Interrupt{ .asserted = false, .vector = 0 } 
-            }, 
+        return InterruptController{
+            .cpu = undefined,
+            .interrupts = [7]Interrupt{ Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 }, Interrupt{ .asserted = false, .vector = 0 } },
             .highest = 0,
             .last_exception = 0,
-            };
+        };
     }
 
     pub fn set(self: *Self, state: bool, priority: u3, vector: u8) void {
@@ -285,13 +277,7 @@ pub const Sirius = struct {
         r3: u5,
         r4: u5,
     ) void {
-        std.debug.print("Trace -> {any}: {x}, {any}: {x}, {any}: {x}, {any}: {x}{c}\n", .{
-            @as(Register, @enumFromInt(r1)), self.getReg(r1),
-            @as(Register, @enumFromInt(r2)), self.getReg(r2),
-            @as(Register, @enumFromInt(r3)), self.getReg(r3),
-            @as(Register, @enumFromInt(r4)), self.getReg(r4),
-            0x07
-        });
+        std.debug.print("Trace -> {any}: {x}, {any}: {x}, {any}: {x}, {any}: {x}{c}\n", .{ @as(Register, @enumFromInt(r1)), self.getReg(r1), @as(Register, @enumFromInt(r2)), self.getReg(r2), @as(Register, @enumFromInt(r3)), self.getReg(r3), @as(Register, @enumFromInt(r4)), self.getReg(r4), 0x07 });
     }
 
     fn requireSupervisor(self: *Self) Error!void {
@@ -434,6 +420,7 @@ pub const Sirius = struct {
             @intFromEnum(arch.Instruction.SsReg) => {
                 try self.requireSupervisor();
                 self.state.psr = ProcessorStatus.fromu32(self.getReg(r1));
+                //std.debug.print("SREG changed ({any})\n", .{self.state.psr});
             },
             @intFromEnum(arch.Instruction.Sysret) => {
                 try self.requireSupervisor();
@@ -450,8 +437,8 @@ pub const Sirius = struct {
                 try self.setPc(@truncate(self.getReg(r1)));
             },
             @intFromEnum(arch.Instruction.MmuMap) => { // TODO: document this
-                // Maps physical page in r1 to logical r2 
-                // setting the write and execute bits as per r3 or immediate: 
+                // Maps physical page in r1 to logical r2
+                // setting the write and execute bits as per r3 or immediate:
                 // mmu.map phy, log, r, (w, x)
                 try self.requireSupervisor();
                 var w = false;
@@ -503,7 +490,7 @@ pub const Sirius = struct {
                 if (r2 == @intFromEnum(Register.x0)) {
                     len = @truncate(imm_15);
                 } else {
-                    len  = @truncate(self.getReg(r2));
+                    len = @truncate(self.getReg(r2));
                 }
                 try self.mmu.set_page_table(@truncate(self.getReg(r1)), len);
             },
@@ -535,7 +522,7 @@ pub const Sirius = struct {
                 const fill = @as(u8, @truncate(self.getReg(r3)));
                 var buff = try self.allocator.alloc(u8, len);
                 defer self.allocator.free(buff);
-                @memset( buff, fill);
+                @memset(buff, fill);
                 _ = try self.writeMain(dest, buff);
             },
             @intFromEnum(arch.Instruction.Through) => {
@@ -584,23 +571,23 @@ pub const Sirius = struct {
                 var addr = @as(u24, @truncate(self.getReg(r3)));
                 var i = r1;
                 while (i <= r2) : (i += 1) {
-                   // std.debug.print("Saved register {} to {x}\n" , .{i, addr });
+                    // std.debug.print("Saved register {} to {x}\n" , .{i, addr });
                     addr -%= 4; // Pushes them
                     _ = try self.writeMainBeu32(addr, self.getReg(i));
                 }
                 self.setReg(r3, addr);
-               // std.debug.print("Set register {} to {x}\n" , .{r3, addr});
+                // std.debug.print("Set register {} to {x}\n" , .{r3, addr});
             },
             @intFromEnum(arch.Instruction.Restore) => {
                 var addr = @as(u24, @truncate(self.getReg(r3)));
                 var r = r2;
                 while (r >= r1) : (r -= 1) {
-                   // std.debug.print("Restore register {} to {x}\n" , .{r, addr });
+                    // std.debug.print("Restore register {} to {x}\n" , .{r, addr });
                     self.setReg(r, try self.readMainBeu32(addr));
                     addr +%= 4; // Pops them
                 }
                 self.setReg(r3, addr);
-               // std.debug.print("Set register {} to {x}\n" , .{r3, addr});
+                // std.debug.print("Set register {} to {x}\n" , .{r3, addr});
             },
             @intFromEnum(arch.Instruction.Exch) => {
                 var tmp = self.getReg(r1);
@@ -857,12 +844,13 @@ pub const Sirius = struct {
 
     pub fn writeMain(self: *Self, address: u24, data: []const u8) Error!usize {
         const entry = try self.translate(address);
-        if (entry.w) {
+        if (entry.w or self.state.psr.supervisor) {
             const r = self.main_bus.write(entry.addr, data);
             self.setDirty(address);
             return r;
         } else {
-           return error.AccessViolation;
+            std.debug.print("Attempted to write to WP page (addr: 0x{x})\n", .{address});
+            return error.AccessViolation;
         }
     }
 

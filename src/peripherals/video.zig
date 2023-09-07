@@ -128,14 +128,14 @@ pub const VideoDevice = struct {
 
     fn keyboard_callback(window: ?*c.c.mfb_window, key: c.c.mfb_key, mod: c.c.mfb_key_mod, pressed: c.c.bool) callconv(.C) void {
         const kb = @as(*keyboard.Keyboard, @ptrCast(@alignCast(c.c.mfb_get_user_data(window).?)));
-        std.debug.print("Pressed key {x}\n", .{key});
+        //std.debug.print("Pressed key {x}\n", .{key});
         kb.keyboard_in(@as(u16, @truncate(@as(u32, @bitCast(key)))), @as(u16, @truncate(@as(u32, @bitCast(mod)))));
         _ = pressed;
     }
 
     fn char_input_callback(window: ?*c.c.mfb_window, char: c_uint) callconv(.C) void {
         const kb = @as(*keyboard.Keyboard, @ptrCast(@alignCast(c.c.mfb_get_user_data(window).?)));
-        std.debug.print("Character {x}\n", .{char});
+        //std.debug.print("Character {x}\n", .{char});
         kb.character_in(@as(u8, @truncate(char)));
     }
 
@@ -168,13 +168,13 @@ pub const VideoDevice = struct {
             std.debug.print("\nTerminating Emulation\n", .{});
             return false;
         }
-        
+
         return true;
     }
 
     pub fn sync(self: *Self, alive: bool) void {
         if (alive) {
-        _ = c.c.mfb_wait_sync(self.screen.window);
+            _ = c.c.mfb_wait_sync(self.screen.window);
         }
     }
 
@@ -275,6 +275,34 @@ pub const VideoDevice = struct {
         self.palette = new_palette;
     }
 
+    fn renderColorText(self: *Self) !void {
+        c.c.olivec_fill(self.screen.framebuffer, self.hw_background_color);
+        const font = self.fonts[@intFromEnum(self.font)];
+        const glyphs_per_row = self.screen.width / font.width;
+        const glyphs_per_col = self.screen.height / font.height;
+
+        var row: c_uint = 0;
+        while (row < glyphs_per_col) : (row += 1) {
+            var col: c_uint = 0;
+            while (col < glyphs_per_row) : (col += 1) {
+                const addr = self.hw_charbuffer_addr + @as(u24, @truncate(row * (glyphs_per_row * 2))) + @as(u24, @truncate((col * 2)));
+                const character = [2]u8{ try self.bus.readu8(addr), 0 };
+                const attributes = try self.bus.readu8(addr + 1);
+                const blink = if (attributes & 0x80 == 0x80) true else false;
+                // Change colors to a palette
+                const bg: c_uint = self.palette[(attributes & 0x70) >> 4];
+                const fg: c_uint = self.palette[(attributes & 0x0f)];
+
+                c.c.olivec_rect(self.screen.framebuffer, @as(c_int, @truncate(@as(isize, @bitCast((col) * font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(row * font.height)))), @as(c_int, @truncate(@as(isize, @bitCast(font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(font.height)))), bg);
+                if (blink and self.blink % 60 <= 15) {
+                    c.c.olivec_text(self.screen.framebuffer, &character, @as(c_int, @truncate(@as(isize, @bitCast((col) * font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(row * font.height)))), font, 1, bg);
+                } else {
+                    c.c.olivec_text(self.screen.framebuffer, &character, @as(c_int, @truncate(@as(isize, @bitCast((col) * font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(row * font.height)))), font, 1, fg);
+                }
+            }
+        }
+    }
+
     fn render(self: *Self) !void {
         switch (self.mode) {
             arch.VideoMode.monochromeText => {
@@ -297,31 +325,7 @@ pub const VideoDevice = struct {
             },
             arch.VideoMode.colorText => {
                 // TODO: add font sizes
-                c.c.olivec_fill(self.screen.framebuffer, self.hw_background_color);
-                const font = self.fonts[@intFromEnum(self.font)];
-                const glyphs_per_row = self.screen.width / font.width;
-                const glyphs_per_col = self.screen.height / font.height;
-
-                var row: c_uint = 0;
-                while (row < glyphs_per_col) : (row += 1) {
-                    var col: c_uint = 0;
-                    while (col < glyphs_per_row) : (col += 1) {
-                        const addr = self.hw_charbuffer_addr + @as(u24, @truncate(row * glyphs_per_row)) + @as(u24, @truncate(col));
-                        const character = [2]u8{ try self.bus.readu8(addr), 0 };
-                        const attributes = try self.bus.readu8(addr + 1);
-                        const blink = if (attributes & 0x80 == 0x80) true else false;
-                        // Change colors to a palette
-                        const bg: c_uint = self.palette[(attributes & 0x70) >> 4];
-                        const fg: c_uint = self.palette[(attributes & 0x0f)];
-
-                        c.c.olivec_rect(self.screen.framebuffer, @as(c_int, @truncate(@as(isize, @bitCast(col * font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(row * font.height)))), @as(c_int, @truncate(@as(isize, @bitCast(font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(font.height)))), bg);
-                        if (blink and self.blink % 60 <= 15) {
-                            c.c.olivec_text(self.screen.framebuffer, &character, @as(c_int, @truncate(@as(isize, @bitCast(col * font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(row * font.height)))), font, 1, bg);
-                        } else {
-                            c.c.olivec_text(self.screen.framebuffer, &character, @as(c_int, @truncate(@as(isize, @bitCast(col * font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(row * font.height)))), font, 1, fg);
-                        }
-                    }
-                }
+                try self.renderColorText();
             },
             arch.VideoMode.graphic332 => {
                 std.debug.print("graphic332 is not implemented yet\n", .{});
@@ -335,32 +339,7 @@ pub const VideoDevice = struct {
             arch.VideoMode.combinedRGBA => {
                 self.screen.framebuffer =
                     c.c.olivec_canvas(@as(*c_uint, @ptrCast(@alignCast(&self.bus.mem[@as(usize, self.hw_framebuffer_addr)]))), @as(c_uint, @truncate(arch.VideoConfig.FramebufferDefaultW)), @as(c_uint, @truncate(arch.VideoConfig.FramebufferDefaultH)), @as(c_uint, @truncate(arch.VideoConfig.FramebufferDefaultW)));
-                const font = self.fonts[@intFromEnum(self.font)];
-                const glyphs_per_row = self.screen.width / font.width;
-                const glyphs_per_col = self.screen.height / font.height;
-
-                var row: c_uint = 0;
-                while (row < glyphs_per_col) : (row += 1) {
-                    var col: c_uint = 0;
-                    while (col < glyphs_per_row) : (col += 1) {
-                        const addr = self.hw_charbuffer_addr + @as(u24, @truncate(row * glyphs_per_row)) + @as(u24, @truncate(col));
-                        const character = [2]u8{ try self.bus.readu8(addr), 0 };
-                        if (character[0] != 0) {
-                            const attributes = try self.bus.readu8(addr + 1);
-                            const blink = if (attributes & 0x80 == 0x80) true else false;
-                            // Change colors to a palette
-                            const bg: c_uint = self.palette[(attributes & 0x70) >> 4];
-                            const fg: c_uint = self.palette[(attributes & 0x0f)];
-
-                            c.c.olivec_rect(self.screen.framebuffer, @as(c_int, @truncate(@as(isize, @bitCast(col * font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(row * font.height)))), @as(c_int, @truncate(@as(isize, @bitCast(font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(font.height)))), bg);
-                            if (blink and self.blink % 60 <= 15) {
-                                c.c.olivec_text(self.screen.framebuffer, &character, @as(c_int, @truncate(@as(isize, @bitCast(col * font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(row * font.height)))), font, 1, bg);
-                            } else {
-                                c.c.olivec_text(self.screen.framebuffer, &character, @as(c_int, @truncate(@as(isize, @bitCast(col * font.width)))), @as(c_int, @truncate(@as(isize, @bitCast(row * font.height)))), font, 1, fg);
-                            }
-                        }
-                    }
-                }
+                try self.renderColorText();
             },
         }
     }

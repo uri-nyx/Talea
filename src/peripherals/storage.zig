@@ -2,17 +2,7 @@ const std = @import("std");
 const memory = @import("memory");
 const arch = @import("arch");
 
-pub const Command = enum(u8) {
-    nop,
-    store,
-    load,
-    isBootable,
-    isPresent,
-    open,
-    close,
-    setCurrent,
-    size
-};
+pub const Command = enum(u8) { nop, store, load, isBootable, isPresent, open, close, setCurrent, size };
 
 pub const Sector = struct { data: [arch.SectorSize]u8 };
 
@@ -266,8 +256,8 @@ pub const TpsDrive = struct {
 
     fn check(tps: *Tps) void {
         const stat = tps.fd.stat() catch |err| std.debug.panic("Error getting TPS file stat(): {s}", .{@errorName(err)});
-        if (stat.size != @as(u64, Tps.Sectors) * arch.SectorSize) {
-            std.debug.print("TPS file for tps {s} is corrupted (actual size: {d}, expected: {d})\n", .{ tps.file_name, stat.size, @as(u64, Tps.Sectors) * arch.SectorSize });
+        if (stat.size != (@as(u64, Tps.Sectors) + 1) * arch.SectorSize) {
+            std.debug.print("TPS file for tps {s} is corrupted (actual size: {d}, expected: {d})\n", .{ tps.file_name, stat.size, (@as(u64, Tps.Sectors) + 1) * arch.SectorSize });
         }
     }
 };
@@ -340,11 +330,11 @@ pub const TpsController = struct {
                 self.drive.tps[self.drive.current].store(sector, self.input_sector);
             },
             @intFromEnum(Command.load) => {
-                std.debug.print("Loading from TPS\n", .{});
                 const sector = self.registers[DATA];
                 const point = (@as(u24, self.registers[POINTH]) << 8 | self.registers[POINTL]) * arch.SectorSize;
                 self.drive.tps[self.drive.current].load(sector, self.output_sector);
-                _ = try self.bus.write(point, &self.input_sector.data);
+                const bytes = try self.bus.write(point, &self.output_sector.data);
+                std.debug.print("Loaded sector 0x{x} from TPS at address 0x{x} ({d} bytes) -- 0x{x}\n", .{ sector, point, bytes, self.output_sector.data[0]});
             },
             @intFromEnum(Command.isBootable) => {
                 std.debug.print("Testing if Tps {s} is bootable... ", .{self.drive.tps[self.drive.current].file_name});

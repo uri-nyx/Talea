@@ -23,37 +23,6 @@ ssreg a0                ; supervisor, intterupt enabled, mmu disabled
                         ; priority 2, ivt at 0xf800, pdt at 0xff00
 jal ra, INITIALIZE_IVT
 
-lbud t0, 0xf0(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xf1(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xf2(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xf4(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xf5(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xf6(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xf7(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xf8(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xf9(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xfc(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xfd(zero)
-trace t0, zero, zero, zero
-lbud t0, 0xfe(zero)
-trace t0, zero, zero, zero
-lbud t0, 0x100(zero)
-trace t0, zero, zero, zero
-lbud t0, 0x101(zero)
-trace t0, zero, zero, zero
-lbud t0, 0x102(zero)
-trace t0, zero, zero, zero
-
 
 ;26 Initialize video
 li t0, 0x2 ; set mode
@@ -69,24 +38,16 @@ li t2, 2400
 fill t0, t2, t1
 
 li s2, 10000
-li s7, 20000
+li s8, 20000
+save s2, s7, s8
+subi s3, s2, 4
+call Test.main
+pop ra, s8
+save s2, s7, s8
+call Test.main
+pop ra, s8
+trace s9, zero, zero, zero
 
-pop ra, s7
-push ra, s7    
-save s2, s6, s7
-call Main.main
-pop ra, s7
-trace s8, zero, zero, zero
-
-li t0, FB
-li t1, (FB + 1228800)
-li t2, 0xff_00_00_ff
-loop:
-    sw t2, 0(t0)
-    addi t0, t0, 4
-bne t0, t1, loop
-
-sbd t0, 0xf3(zero) ; poweroff
 end:
 j end
 

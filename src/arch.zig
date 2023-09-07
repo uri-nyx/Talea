@@ -25,10 +25,10 @@ pub const VideoConfig = struct {
     pub const MaxH: comptime_int = 480;
     pub const DefaultW: usize = 640;
     pub const DefaultH: usize = 480;
-    pub const FramebufferDefaultAddr: u24 = 0xed_3f_f0; // end of framebuffer at 0xff_ff_f0
+    pub const FramebufferDefaultAddr: u24 = 0xe5_30_00;
     pub const FramebufferDefaultW: usize = 640;
     pub const FramebufferDefaultH: usize = 480;
-    pub const CharbufferDefaultAddr: u24 = 0xed_17_f0;
+    pub const CharbufferDefaultAddr: u24 = 0xe5_10_00;
 };
 
 pub const VideoFont = enum(u8) {

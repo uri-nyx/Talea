@@ -10,6 +10,7 @@ class VMmap:
     arg: str
     this: str
     that: str
+    thatb: str
     temp: any
     acc: str
     bcc: str
@@ -78,6 +79,11 @@ class Target(ABC):
     @abstractmethod
     def ret(self) -> str:
         pass
+    
+    @abstractmethod
+    def pushref(self, type: str, segment: str, index: int, lineno) -> str:
+        pass
+    
     @abstractmethod
     def cstring(self, s: str) -> str:
         pass
@@ -105,6 +111,12 @@ class Target(ABC):
                     return segment
                 else:
                     return self.push(segment, index, lineno) + "\n" if op == ir.PUSH else self.pop(segment, index, lineno)
+            case op if op in ir.PUSHREF:
+                err, typ, segment, index = ir.check_pushref(ss, lineno)
+                if err:
+                    return segment
+                else:
+                    return self.pushref(typ, segment, index, lineno) + "\n"
             case op if op in ir.BINARY:
                 return self.binary(op) + "\n"
             case op if op in ir.UNARY:
@@ -149,7 +161,13 @@ class Target(ABC):
                     return string
                 else:
                     return self.cstring(string)
-            
+            case ir.IMMEDIATE:
+                err, op, immediate = ir.check_immediate(ss, lineno)
+                if err:
+                    return op
+                else:
+                    return self.immediate(op, immediate)
+                
             case _:
                 ir.error(f"`{command}` is not a valid instruction", lineno)
                 return f";! syntax error: invalid instrutction in line {lineno}"

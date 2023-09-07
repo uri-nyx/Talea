@@ -3,6 +3,7 @@ from sys import stderr
 from typing import List
 import re, operator
 
+FNAME = ""
 # Segments
 PUSH = "push"
 POP = "pop"
@@ -12,9 +13,10 @@ STATIC   = "static"
 CONSTANT = "constant"
 THIS     = "this"
 THAT     = "that"
+THATB    = "thatb"
 POINTER  = "pointer"
 TEMP     = "temp"
-SEGMENTS = [ARGUMENT, LOCAL, STATIC, CONSTANT, THIS, THAT, POINTER, TEMP]
+SEGMENTS = [ARGUMENT, LOCAL, STATIC, CONSTANT, THIS, THAT, THATB, POINTER, TEMP]
 
 # BINARY OPERATIONS
 ADD = "add"
@@ -57,20 +59,28 @@ IMMEDIATE = "#immediate"
 MOVE = "#move"
 MOVEIMMEDIATE = "#moveimmediate"
 DUP = "#dup"
+PUSHREF = "#pushref"
 
 
 # Bookeeping
 def error(msg: str, lineno: int) -> None:
-    print("Syntax Error in line", lineno, file=stderr)
+    print(f"At {FNAME}:{lineno}", file=stderr)
+    print("[Error] Syntax Error in line", lineno, file=stderr)
     print("\t", msg, file=stderr)
 
-def get_pointer(index: int, lineno: int) -> bool:
+def get_pointer(index: int, lineno: int) -> str:
     # Only valid pointers are 0 (this) and 1 (that), pop sets, push stores
-    if index < 0 or index > 1:
-        error("Pointer segment addresses only 0 and 1, not " + str(index), lineno)
+    if index < 0 or index > 3:
+        error("Pointer segment addresses only 0 to 2, not " + str(index), lineno)
         return(";! segment error: invalid pointer offset " + str(index))
     
-    return index == 0 #true for this, false for that
+    match index:
+        case 0: 
+            return THIS
+        case 1: 
+            return THAT
+        case 2: 
+            return THATB
 
 LASTSTATIC = 0
 def get_static(new: int) -> int:
@@ -105,11 +115,60 @@ def check_push_pop(ss: List[str], number: int) -> (bool, str, int):
             return (True, ";! syntax error: invalid index " + ss[2] + " at line " + str(number), 0)
         
         error("`index` argument to pop/push must be an integer", number)
+        print(f"\t-> {' '.join(ss)}")
         return (True, ";! syntax error: invalid index " + ss[2] + " at line " + str(number), 0)
         
     index = int(ss[2])
     
     return(False, segment, index)
+
+def check_pushref(ss: List[str], number: int) -> (bool, str, str, int):
+    if len(ss) < 4:
+        error("`#pushref` instruction takes `type`, `segment` and `index`", number)
+        return (True, ";! syntax error: argument mismatch at line " + str(number), 0)
+    
+    typ = ss[1]
+    if typ not in ["int", "char"]:
+        error("`#pushref` instruction can only take references of 'int' and 'char", number)
+        return (True, ";! syntax error: type mismatch at line " + str(number), 0)
+    
+    segment = ss[2]
+    if segment not in [LOCAL, ARGUMENT, THIS, THAT, THATB, STATIC]:
+        error("Segment " + segment + " not available only " 
+                + str([LOCAL, ARGUMENT, THIS, THAT, THATB, STATIC]) + " are valid", number)
+        return (True, ";! syntax error: invalid segment " + segment + " at line " + str(number), 0)
+    
+    if not re.search("^-?[0-9]+$", ss[3]):
+        if ss[2][1] == "-" and ss[1] != CONSTANT:
+            error("`index` argument to pop/push must be positive except in the chonstant segment", number)
+            return (True, ";! syntax error: invalid index " + ss[2] + " at line " + str(number), 0)
+        
+        error("`index` argument to pop/push must be an integer", number)
+        print(f"\t-> {' '.join(ss)}")
+        return (True, ";! syntax error: invalid index " + ss[2] + " at line " + str(number), 0)
+        
+    index = int(ss[3])
+    
+    return(False, typ, segment, index)
+
+def check_immediate(ss: List[str], number: int) -> (bool, str, int):
+    if len(ss) < 3:
+        error("`immediate` instruction takes `op` and `immediate`", number)
+        return (True, ";! syntax error: argument mismatch at line " + str(number), 0)
+    
+    op = ss[1]
+    if op not in BINARY:
+        error("Op " + op + " not available only " 
+                + str(BINARY) + " are valid", number)
+        return (True, ";! syntax error: invalid segment " + op + " at line " + str(number), 0)
+    
+    if not re.search("^-?[0-9]+$", ss[2]):
+        error("`immediate` argument to immediate must be an integer", number)
+        return (True, ";! syntax error: invalid immediate " + ss[2] + " at line " + str(number), 0)
+        
+    immediate = int(ss[2])
+    
+    return(False, op, immediate)
 
 def check_branch(ss: List[str], number: int) -> (bool, str):
     if len(ss) < 2:
@@ -183,12 +242,14 @@ def optimize_constant_arithmetic(asm: str) -> str:
     
     binary = f"push constant (-?\d+)\npush constant (-?\d+)\n({'|'.join(BINARY)})";
     while re.search(binary, asm, re.MULTILINE) != None:
-        for m in re.finditer(binary, asm, re.MULTILINE):
-            n = int(m.group(1))
-            m = int(m.group(2))
-            op = m.group(3)
+        for ma in re.finditer(binary, asm, re.MULTILINE):
+            n = int(ma.group(1))
+            m = int(ma.group(2))
+            op = ma.group(3)
             folded = ops[op](n, m)
-            asm = asm.replace(m.group(0), f"push constant {folded}")
+            if type(folded) == bool:
+                folded = -1 if folded else 0;
+            asm = asm.replace(ma.group(0), f"push constant {folded}")
         
         
     # Constant integration as inline values

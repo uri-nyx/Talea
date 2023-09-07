@@ -252,7 +252,7 @@ pub const Mmu = struct {
             .physical_addr = physical & 0xfff000,
             .w = w, .x = x, .dirty = false, .present = true, .mapped = true
         };
-        std.debug.print("Mapped Real 0x{x} to Linear {x} (w:{}, x:{})\n", .{physical, linear, w, x});
+        std.debug.print("Mapped Real 0x{x} to Linear 0x{x} (index: 0x{x}) (w:{}, x:{})\n", .{physical, linear, linear >> 12, w, x});
     }
 
     pub fn unmap(self: *Self, linear: u24) void {
@@ -283,10 +283,10 @@ pub const Mmu = struct {
         const index =  linear >> 12;
         const table_entry = self.page_table[index];
         if (!table_entry.mapped) {
-            std.debug.print("Page 0x{} not mapped", .{index});
+            std.debug.print("Page 0x{} not mapped (from linear: 0x{x})\n", .{index, linear});
             return error.PageFault;
         } else if (!table_entry.present) {
-            std.debug.print("Page 0x{} not present", .{index});
+            std.debug.print("Page 0x{} not present (from linear: 0x{x})\n", .{index, linear});
             return error.PageFault;
         }
         return PhysicalAddr{.addr = table_entry.physical_addr + offset, .w = table_entry.w, .x = table_entry.x};

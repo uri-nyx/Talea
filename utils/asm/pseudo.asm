@@ -19,9 +19,12 @@
         addi {rd}, zero, {const}`15
         }
     }
-    li {rd: reg}, {const: i32}  => asm {
+    li {rd: reg}, {const: i32}  => {
+        cons = const`12
+        asm {
         lui {rd}, ({const} >> 12)`20
-        addi {rd}, {rd}, {const}`12
+        addi {rd}, {rd}, {cons}
+        }
     }
     la {rd: reg}, {label} => asm {
         auipc    {rd}, (({label}-$) >> 12)`20
@@ -92,4 +95,33 @@
     j [{offset}] => asm {jal zero, [{offset}]}
     jr {rs: reg} => asm {jalr zero, 0({rs})}
     ret => asm {jalr zero, 0(ra)}
+}
+
+#ruledef {
+;     li  a0, 0b1_1_0_010_111110_11111111_000000000000
+;                    0b10_000000_00000000_000000000000
+;                         ; supervisor, intterupt enabled, mmu disabled
+;                         ; priority 2, ivt at 0xf800, pdt at 0xff00
+    int.clear {rt: reg}, {rt2: reg} => asm {
+        gsreg {rt}
+        li {rt2}, 0xbf_ff_ff_ff
+        and {rt}, {rt}, {rt2}
+        ssreg {rt}
+    }
+
+    int.set {rt: reg}, {rt2: reg} => asm {
+        gsreg {rt}
+        li {rt2}, 0x40_00_00_00
+        or {rt}, {rt}, {rt2}
+        ssreg {rt}
+    }
+
+    priority {rs1: reg}, {rt: reg}, {rt2: reg} => asm {
+        gsreg {rt}
+        li {rt2},  0xe3ffffff ; mask
+        and {rt}, {rt}, {rt2}
+        shlli {rs1}, {rs1}, 26
+        or {rt}, {rt}, {rs1}
+        ssreg {rt}
+    }
 }
