@@ -18,6 +18,7 @@ var firmware_path: []const u8 = "utils/firmware/default.bin";
 var with_serial: bool = false;
 var serial_port: u16 = 65432;
 var master_frequency: usize = 10_000_000; // in hz
+var scale: u16 = 2;
 
 const Device0 = struct {
     pub const Self = @This();
@@ -162,6 +163,7 @@ pub fn main() !void {
         \\-f, --firmware <str>      Path to a firmware binary. 
         \\-s, --serial <u16>        Open the serial line on the specidfied port (default 65432).
         \\-z, --frequency <usize>   Frequency of the system (in Mhz, default 10)
+        \\    --scale <u16>         Scaling factor of window (0-3) (default 2)
         \\
     );
 
@@ -188,6 +190,9 @@ pub fn main() !void {
     }
     if (res.args.frequency) |mhz| {
         master_frequency = mhz * 1_000_000;
+    }
+    if (res.args.scale) |sc| {
+        scale = 1 + sc;
     }
 
     // CPU ====================================================================
@@ -229,7 +234,7 @@ pub fn main() !void {
 
     // GPU ====================================================================
     var gpu = try video.VideoDevice.init(master_frequency, &irq, &main_bus, &kb);
-
+    gpu.screen.scale(@as(c_uint, scale));
     // DEVICE INSTALLATION ====================================================
     const numdevices = 3;
     var system_device = sys.Sys.init(&irq, master_frequency, numdevices);

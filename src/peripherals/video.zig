@@ -25,6 +25,10 @@ pub const Screen = struct {
             .framebuffer = c.c.OLIVEC_CANVAS_NULL,
         };
     }
+
+    pub fn scale(self: *Self, factor: c_uint) void {
+        _ = c.c.mfb_set_viewport(self.window, 0, 0, self.width * factor, self.height * factor);
+    }
 };
 
 inline fn colorRGB(r: u8, g: u8, b: u8) u32 {

@@ -28,14 +28,26 @@ pub fn build(b: *std.Build) void {
 
     deps.addAllTo(exe);
     exe.linkLibC();
-    exe.addIncludePath(.{ .path = "/usr/local/include" });
-    exe.addIncludePath(.{ .path = "./src/include" });
-    exe.addLibraryPath(.{ .path = "/usr/local/lib" });
-    exe.addObjectFile(.{ .path = "/usr/local/lib/libminifb.a" });
-    exe.linkFramework("Metal");
-    exe.linkFramework("MetalKit");
-    exe.linkFramework("QuartzCore");
-    exe.linkFramework("Cocoa");
+
+    // Mac os specific libs to compile with minifb
+    if (target.isDarwin()) {
+        exe.addIncludePath(.{ .path = "/usr/local/include" });
+        exe.addIncludePath(.{ .path = "./src/include" });
+        exe.addLibraryPath(.{ .path = "/usr/local/lib" });
+        exe.addObjectFile(.{ .path = "/usr/local/lib/libminifb.a" });
+        exe.linkFramework("Metal");
+        exe.linkFramework("MetalKit");
+        exe.linkFramework("QuartzCore");
+        exe.linkFramework("Cocoa");
+    } else if (target.isLinux()) {
+        exe.addIncludePath(.{ .path = "/usr/local/include" });
+        exe.addIncludePath(.{ .path = "./src/include" });
+        exe.addLibraryPath(.{ .path = "/usr/local/lib" });
+        exe.addObjectFile(.{ .path = "/usr/local/lib/libminifb.a" });
+        exe.linkSystemLibrary("X11");
+        exe.linkSystemLibrary("GL");
+        exe.linkSystemLibrary("GLX");
+    }
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

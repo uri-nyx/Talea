@@ -3,4 +3,4 @@
 #customasm utils/asm/master.asm utils/asm/sys.asm utils/firmware/isr.s -o jack.bin
  ./tpsA.sh ../Ion/tps/ion.tps
 echo "\t\v--- TALEÄ Z EXECUTION ---"
-./zig-out/bin/TaleaZ -f minimal.bin -z $1
+./zig-out/bin/TaleaZ -f minimal.bin -z $1 --scale=$2
