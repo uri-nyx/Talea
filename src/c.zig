@@ -1,4 +1,5 @@
 pub const c = @cImport({
+    @cInclude("win_only.c");
     @cInclude("MiniFB.h");
     @cDefine("STBI_ONLY_JPEG", {});
     @cDefine("STBI_ONLY_PNG", {});

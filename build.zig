@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     // means any target is allowed, and the default is native. Other options
     // for restricting supported target set are available.
     const target = b.standardTargetOptions(.{});
-
+    
     // Standard release options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const optimize = b.standardOptimizeOption(.{});
@@ -18,17 +18,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addCSourceFile(.{ .file = .{ .path = "src/peripherals/video.c" }, .flags = &[_][]const u8{} });
 
-    const arch = b.addModule("arch", .{ .source_file = .{ .path = "src/arch.zig" } });
-    exe.addModule("arch", arch);
+    var flags = [1][]const u8{""};
 
-    const memory = b.addModule("memory", .{ .source_file = .{ .path = "src/memory.zig" } });
-    exe.addModule("memory", memory);
-
-    deps.addAllTo(exe);
     exe.linkLibC();
-
     // Mac os specific libs to compile with minifb
     if (target.isDarwin()) {
         exe.addIncludePath(.{ .path = "/usr/local/include" });
@@ -47,7 +40,30 @@ pub fn build(b: *std.Build) void {
         exe.linkSystemLibrary("X11");
         exe.linkSystemLibrary("GL");
         exe.linkSystemLibrary("GLX");
+    } else if (target.isWindows()) {
+        exe.addLibraryPath(.{ .path = "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.37.32822/lib/x64" });
+        exe.addLibraryPath(.{ .path = "C:/Program Files (x86)/Windows Kits/10/Lib/10.0.22000.0/ucrt/x64"});
+        exe.addIncludePath(.{ .path = "./src/include" });
+        exe.addIncludePath(.{ .path = "C:/Program Files (x86)/MiniFB/include" });
+        exe.addIncludePath(.{ .path = "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.37.32822/include/GL"});
+        exe.addIncludePath(.{ .path = "C:/Program Files (x86)/Windows Kits/10/Include/"});
+        exe.linkSystemLibrary("ucrt");
+        exe.linkSystemLibrary("gdi32");
+        exe.linkSystemLibrary("Opengl32");
+        exe.linkSystemLibrary("winmm");
+        exe.addObjectFile(.{ .path = "C:/Program Files (x86)/MiniFB/lib/minifb.lib" });
+        //flags[0] = "-D_NO_CRT_STDIO_INLINE";
     }
+
+    exe.addCSourceFile(.{ .file = .{ .path = "src/peripherals/video.c" }, .flags = &flags });
+
+    const arch = b.addModule("arch", .{ .source_file = .{ .path = "src/arch.zig" } });
+    exe.addModule("arch", arch);
+    const memory = b.addModule("memory", .{ .source_file = .{ .path = "src/memory.zig" } });
+    exe.addModule("memory", memory);
+
+    deps.addAllTo(exe);
+
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
