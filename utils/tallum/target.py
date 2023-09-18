@@ -85,9 +85,17 @@ class Target(ABC):
         pass
     
     @abstractmethod
-    def cstring(self, s: str) -> str:
+    def cstring(self, label: str, s: str) -> str:
         pass
     
+    @abstractmethod
+    def array(self, index: int, size: int, array: str) -> str:
+        pass
+
+    @abstractmethod
+    def res(self, index: int, size: int) -> str:
+        pass        
+
     @abstractmethod
     def optimize(self, asm: str) -> str:
         pass
@@ -156,11 +164,23 @@ class Target(ABC):
                 return self.ret()
             
             case ir.CSTRING:
-                err, string = ir.check_string(s, lineno)
+                err, label, string = ir.check_string(s, lineno)
                 if err:
-                    return string
+                    return label
                 else:
-                    return self.cstring(string)
+                    return self.cstring(label, string)
+            case ir.ARRAY:
+                err, index, size, array  = ir.check_array(s, lineno)
+                if err:
+                    return index
+                else:
+                    return self.array(index, size, array)
+            case ir.RES:
+                err, index, size = ir.check_res(s, lineno)
+                if err:
+                    return index
+                else:
+                    return self.res(index, size)
             case ir.IMMEDIATE:
                 err, op, immediate = ir.check_immediate(ss, lineno)
                 if err:

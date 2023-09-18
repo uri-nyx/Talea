@@ -301,18 +301,43 @@ class Sirius(target.Target):
         asm += f"ret"
         return asm
 
-    def cstring(self, s: str) -> str:
-        label = f".d{len(self.data)}"
+    def cstring(self, label: str, s: str) -> str:
+        load = True
+        lab = ""
+        if label == "null":
+            lab =  f".d{len(self.data)}"
+        else:
+            load = False
+            lab = f".d{len(self.data)}:\n.{label}"
         
-        dat  = f"{label}:\n"
+        dat  = f"{lab}:\n"
         dat += f"\t#d32 {len(s)}\n"
         dat += f'\t#d "{s}"\n'
         dat +=  "\t#align 32\n"
         self.data.append(dat)
-        
-        asm  = f"push {self.map.acc}, {self.map.sp}\n" 
-        asm += f"la {self.map.acc}, DATA_{ir.get_name()}{label}\n"
-        return asm 
+        if load:
+            asm  = f"push {self.map.acc}, {self.map.sp}\n" 
+            asm += f"la {self.map.acc}, DATA_{ir.get_name()}{lab}\n"
+            return asm 
+        else:
+            return ""
+
+    def array(self, index: int, size: int, array: str) -> str:
+        qualified = f"DATA_{ir.get_name()}.\\1"
+        local_label = f".StaticArray_{str(index)}"
+        label = f"DATA_{ir.get_name()}.StaticArray_{str(index)}"
+
+        array = re.sub("([A-Za-z_]\w+)", qualified, array)
+        dat  = f"{local_label}:\n"
+        dat += f"\t#d32 {array}\n"
+        dat +=  "\t#align 32\n"
+        self.data.append(dat)
+        self.static[index] = f".s{str(index)}: #d32 {label}"
+        return ""
+
+    def res(self, index: int, size: int) -> str:
+        self.static[index] = f".s{str(index)}: #res {str(size * int(self.word))}"
+        return ""        
         
     def optimize(self, asm: str) -> str:
         optimized = asm.replace(f"pop {self.map.acc}, {self.map.sp}\npush {self.map.acc}, {self.map.sp}\n", "") #remove redundancies

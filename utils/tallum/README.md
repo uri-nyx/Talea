@@ -11,8 +11,8 @@ For simple virtual machine code, as dezcribed in Nand2Tetris, TALLUM can perform
 ### Machine independent
 
 - Constant folding, and passing constants as innmediate in the operations (if the target allows it)
-- Segment to segment transfer: `push segment n; pop segment m -> move segment n segment m`.
-- Top of stack copy: `pop segment n; push segment n -> dup segment n`
+- Segment to segment transfer: `push segment n; pop segment m -> move segment n segment m`. (NOT IMPLEMENTED)
+- Top of stack copy: `pop segment n; push segment n -> dup segment n` (NOT IMPLEMENTED)
 
 ### Machine dependent
 

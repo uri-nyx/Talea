@@ -60,6 +60,8 @@ MOVE = "#move"
 MOVEIMMEDIATE = "#moveimmediate"
 DUP = "#dup"
 PUSHREF = "#pushref"
+RES = "#res"
+ARRAY = "#array"
 
 
 # Bookeeping
@@ -188,14 +190,36 @@ def check_func(ss: List[str], number: int) -> (bool, str, int):
     
     return(False, ss[1], int(ss[2]))
 
-def check_string(s: str, number: int) -> (bool, str):
-    string = re.search("\"([^\"]*)\"", s)
+def check_string(s: str, number: int) -> (bool, str, str):
+    string = re.search("#cstring (.+) \"([^\"]*)\"", s)
     if string != None:
-        string = string.group(1)
-        return (False, string)
+        label = string.group(1)
+        string = string.group(2)
+        return (False, label, string)
     else:
-        error("`#cstring` takes a constant string enclosed in `\"`", number)
+        error("`#cstring` takes a label and constant string enclosed in `\"`", number)
         return (True, ";! syntax error: no string provided to #cstring at line " + str(number))
+
+def check_array(s: str, number: int) -> (bool, int, int, str):
+    array = re.search("#array (\d+) (\d+) (.+)", s)
+    if array != None:
+        index = array.group(1)
+        size = array.group(2)
+        array = array.group(3)
+        return (False, int(index), int(size), array)
+    else:
+        error("`#array` takes a label, size and initialization list", number)
+        return (True, ";! syntax error: no string provided to #array at line " + str(number))
+
+def check_res(s: str, number: int) -> (bool, int, int):
+    res = re.search("#res (\d+) (\d+)", s)
+    if res != None:
+        index = res.group(1)
+        size = res.group(2)
+        return (False, int(index), int(size))
+    else:
+        error("`#res` takes an index to the static segment and size in words", number)
+        return (True, ";! syntax error: no string provided to #res at line " + str(number))
 
 def remove_comments(asm: str) -> str:
     asm = re.sub(";.*?(\r\n?|\n)", "", asm.strip())
@@ -240,7 +264,7 @@ def optimize_constant_arithmetic(asm: str) -> str:
         LE : operator.le,
     }
     
-    binary = f"push constant (-?\d+)\npush constant (-?\d+)\n({'|'.join(BINARY)})";
+    binary = f"push constant (-?\d+)\npush constant (-?\d+)\n({'|'.join(BINARY)})"
     while re.search(binary, asm, re.MULTILINE) != None:
         for ma in re.finditer(binary, asm, re.MULTILINE):
             n = int(ma.group(1))
@@ -248,14 +272,14 @@ def optimize_constant_arithmetic(asm: str) -> str:
             op = ma.group(3)
             folded = ops[op](n, m)
             if type(folded) == bool:
-                folded = -1 if folded else 0;
+                folded = -1 if folded else 0
             asm = asm.replace(ma.group(0), f"push constant {folded}")
         
         
     # Constant integration as inline values
     # the idea is to search for patterns like push constant n; add; and replace them for addi n
     
-    const_arithmetic = f"push constant (-?\d+)\n({'|'.join(BINARY)})";
+    const_arithmetic = f"push constant (-?\d+)\n({'|'.join(BINARY)})"
     immediate_arithmetic = r"#immediate \2 \1"
     asm = re.sub(const_arithmetic, immediate_arithmetic, asm)
     
