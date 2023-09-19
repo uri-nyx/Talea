@@ -62,7 +62,10 @@ DUP = "#dup"
 PUSHREF = "#pushref"
 RES = "#res"
 ARRAY = "#array"
-
+CALLTOS = "#calltos"
+PUSHLABEL = "#pushlabel"
+PUSHCOMMON = "#pushcommon"
+POPCOMMON = "#popcommon"
 
 # Bookeeping
 def error(msg: str, lineno: int) -> None:
@@ -189,6 +192,35 @@ def check_func(ss: List[str], number: int) -> (bool, str, int):
         return (True, ";! syntax error: argument mismatch at line " + str(number))
     
     return(False, ss[1], int(ss[2]))
+
+def check_pushlabel(ss: List[str], number: int) -> (bool, str):
+    if len(ss) < 2:
+        error("`pushlabel` instructions take one argument", number)
+        return (True, ";! syntax error: argument mismatch at line " + str(number))
+    
+    return(False, ss[1])
+
+def check_popcommon(ss: List[str], number: int) -> (bool, int):
+    if len(ss) < 2:
+        error("`popcommon` instructions take one argument", number)
+        return (True, ";! syntax error: argument mismatch at line " + str(number))
+    
+    if not ss[1].isdigit():
+        error("`popcommon` instructions take one integer argument", number)
+        return (True, ";! syntax error: argument mismatch at line " + str(number))
+    
+    return(False, int(ss[1]))
+
+def check_calltos(ss: List[str], number: int) -> (bool, int):
+    if len(ss) < 2:
+        error("`calltos` instructions take one argument", number)
+        return (True, ";! syntax error: argument mismatch at line " + str(number))
+    
+    if not ss[1].isdigit():
+        error("`calltos` instructions take one integer argument", number)
+        return (True, ";! syntax error: argument mismatch at line " + str(number))
+    
+    return(False, int(ss[1]))
 
 def check_string(s: str, number: int) -> (bool, str, str):
     string = re.search("#cstring (.+) \"([^\"]*)\"", s)

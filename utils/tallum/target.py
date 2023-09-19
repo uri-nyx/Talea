@@ -6,6 +6,7 @@ import ir
 @dataclass
 class VMmap:
     sp: str
+    gp: str
     lcl: str
     arg: str
     this: str
@@ -22,7 +23,7 @@ class Target(ABC):
     def __init__(self, name: str, bits: int, vmmap: VMmap):
         self.name = name
         self.bits = bits
-        self.word = bits / 8
+        self.word = bits // 8
         self.map: VMmap = vmmap
         self.static = {}
         self.data = []
@@ -94,7 +95,23 @@ class Target(ABC):
 
     @abstractmethod
     def res(self, index: int, size: int) -> str:
-        pass        
+        pass       
+
+    @abstractmethod
+    def pushlabel(self, label: str) -> str:
+        pass      
+
+    @abstractmethod
+    def calltos(self, args: int) -> str:
+        pass   
+
+    @abstractmethod
+    def pushcommon(self) -> str:
+        pass  
+
+    @abstractmethod
+    def popcommon(self, temp: int) -> str:
+        pass      
 
     @abstractmethod
     def optimize(self, asm: str) -> str:
@@ -181,6 +198,20 @@ class Target(ABC):
                     return index
                 else:
                     return self.res(index, size)
+            case ir.PUSHLABEL:
+                err, lab = ir.check_pushlabel(ss, lineno)
+                if err: return lab
+                else: return self.pushlabel(lab)
+            case ir.CALLTOS:
+                err, arg = ir.check_calltos(ss, lineno)
+                if err: return arg
+                else: return self.calltos(arg)
+            case ir.PUSHCOMMON:
+                return self.pushcommon()
+            case ir.POPCOMMON:
+                err, temp = ir.check_popcommon(ss, lineno)
+                if err: return temp
+                else: return self.popcommon(temp)
             case ir.IMMEDIATE:
                 err, op, immediate = ir.check_immediate(ss, lineno)
                 if err:

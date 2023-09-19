@@ -5,6 +5,7 @@ import target, ir
 
 SIRIUS_MAP = target.VMmap(
     sp   = "s2",
+    gp   = "gp",
     lcl  = "s3",
     arg  = "s4",
     this = "s5",
@@ -55,7 +56,7 @@ class Sirius(target.Target):
             case ir.CONSTANT:         
                 return f"{index}"
             case ir.STATIC:
-                if self.supervisor:
+                if False and self.supervisor:
                     if index not in self.static:
                         self.static[index] = ir.get_static(len(self.static) * 4)
                     
@@ -90,7 +91,7 @@ class Sirius(target.Target):
             case ir.CONSTANT:         
                 return f"push {self.map.acc}, {self.map.sp}\nli {self.map.acc}, {index}"
             case ir.STATIC:
-                if self.supervisor:
+                if False and self.supervisor:
                     if index not in self.static:
                         self.static[index] = ir.get_static(len(self.static) * 4)
                     
@@ -126,7 +127,7 @@ class Sirius(target.Target):
                 ir.error("Constant segment cannot perform pop instruction", lineno)
                 return(";! constant error: cannot pop to constant")
             case ir.STATIC:
-                if self.supervisor:
+                if False and self.supervisor:
                     if index not in self.static:
                         self.static[index] = ir.get_static(len(self.static) * 4)
                     
@@ -283,7 +284,7 @@ class Sirius(target.Target):
             case ir.THATB:
                     return f"push {self.map.acc}, {self.map.sp}\naddi {self.map.acc}, {self.map.thatb}, {index}"
             case ir.STATIC:
-                if self.supervisor:
+                if False and self.supervisor:
                     if index not in self.static:
                         self.static[index] = ir.get_static(len(self.static) * 4)
                     
@@ -336,8 +337,47 @@ class Sirius(target.Target):
         return ""
 
     def res(self, index: int, size: int) -> str:
-        self.static[index] = f".s{str(index)}: #res {str(size * int(self.word))}"
-        return ""        
+        label = f".d{len(self.data)}"
+        qualified = f"DATA_{ir.get_name()}{label}"
+        dat  = f"{label}:\n"
+        dat += f"\t#res {str(size * int(self.word))}\n"
+        dat +=  "\t#align 32\n"
+        self.data.append(dat)
+        self.static[index] = f".s{str(index)}: #d32 {qualified}"
+        return ""
+    
+    def pushlabel(self, label: str) -> str:
+        return f"push {self.map.acc}, {self.map.sp}\nla {self.map.acc}, {label}"  
+    
+    def pushcommon(self) -> str:
+        load = "lwd" if self.supervisor else "lw"
+        return f"add {self.map.acc}, {self.map.acc}, {self.map.gp}\n{load} {self.map.acc}, 0({self.map.acc})"
+    
+    def popcommon(self, temp: int) -> str:
+        store = "swd" if self.supervisor else "sw"
+        asm =  f"add {self.map.bcc}, {self.map.temp[temp]}, {self.map.gp}\n"
+        asm += f"{store} {self.map.acc}, 0({self.map.bcc})\n"
+        asm += f"addi {self.map.temp[temp]}, {self.map.temp[temp]}, {self.word}\n"
+        return asm
+    
+
+    def calltos(self, args: int) -> str:
+        # prepare a stack frame: push compiler registers to callstack and parameters to data stack    
+        # Compiler registers
+        asm  = f"push ra, {self.map.callstack}\n" #save return addr
+        asm += f"save {self.map.sp}, {self.map.thatb}, {self.map.callstack}\n"
+        # Parameters
+        reg = self.map.acc
+        if args > 0:
+            reg = self.map.temp[0]
+            asm += f"push {self.map.acc}, {self.map.sp}\n" #push ACC to args
+            asm += f"lw {reg}, {args * 4}({self.map.sp})\n"
+            asm += f"addi {self.map.arg}, {self.map.sp}, {(args - 1) * 4}\n" #relocate argument segment
+        
+        asm += f"subi {self.map.lcl}, {self.map.sp}, 4\n" #relocate local segment
+        asm += f"jalr ra, 0({reg})\n"
+        asm += f"pop ra, {self.map.callstack}"
+        return asm    
         
     def optimize(self, asm: str) -> str:
         optimized = asm.replace(f"pop {self.map.acc}, {self.map.sp}\npush {self.map.acc}, {self.map.sp}\n", "") #remove redundancies
