@@ -761,7 +761,7 @@ pub const Sirius = struct {
             },
             @intFromEnum(arch.Instruction.Mul) => {
                 const value: u64 = self.getReg(r3) *% self.getReg(r4);
-                //std.debug.print("Multiplication -> result {x}\n", .{value});
+                // TODO: Implement signed multiplication and unsigned division
                 self.setReg(r1, @as(u32, @truncate(value >> 32)));
                 self.setReg(r2, @as(u32, @truncate(value)));
             },
