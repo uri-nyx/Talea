@@ -169,7 +169,7 @@ pub const DiskController = struct {
             },
             @intFromEnum(Command.isPresent) => {
                 std.debug.print("Testing if disk {s} is present... ", .{self.drive.disk[self.drive.current].file_name});
-                const dir = try std.fs.cwd().openIterableDir(arch.DiskPath, .{});
+                const dir = try std.fs.cwd().openDir(arch.DiskPath, .{.iterate=true});
                 var iterator = dir.iterate();
                 var present = false;
                 while (try iterator.next()) |path| {
@@ -334,7 +334,7 @@ pub const TpsController = struct {
                 const point = (@as(u24, self.registers[POINTH]) << 8 | self.registers[POINTL]) * arch.SectorSize;
                 self.drive.tps[self.drive.current].load(sector, self.output_sector);
                 const bytes = try self.bus.write(point, &self.output_sector.data);
-                std.debug.print("Loaded sector 0x{x} from TPS at address 0x{x} ({d} bytes) -- 0x{x}\n", .{ sector, point, bytes, self.output_sector.data[0]});
+                std.debug.print("Loaded sector 0x{x} from TPS at address 0x{x} ({d} bytes) -- 0x{x}\n", .{ sector, point, bytes, self.output_sector.data[0] });
             },
             @intFromEnum(Command.isBootable) => {
                 std.debug.print("Testing if Tps {s} is bootable... ", .{self.drive.tps[self.drive.current].file_name});
@@ -349,7 +349,7 @@ pub const TpsController = struct {
             },
             @intFromEnum(Command.isPresent) => {
                 std.debug.print("Testing if Tps {s} is present... ", .{self.drive.tps[self.drive.current].file_name});
-                const dir = try std.fs.cwd().openIterableDir(arch.TpsPath, .{});
+                const dir = try std.fs.cwd().openDir(arch.TpsPath, .{.iterate=true});
                 var iterator = dir.iterate();
                 var present = false;
                 while (try iterator.next()) |path| {

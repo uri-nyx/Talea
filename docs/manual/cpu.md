@@ -99,7 +99,7 @@ The system device is comprised by the following registers:
 - [0x1] CLOCK: clock speed, in Mhz (turbo speed is around 20-25 Mhz).
 - [0x2] INT: last interrupt raised (8 bit vector). Writing or reading to this register sets it to 1 (no exception).
 - [0x3] POWER: if written to, the machine will halt and power off.
-- [0x4..0x9] YEAR, MONTH, DAY, HOUR, MINUTE, SECOND.
+- [0x4..0xa] YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, MILLIS.
 - [0xA, 0xB] RESERVED.
 - [0xC] DEVICES: number of connected devices.
 - [0xD] ARCHITECTURE: architecture ID.

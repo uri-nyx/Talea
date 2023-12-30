@@ -111,7 +111,7 @@ pub const MemoryDevice = struct {
     device: Device,
 
     pub fn init(allocator: std.mem.Allocator) !MemoryDevice {
-        var mem = try allocator.create([arch.DeviceSize]u8);
+        const mem = try allocator.create([arch.DeviceSize]u8);
         @memset(mem, 0);
         return MemoryDevice{
             .mem = mem,
@@ -209,86 +209,92 @@ pub const DataBus = struct {
 
 pub const PageDirectoryEntry = packed struct { physical_addr: u12, reserved: u4 };
 
-pub const PageTableEntry = packed struct { 
-    physical_addr: u24, 
-    w: bool, 
-    x: bool, 
-    dirty: bool, 
+pub const PageTableEntry = packed struct {
+    physical_addr: u24,
+    w: bool,
+    x: bool,
+    dirty: bool,
     present: bool,
     mapped: bool,
 };
 
 pub const PhysicalDescriptor = struct { addr: u16, w: bool, x: bool };
 
-pub const PhysicalAddr = struct { addr: u24, w: bool, x: bool}; //TODO: maybe readable bit too?
+pub const PhysicalAddr = struct { addr: u24, w: bool, x: bool }; //TODO: maybe readable bit too?
+
+pub const PageTable = [4096]PageTableEntry;
 
 pub const Mmu = struct {
     pub const Self = @This();
-    page_table: [4096]PageTableEntry,
+    page_tables: [16]PageTable,
+    page_table: u4,
     bus_main: *MainBus,
     bus_data: *DataBus,
 
     pub fn init(bus_main: *MainBus, bus_data: *DataBus) Mmu {
         return Mmu{
-            .page_table = [_]PageTableEntry{.{.physical_addr = 0, .w = false, .x = false, .dirty = false, .present = false, .mapped = false}} ** 4096,
+            .page_tables = [_]PageTable{[_]PageTableEntry{.{ .physical_addr = 0, .w = false, .x = false, .dirty = false, .present = false, .mapped = false }} ** 4096} ** 16,
+            .page_table = 0,
             .bus_main = bus_main,
             .bus_data = bus_data,
         };
     }
 
-    pub fn set_page_table(self: *Self, pointer: u24, length: u12) !void {
+    pub fn set_page_table(self: *Self, pointer: u24, length: u12, page_table: u4) !void {
         std.debug.print("Set Page table from 0x{x}\n", .{pointer});
         for (0..length) |i| {
             const raw = try self.bus_main.readBeu16(pointer +% @as(u24, @truncate(i * 2)));
             const physical: u24 = (raw & 0xfff0) << 8;
             const w = if (raw & 0x8 != 0) true else false;
             const x = if (raw & 0x4 != 0) true else false;
-            self.map(physical, @truncate(i), w, x);
+            self.map(physical, @truncate(i), w, x, page_table);
         }
     }
 
-    pub fn map(self: *Self, physical: u24, linear: u24, w: bool, x: bool) void {
-        self.page_table[linear >> 12] = PageTableEntry{
-            .physical_addr = physical & 0xfff000,
-            .w = w, .x = x, .dirty = false, .present = true, .mapped = true
-        };
-        std.debug.print("Mapped Real 0x{x} to Linear 0x{x} (index: 0x{x}) (w:{}, x:{})\n", .{physical, linear, linear >> 12, w, x});
+    pub fn map(self: *Self, physical: u24, linear: u24, w: bool, x: bool, page_table: u4) void {
+        self.page_tables[page_table][linear >> 12] = PageTableEntry{ .physical_addr = physical & 0xfff000, .w = w, .x = x, .dirty = false, .present = true, .mapped = true };
+        std.debug.print("Mapped Real 0x{x} to Linear 0x{x} (index: 0x{x}) (w:{}, x:{})\n", .{ physical, linear, linear >> 12, w, x });
     }
 
-    pub fn unmap(self: *Self, linear: u24) void {
-        self.page_table[linear >> 12] = PageTableEntry{
-            .physical_addr = 0,
-            .w = false, .x = false, .dirty = false, .present = false, .mapped = false
-        };
+    pub fn unmap(self: *Self, linear: u24, page_table: u4) void {
+        self.page_tables[page_table][linear >> 12] = PageTableEntry{ .physical_addr = 0, .w = false, .x = false, .dirty = false, .present = false, .mapped = false };
     }
 
-    pub fn update(self: *Self, linear: u24, dirty: bool, present: bool) void {
-        self.page_table[linear >> 12].dirty = dirty;
-        self.page_table[linear >> 12].present = present;
+    pub fn update(self: *Self, linear: u24, dirty: bool, present: bool, page_table: u4) void {
+        self.page_tables[page_table][linear >> 12].dirty = dirty;
+        self.page_tables[page_table][linear >> 12].present = present;
     }
 
-    pub fn status(self: *Self, linear: u24) u32 { 
-        const entry = self.page_table[linear >> 12];
-        if (!entry.mapped) 
+    pub fn switch_page_table(self: *Self, page_table: u4) void {
+        self.page_table = page_table;
+    }
+
+    pub fn get_page_table(self: *Self) u4 {
+        return self.page_table;
+    }
+
+    pub fn status(self: *Self, linear: u24, page_table: u4) u32 {
+        const entry = self.page_tables[page_table][linear >> 12];
+        if (!entry.mapped)
             return 0xff_ff_ff_ff;
-        const stat: u32 = @as(u32, @intFromBool(entry.x)) << 3 | 
-                          @as(u32, @intFromBool(entry.w)) << 2 | 
-                          @as(u32, @intFromBool(entry.dirty)) << 1 | 
-                          @as(u32, @intFromBool(entry.present));
+        const stat: u32 = @as(u32, @intFromBool(entry.x)) << 3 |
+            @as(u32, @intFromBool(entry.w)) << 2 |
+            @as(u32, @intFromBool(entry.dirty)) << 1 |
+            @as(u32, @intFromBool(entry.present));
         return stat;
     }
 
     pub fn translate(self: *Self, linear: u24) !PhysicalAddr {
         const offset = linear & 0xfff;
-        const index =  linear >> 12;
-        const table_entry = self.page_table[index];
+        const index = linear >> 12;
+        const table_entry = self.page_tables[self.page_table][index];
         if (!table_entry.mapped) {
-            std.debug.print("Page 0x{} not mapped (from linear: 0x{x})\n", .{index, linear});
+            std.debug.print("Page 0x{} not mapped (from linear: 0x{x})\n", .{ index, linear });
             return error.PageFault;
         } else if (!table_entry.present) {
-            std.debug.print("Page 0x{} not present (from linear: 0x{x})\n", .{index, linear});
+            std.debug.print("Page 0x{} not present (from linear: 0x{x})\n", .{ index, linear });
             return error.PageFault;
         }
-        return PhysicalAddr{.addr = table_entry.physical_addr + offset, .w = table_entry.w, .x = table_entry.x};
+        return PhysicalAddr{ .addr = table_entry.physical_addr + offset, .w = table_entry.w, .x = table_entry.x };
     }
 };

@@ -17,7 +17,7 @@ pub const Screen = struct {
     framebuffer: c.c.Olivec_Canvas,
 
     pub fn init(w: c_uint, h: c_uint, flags: c_uint) Self {
-        var window = c.c.mfb_open_ex(arch.VideoConfig.WindowName, arch.VideoConfig.MaxW, arch.VideoConfig.MaxH, flags);
+        const window = c.c.mfb_open_ex(arch.VideoConfig.WindowName, arch.VideoConfig.MaxW, arch.VideoConfig.MaxH, flags);
         return Self{
             .width = w,
             .height = h,

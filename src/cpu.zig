@@ -436,13 +436,30 @@ pub const Sirius = struct {
                 std.debug.print("Toggled MMU {s}\n", .{if (self.state.psr.mmu_enable) "on" else "off"});
                 try self.setPc(@truncate(self.getReg(r1)));
             },
+            @intFromEnum(arch.Instruction.MmuSwitch) => { // TODO: document this
+                // Switches the page table mmu.switch pt, (pt)
+                try self.requireSupervisor();
+                var pt: u4 = 0;
+                if (r1 == @intFromEnum(Register.x0)) {
+                    pt = @truncate(imm_15);
+                } else {
+                    pt = @truncate(self.getReg(r1));
+                }
+                self.mmu.switch_page_table(pt);
+            },
+            @intFromEnum(arch.Instruction.MmuGetPT) => { // TODO: document this
+                // gets the current page table number (0-15) mmu.getpt rd
+                try self.requireSupervisor();
+                self.setReg(r1, self.mmu.get_page_table());
+            },
             @intFromEnum(arch.Instruction.MmuMap) => { // TODO: document this
                 // Maps physical page in r1 to logical r2
                 // setting the write and execute bits as per r3 or immediate:
-                // mmu.map phy, log, r, (w, x)
+                // mmu.map phy, log, r, pt, (w, x)
                 try self.requireSupervisor();
                 var w = false;
                 var x = false;
+                const pt: u4 = @truncate(self.getReg(r4));
                 if (r3 == @intFromEnum(Register.x0)) {
                     w = if (imm_15 & 0x2 != 0) true else false;
                     x = if (imm_15 & 0x1 != 0) true else false;
@@ -451,16 +468,17 @@ pub const Sirius = struct {
                     w = if (flags & 0x2 != 0) true else false;
                     x = if (flags & 0x1 != 0) true else false;
                 }
-                self.mmu.map(@truncate(self.getReg(r1)), @truncate(self.getReg(r2)), w, x);
+                self.mmu.map(@truncate(self.getReg(r1)), @truncate(self.getReg(r2)), w, x, pt);
             },
             @intFromEnum(arch.Instruction.MmuUnmap) => { // TODO: document this
-                // Unmaps logical page: mmu.unmap a0
+                // Unmaps logical page: mmu.unmap a0, pt
                 try self.requireSupervisor();
-                self.mmu.unmap(@truncate(self.getReg(r1)));
+                const pt: u4 = @truncate(self.getReg(r2));
+                self.mmu.unmap(@truncate(self.getReg(r1)), pt);
             },
             @intFromEnum(arch.Instruction.MmuUpdate) => { // TODO: document this
                 // Updates a maping in the page table with the flags in registers or immediate
-                // mmu.update a0, r, (dirty, present)
+                // mmu.update a0, r, pt (pt, dirty, present)
                 try self.requireSupervisor();
                 var dirty = false;
                 var present = false;
@@ -472,14 +490,21 @@ pub const Sirius = struct {
                     dirty = if (flags & 0x2 != 0) true else false;
                     present = if (flags & 0x1 != 0) true else false;
                 }
-                self.mmu.update(@truncate(self.getReg(r1)), dirty, present);
+                var pt: u4 = 0;
+                if (r3 == @intFromEnum(Register.x0)) {
+                    pt = @truncate(imm_15 >> 2);
+                } else {
+                    pt = @truncate(self.getReg(r3));
+                }
+                self.mmu.update(@truncate(self.getReg(r1)), dirty, present, pt);
             },
             @intFromEnum(arch.Instruction.MmuStat) => { // TODO: document this
                 // returns in rd the status for the page in rs1 as a set of flags (x, w, dirty, present -- low byte, low nibble)
                 // if not mapped, returns -1 (0xff_ff_ff_ff)
-                // mmu.stat rd, rs1
+                // mmu.stat rd, pt, rs1
                 try self.requireSupervisor();
-                self.setReg(r1, self.mmu.status(@truncate(self.getReg(r2))));
+                const pt: u4 = @truncate(self.getReg(r4));
+                self.setReg(r1, self.mmu.status(@truncate(self.getReg(r2)), pt));
             },
             @intFromEnum(arch.Instruction.MmuSetPT) => { // TODO: document this
                 // Loads a page table from memory. Entries must be 16 bits long and in this format physical:12 w:1 x:1 reserved:2
@@ -494,21 +519,36 @@ pub const Sirius = struct {
                 }
                 try self.mmu.set_page_table(@truncate(self.getReg(r1)), len);
             },
+            @intFromEnum(arch.Instruction.UmodeToggle) => { // TODO: document this
+                // swicthes to user mode, jumping at the entry point in rd1, and setting the stack to rd2
+                try self.requireSupervisor();
+                self.state.usp = self.getReg(r2);
+                self.setUsermode();
+                try self.setPc(@truncate(self.getReg(r1)));
+            },
+
             @intFromEnum(arch.Instruction.Copy) => {
-                const src = @as(u24, @truncate(self.getReg(r1)));
-                const dest = @as(u24, @truncate(self.getReg(r2)));
+                const src: u24 = @truncate(self.getReg(r1));
+                const dest: u24 = @truncate(self.getReg(r2));
                 const len = @as(usize, self.getReg(r3));
-                var buff = try self.allocator.alloc(u8, len);
+                const buff = try self.allocator.alloc(u8, len);
                 defer self.allocator.free(buff);
-                _ = try self.readMain(src, buff);
-                _ = try self.writeMain(dest, buff);
+                const read = if (imm_15 & 1) {
+                    try self.requireSupervisor();
+                    try self.data_bus.read(@truncate(src), buff);
+                } else try self.readMain(src, buff);
+                const written = if (imm_15 & 2) {
+                    try self.requireSupervisor();
+                    try self.data_bus.write(@truncate(dest), buff);
+                } else try self.writeMain(dest, buff);
+                if (read != written) std.debug.print("Copy error: {d} bytes read, but {d} written\n", .{ read, written });
             },
             @intFromEnum(arch.Instruction.Swap) => {
                 const a = @as(u24, @truncate(self.getReg(r1)));
                 const b = @as(u24, @truncate(self.getReg(r2)));
                 const len = @as(usize, self.getReg(r3));
-                var buff_a = try self.allocator.alloc(u8, len);
-                var buff_b = try self.allocator.alloc(u8, len);
+                const buff_a = try self.allocator.alloc(u8, len);
+                const buff_b = try self.allocator.alloc(u8, len);
                 defer self.allocator.free(buff_a);
                 defer self.allocator.free(buff_b);
                 _ = try self.readMain(a, buff_a);
@@ -519,8 +559,9 @@ pub const Sirius = struct {
             @intFromEnum(arch.Instruction.Fill) => {
                 const dest = @as(u24, @truncate(self.getReg(r1)));
                 const len = @as(usize, self.getReg(r2));
-                const fill = @as(u8, @truncate(self.getReg(r3)));
-                var buff = try self.allocator.alloc(u8, len);
+                const tp = if (imm_15 & 4) u32 else if (imm_15 & 2) u24 else if (imm_15 & 1) u16 else u8;
+                const fill = @as(tp, @truncate(self.getReg(r3)));
+                const buff = try self.allocator.alloc(tp, len);
                 defer self.allocator.free(buff);
                 @memset(buff, fill);
                 _ = try self.writeMain(dest, buff);
@@ -590,7 +631,7 @@ pub const Sirius = struct {
                 // std.debug.print("Set register {} to {x}\n" , .{r3, addr});
             },
             @intFromEnum(arch.Instruction.Exch) => {
-                var tmp = self.getReg(r1);
+                const tmp = self.getReg(r1);
                 self.setReg(r1, self.getReg(r2));
                 self.setReg(r2, tmp);
             },

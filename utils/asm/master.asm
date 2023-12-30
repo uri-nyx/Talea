@@ -109,6 +109,9 @@ MMUUNMAP = SYS @ 0x9
 MMUSTAT = SYS @ 0xa
 MMUSETPT = SYS @ 0xb
 MMUUPDATE = SYS @ 0xc
+UMODETOGGLE = SYS @ 0xd
+MMUSW = SYS @ 0xe
+MMUGPT = SYS @ 0xf
 
 
 #ruledef reg {
@@ -327,8 +330,14 @@ MMUUPDATE = SYS @ 0xc
     swd {rs2: reg}, {imm: i15}({rs1: reg})   => SWD @ rs2 @ rs1 @ imm
 
     copy    {rd: reg}, {rs1: reg}, {rs2: reg} => COPY @ rd @ rs1 @ rs2 @ BLANK10
+    copymd    {rd: reg}, {rs1: reg}, {rs2: reg} => COPY @ rd @ rs1 @ rs2 @ BLANK5 @ 0b00001
+    copydm    {rd: reg}, {rs1: reg}, {rs2: reg} => COPY @ rd @ rs1 @ rs2 @ BLANK5 @ 0b00010
+    copydd    {rd: reg}, {rs1: reg}, {rs2: reg} => COPY @ rd @ rs1 @ rs2 @ BLANK5 @ 0b00011
     swap    {rd: reg}, {rs1: reg}, {rs2: reg} => SWAP_ @ rd @ rs1 @ rs2 @ BLANK10
     fill    {rd: reg}, {rs1: reg}, {rs2: reg} => FILL_ @ rd @ rs1 @ rs2 @ BLANK10
+    fillh    {rd: reg}, {rs1: reg}, {rs2: reg} => FILL_ @ rd @ rs1 @ rs2 @ BLANK5 @ 0b00001
+    fillsq    {rd: reg}, {rs1: reg}, {rs2: reg} => FILL_ @ rd @ rs1 @ rs2 @ BLANK5 @ 0b00010
+    fillw    {rd: reg}, {rs1: reg}, {rs2: reg} => FILL_ @ rd @ rs1 @ rs2 @ BLANK5 @ 0b00100
     thro    {rd: reg}, {rs1: reg} => THRO @ rd @ rs1 @ BLANK15
     from    {rd: reg}, {rs1: reg} => FROM @ rd @ rs1 @ BLANK15
 
@@ -349,14 +358,157 @@ MMUUPDATE = SYS @ 0xc
     trace   {r1: reg}, {r2: reg}, {r3: reg}, {r4: reg} => TRACE @ r1 @ r2 @ r3 @ r4 @ BLANK5
     sysret  => SYSRET @ BLANK15 @ BLANK10
 
-    mmu.toggle  {r1: reg} => MMUTOGGLE @ r1@ BLANK10 @ BLANK10
-    mmu.map     {r1: reg}, {r2: reg}, {r3: reg}, ({w: u1}, {x: u1}) => MMUMAP @ r1 @ r2 @ r3 @ BLANK5 @ 0b000 @ w @ x
-    mmu.unmap   {r1: reg} => MMUUNMAP @ r1@ BLANK10 @ BLANK10
-    mmu.stat    {rd: reg}, {rs1: reg} => MMUSTAT @ rd @ rs1 @ BLANK15
+    mmu.toggle  {r1: reg} => MMUTOGGLE @ r1 @ BLANK10 @ BLANK10
+    mmu.map     {r1: reg}, {r2: reg}, {r3: reg}, {r4: reg}, ({w: u1}, {x: u1}) => MMUMAP @ r1 @ r2 @ r3 @ r4 @ 0b000 @ w @ x
+    mmu.unmap   {r1: reg}, {r2: reg} => MMUUNMAP @ r1 @ r2 @ BLANK5 @ BLANK10
+    mmu.stat    {rd: reg}, {rs1: reg}, {rs2: reg} => MMUSTAT @ rd @ rs1 @ rs2 @ BLANK10
     mmu.setpt   {r1: reg}, {r2: reg}, {imm: u12} => MMUSETPT @ r1 @ r2 @ 0b000 @ imm
-    mmu.update  {r1: reg}, {r2: reg}, ({dirty: u1}, {present: u1}) => MMUUPDATE @ r1 @ r2 @ BLANK10 @ 0b000 @ dirty @ present
+    mmu.update  {r1: reg}, {r2: reg}, {r3: reg} ({pt: u4}, {dirty: u1}, {present: u1}) => MMUUPDATE @ r1 @ r2 @ r3 @ 0b0000 @ pt @ dirty @ present
+    mmu.switch  {r1: reg}, ({pt: u4}) => MMUSW @ r1 @ BLANK15 @ 0b0 @ pt
+    mmu.getpt   {rd1: reg} => MMUGPT @ rd1 @ BLANK10 @ BLANK10
+    umode.toggle {entry: reg}, {usp: reg} => UMODETOGGLE @ entry @ usp @ BLANK15
 
 }
 
+#once
 
-#include "pseudo.asm"
+#ruledef {
+    seqz {rd: reg}, {rs: reg} => asm {
+        sltiu {rd}, {rs}, 1
+    }
+    snez {rd: reg}, {rs: reg} => asm {
+        sltu {rd}, zero, {rs}
+    }
+    sgt {rd: reg}, {rs1: reg}, {rs2: reg} => asm {
+        slt {rd}, {rs2}, {rs1}
+    }
+    sgtu {rd: reg}, {rs1: reg}, {rs2: reg} => asm {
+        sltu {rd}, {rs2}, {rs1}
+    }
+    beqz {rd: reg}, {label} => asm {
+        beq {rd}, zero, {label}
+    }
+    bnez {rd: reg}, {label} => asm {
+        bne {rd}, zero, {label}
+    }
+    li {rd: reg}, {const: i32} => {
+        assert(const < 0x3fff)
+        asm {
+        addi {rd}, zero, {const}`15
+        }
+    }
+    li {rd: reg}, {const: i32}  => {
+        cons = const`12
+        asm {
+        lui {rd}, ({const} >> 12)`20
+        addi {rd}, {rd}, {cons}
+        }
+    }
+    la {rd: reg}, {label} => asm {
+        auipc    {rd}, (({label}-$) >> 12)`20
+        addi     {rd},{rd},(({label}-($-4))`12)
+    }
+    llb {rd: reg}, {label} => asm {
+        auipc {rd},(({label}-$) >> 12)`20
+        lb {rd},(({label}-($-4))`12)({rd})
+
+    }
+    llh {rd: reg}, {label} => asm {
+        auipc {rd},(({label}-$) >> 12)`20
+        lh {rd},(({label}-($-4))`12)({rd})
+    }
+    llbu {rd: reg}, {label} => asm {
+        auipc {rd},(({label}-$) >> 12)`20
+        lbu {rd},(({label}-($-4))`12)({rd})
+
+    }
+    llhu {rd: reg}, {label} => asm {
+        auipc {rd},(({label}-$) >> 12)`20
+        lhu {rd},(({label}-($-4))`12)({rd})
+    }
+    llw {rd: reg}, {label} => asm {
+        auipc {rd},(({label}-$) >> 12)`20
+        lw {rd},(({label}-($-4))`12)({rd})
+    }
+    ssb {rd: reg}, {label}, {rt: reg} => asm {
+        auipc    {rt},(({label}-$) >> 12)`20
+        sb {rd},(({label}-($-4))`12)({rt})
+    }
+    ssh {rd: reg}, {label}, {rt: reg} => asm {
+        auipc    {rt},(({label}-$) >> 12)`20
+        sh {rd},(({label}-($-4))`12)({rt})
+    }
+    ssw {rd: reg}, {label}, {rt: reg} => asm {
+        auipc    {rt},(({label}-$) >> 12)`20
+        sw {rd},(({label}-($-4))`12)({rt})
+    }
+    call {label} => {
+        offset = ({label}-$)`12
+        assert((label % 4) == 0)
+        ; CALLS SHOULD BE ALIGNED
+        asm {
+            auipc    ra, (({label}-$) >> 12)`20
+            jalr     ra, ({offset})(ra)
+        }
+    }
+    tail {label}, {rt: reg} => {
+        offset = (label-$)`12
+        assert((offset % 4) == 0)
+        ; Tail Calls SHOULD BE ALIGNED
+        asm {
+            auipc    {rt}, (({label}-$) >> 12)`20
+            jalr     zero, (offset) ({rt})
+        }
+    }
+
+    call [{offset}] => {
+        ; CALLS SHOULD BE ALIGNED
+        asm {
+            auipc    ra, ((offset) >> 12)`20
+            jalr     ra, (offset`12) (ra)
+        }
+    }
+    tail [{offset}], {rt: reg} => {
+        ; Tail Calls SHOULD BE ALIGNED
+        asm {
+            auipc    {rt}, ((offset) >> 12)`20
+            jalr     zero, (offset`12) ({rt})
+        }
+    }
+
+    mv {rd: reg}, {rs: reg} => asm {addi {rd}, {rs}, 0}
+    neg {rd: reg}, {rs: reg} => asm {sub {rd}, zero, {rs}}
+    j {label} => asm {jal zero, {label}}
+    j [{offset}] => asm {jal zero, [{offset}]}
+    jr {rs: reg} => asm {jalr zero, 0({rs})}
+    ret => asm {jalr zero, 0(ra)}
+}
+
+#ruledef {
+;     li  a0, 0b1_1_0_010_111110_11111111_000000000000
+;                    0b10_000000_00000000_000000000000
+;                         ; supervisor, intterupt enabled, mmu disabled
+;                         ; priority 2, ivt at 0xf800, pdt at 0xff00
+    int.clear {rt: reg}, {rt2: reg} => asm {
+        gsreg {rt}
+        li {rt2}, 0xbf_ff_ff_ff
+        and {rt}, {rt}, {rt2}
+        ssreg {rt}
+    }
+
+    int.set {rt: reg}, {rt2: reg} => asm {
+        gsreg {rt}
+        li {rt2}, 0x40_00_00_00
+        or {rt}, {rt}, {rt2}
+        ssreg {rt}
+    }
+
+    priority {rs1: reg}, {rt: reg}, {rt2: reg} => asm {
+        gsreg {rt}
+        li {rt2},  0xe3ffffff ; mask
+        and {rt}, {rt}, {rt2}
+        shlli {rs1}, {rs1}, 26
+        or {rt}, {rt}, {rs1}
+        ssreg {rt}
+    }
+}

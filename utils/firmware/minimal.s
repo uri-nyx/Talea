@@ -2,6 +2,8 @@
 ; It initializes the text mode and tries to boot from TPS A. On failure,
 ; it powers off.
 
+WITH_UTILITIES = true ; compile without utilites
+
 drive_device = 0x110
 video_device = 0x114
 stk_device   = 0x118
@@ -62,6 +64,11 @@ bne t1, t2, search_d
 addi t0, t0, (-DEV_MAP - 1) ; found drive index in table
 shlli t0, t0, 4             ; mapping index to installed device (index << 4)
 swd t0, drive_device(zero)   ; storing the device address for bookeeping
+
+#if WITH_UTILITIES == true
+{
+    #include "util.asm"
+}
 
 
 ; query for bootable tps A   

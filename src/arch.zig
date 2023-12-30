@@ -51,49 +51,13 @@ pub const VideoDefaultPalette = [16]c_uint{
 
 // CPU and ISA stuff
 pub const IVTSize: usize = 1024;
-pub const Exception = enum(u8) { 
-    Reset = 0x00, 
-    BusError = 0x02, 
-    AddressError, 
-    IllegalInstruction, 
-    DivisionZero, 
-    PrivilegeViolation, 
-    PageFault, 
-    AccessViolation 
-};
+pub const Exception = enum(u8) { Reset = 0x00, BusError = 0x02, AddressError, IllegalInstruction, DivisionZero, PrivilegeViolation, PageFault, AccessViolation };
 
-pub const Interrupt = enum(u8) { 
-    SerialIncoming = 0x0a, 
-    KeyboardCharacter, 
-    KeyboardScancode, 
-    TPSFinished, 
-    DiskFinished, 
-    TimerTimeout, 
-    TimerInterval, 
-    VideoRefresh 
-};
+pub const Interrupt = enum(u8) { SerialIncoming = 0x0a, KeyboardCharacter, KeyboardScancode, TPSFinished, DiskFinished, TimerTimeout, TimerInterval, VideoRefresh };
 
-pub const ProcessorError = error{ 
-    Reset, 
-    BusError, 
-    AddressError, 
-    IllegalInstruction, 
-    DivisionZero, 
-    PrivilegeViolation, 
-    PageFault, 
-    AccessViolation 
-};
+pub const ProcessorError = error{ Reset, BusError, AddressError, IllegalInstruction, DivisionZero, PrivilegeViolation, PageFault, AccessViolation };
 
-pub const InterruptRaised = error{ 
-    SerialIncoming, 
-    KeyboardCharacter, 
-    KeyboardScancode, 
-    TPSFinished, 
-    DiskFinished, 
-    TimerTimeout, 
-    TimerInterval, 
-    VideoRefresh 
-};
+pub const InterruptRaised = error{ SerialIncoming, KeyboardCharacter, KeyboardScancode, TPSFinished, DiskFinished, TimerTimeout, TimerInterval, VideoRefresh };
 
 pub const MmuSizes = .{
     .Entry = 2,
@@ -144,6 +108,9 @@ pub const SYS = enum(u4) {
     MmuStat = 0xa,
     MmuSetPT = 0xb,
     MmuUpdate = 0xc,
+    UmodeToggle = 0xd,
+    MmuSwitch = 0xe,
+    MmuGetPT = 0xf,
 };
 
 pub const MEM = enum(u4) {
@@ -246,6 +213,9 @@ pub const Instruction = enum(u7) {
     MmuStat = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuStat)),
     MmuUpdate = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuUpdate)),
     MmuSetPT = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuSetPT)),
+    UmodeToggle = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.UmodeToggle)),
+    UmodeToggle = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuSwitch)),
+    UmodeToggle = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuGetPT)),
 
     Copy = (@as(u7, @intFromEnum(Group.MEM)) << 4 | @intFromEnum(MEM.Copy)),
     Swap = (@as(u7, @intFromEnum(Group.MEM)) << 4 | @intFromEnum(MEM.Swap)),

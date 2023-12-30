@@ -306,7 +306,7 @@ pub fn main() !void {
     var alive = true;
     var poweroff = false;
     while (alive and !poweroff) {
-        var target = sirius.cycles + frame;
+        const target = sirius.cycles + frame;
 
         while (sirius.cycles < target) {
             poweroff = try sirius.checkExceptions();

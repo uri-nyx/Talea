@@ -49,7 +49,7 @@ pub const Keyboard = struct {
 
     pub fn character_in(self: *Self, c: u8) void {
         self.character = c;
-        if (self.charmode){
+        if (self.charmode) {
             self.interrupt_controller.set(true, 4, @intFromEnum(arch.Interrupt.KeyboardCharacter));
         }
     }
@@ -58,7 +58,7 @@ pub const Keyboard = struct {
         //std.debug.print("key: {x}, mod: {x}\n", .{key, mod});
         self.keycode = key;
         self.modifiers = mod;
-        if (!self.charmode){
+        if (!self.charmode) {
             self.interrupt_controller.set(true, 4, @intFromEnum(arch.Interrupt.KeyboardScancode));
         }
     }
