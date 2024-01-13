@@ -195,7 +195,7 @@ pub const Sirius = struct {
 
     fn setDirty(self: *Self, addr: u24) void {
         if (self.state.psr.mmu_enable) {
-            self.mmu.update(addr, true, true);
+            self.mmu.update(addr, true, true, self.mmu.get_page_table());
         }
     }
 
@@ -206,7 +206,7 @@ pub const Sirius = struct {
                 error.AddressError => self.exception(@intFromEnum(arch.Exception.AddressError), false),
                 error.BusError => self.exception(@intFromEnum(arch.Exception.BusError), false),
                 error.DivisionZero => self.exception(@intFromEnum(arch.Exception.DivisionZero), false),
-                error.IllegalInstruction => std.debug.panic("Illegal Instruction at pc: {x}\n", .{self.state.pc}), //self.exception(@enumToInt(arch.Exception.IllegalInstruction), false),
+                error.IllegalInstruction => arch.Break = true, //self.exception(@enumToInt(arch.Exception.IllegalInstruction), false),
                 error.PageFault => self.exception(@intFromEnum(arch.Exception.PageFault), false),
                 error.PrivilegeViolation => self.exception(@intFromEnum(arch.Exception.PrivilegeViolation), false),
                 error.Reset => self.exception(@intFromEnum(arch.Exception.Reset), false),
@@ -263,10 +263,10 @@ pub const Sirius = struct {
     }
 
     fn sysret(self: *Self) Error!void {
-        std.debug.print("Sysret: a0->{x}\n", .{self.getReg(@intFromEnum(Register.x10))});
         const psr = ProcessorStatus.fromu32(try self.popWord());
         self.state.psr = psr;
         const pc = @as(u24, @truncate(try self.popWord()));
+        //std.debug.print("Sysret: ra->{x}, sp->{x}, pc->{x}, status: {}\n", .{ self.getReg(@intFromEnum(Register.x1)), self.getReg(@intFromEnum(Register.x2)), pc, psr});
         try self.setPc(pc);
     }
 
@@ -312,6 +312,8 @@ pub const Sirius = struct {
     }
 
     fn exception(self: *Self, vector: u8, is_interrupt: bool) Error!void {
+        if (is_interrupt and !self.state.psr.interrupt_enable) return;
+        //std.debug.print("Exception 0x{x}: (interrupt {}) at pc 0x{x}, ra 0x{x}, sp 0x{x}, status: {}\n", .{ vector, is_interrupt, self.getPc(), self.getReg(1), self.getReg(2), self.state.psr });
         self.interrupt_controller.last_exception = vector;
         // The difference between Excetpion and fault is that the last
         // tries to fix the problem that caused it and **TRIES** to
@@ -368,7 +370,6 @@ pub const Sirius = struct {
 
         if (self.state.pending_ipl != 0) {
             if (pending > self.state.psr.priority or pending == 7 and pending >= current) {
-                std.debug.print("Interrupt: priority {x} @ {d}\n", .{ pending, self.cycles });
                 self.state.current_ipl = self.state.pending_ipl;
                 const vector = try self.interrupt_controller.acknowledge(self.state.current_ipl);
                 try self.exception(vector, true);
@@ -424,7 +425,13 @@ pub const Sirius = struct {
             },
             @intFromEnum(arch.Instruction.Sysret) => {
                 try self.requireSupervisor();
-                try self.sysret();
+                if (r1 == 1) {
+                    // CLEAR INTERRUPT
+                    self.state.psr.interrupt_enable = false;
+                } else if (r1 == 2) {
+                    // SET INTERRUPT
+                    self.state.psr.interrupt_enable = true;
+                } else try self.sysret();
             },
             @intFromEnum(arch.Instruction.Trace) => {
                 self.trace(r1, r2, r3, r4);
@@ -437,15 +444,23 @@ pub const Sirius = struct {
                 try self.setPc(@truncate(self.getReg(r1)));
             },
             @intFromEnum(arch.Instruction.MmuSwitch) => { // TODO: document this
-                // Switches the page table mmu.switch pt, (pt)
+                // Switches the page table mmu.switch pt, clone (pt, clone)
                 try self.requireSupervisor();
                 var pt: u4 = 0;
+                var clone: u4 = 0;
                 if (r1 == @intFromEnum(Register.x0)) {
-                    pt = @truncate(imm_15);
+                    pt = @truncate(imm_15 >> 4);
                 } else {
                     pt = @truncate(self.getReg(r1));
                 }
-                self.mmu.switch_page_table(pt);
+
+                if (r2 == @intFromEnum(Register.x0)) {
+                    clone = @truncate(imm_15);
+                } else {
+                    clone = @truncate(self.getReg(r2));
+                }
+
+                self.mmu.switch_page_table(pt, clone);
             },
             @intFromEnum(arch.Instruction.MmuGetPT) => { // TODO: document this
                 // gets the current page table number (0-15) mmu.getpt rd
@@ -517,7 +532,7 @@ pub const Sirius = struct {
                 } else {
                     len = @truncate(self.getReg(r2));
                 }
-                try self.mmu.set_page_table(@truncate(self.getReg(r1)), len);
+                try self.mmu.set_page_table(@truncate(self.getReg(r1)), len, self.mmu.get_page_table());
             },
             @intFromEnum(arch.Instruction.UmodeToggle) => { // TODO: document this
                 // swicthes to user mode, jumping at the entry point in rd1, and setting the stack to rd2
@@ -533,14 +548,16 @@ pub const Sirius = struct {
                 const len = @as(usize, self.getReg(r3));
                 const buff = try self.allocator.alloc(u8, len);
                 defer self.allocator.free(buff);
-                const read = if (imm_15 & 1) {
+                var read: usize = undefined;
+                var written: usize = undefined;
+                if (imm_15 & 1 != 0) {
                     try self.requireSupervisor();
-                    try self.data_bus.read(@truncate(src), buff);
-                } else try self.readMain(src, buff);
-                const written = if (imm_15 & 2) {
+                    read = try self.data_bus.read(@truncate(src), buff);
+                } else read = try self.readMain(src, buff);
+                if (imm_15 & 2 != 0) {
                     try self.requireSupervisor();
-                    try self.data_bus.write(@truncate(dest), buff);
-                } else try self.writeMain(dest, buff);
+                    written = try self.data_bus.write(@truncate(dest), buff);
+                } else written = try self.writeMain(dest, buff);
                 if (read != written) std.debug.print("Copy error: {d} bytes read, but {d} written\n", .{ read, written });
             },
             @intFromEnum(arch.Instruction.Swap) => {
@@ -559,12 +576,31 @@ pub const Sirius = struct {
             @intFromEnum(arch.Instruction.Fill) => {
                 const dest = @as(u24, @truncate(self.getReg(r1)));
                 const len = @as(usize, self.getReg(r2));
-                const tp = if (imm_15 & 4) u32 else if (imm_15 & 2) u24 else if (imm_15 & 1) u16 else u8;
-                const fill = @as(tp, @truncate(self.getReg(r3)));
-                const buff = try self.allocator.alloc(tp, len);
-                defer self.allocator.free(buff);
-                @memset(buff, fill);
-                _ = try self.writeMain(dest, buff);
+                if (imm_15 & 4 != 0) {
+                    const fill = @as(u32, @truncate(self.getReg(r3)));
+                    const buff = try self.allocator.alloc(u32, len);
+                    defer self.allocator.free(buff);
+                    @memset(buff, fill);
+                    _ = try self.writeMainBeuBlock(u32, dest, buff);
+                } else if (imm_15 & 2 != 0) {
+                    const fill = @as(u24, @truncate(self.getReg(r3)));
+                    const buff = try self.allocator.alloc(u24, len);
+                    defer self.allocator.free(buff);
+                    @memset(buff, fill);
+                    _ = try self.writeMainBeuBlock(u24, dest, buff);
+                } else if (imm_15 & 1 != 0) {
+                    const fill = @as(u16, @truncate(self.getReg(r3)));
+                    const buff = try self.allocator.alloc(u16, len);
+                    defer self.allocator.free(buff);
+                    @memset(buff, fill);
+                    _ = try self.writeMainBeuBlock(u16, dest, buff);
+                } else {
+                    const fill = @as(u8, @truncate(self.getReg(r3)));
+                    const buff = try self.allocator.alloc(u8, len);
+                    defer self.allocator.free(buff);
+                    @memset(buff, fill);
+                    _ = try self.writeMain(dest, buff);
+                }
             },
             @intFromEnum(arch.Instruction.Through) => {
                 const pointer = @as(u24, @truncate(self.getReg(r2)));
@@ -887,6 +923,18 @@ pub const Sirius = struct {
         const entry = try self.translate(address);
         if (entry.w or self.state.psr.supervisor) {
             const r = self.main_bus.write(entry.addr, data);
+            self.setDirty(address);
+            return r;
+        } else {
+            std.debug.print("Attempted to write to WP page (addr: 0x{x})\n", .{address});
+            return error.AccessViolation;
+        }
+    }
+
+    pub fn writeMainBeuBlock(self: *Self, comptime T: type, address: u24, data: []const T) Error!usize {
+        const entry = try self.translate(address);
+        if (entry.w or self.state.psr.supervisor) {
+            const r = self.main_bus.writeBeuBlock(T, entry.addr, data);
             self.setDirty(address);
             return r;
         } else {

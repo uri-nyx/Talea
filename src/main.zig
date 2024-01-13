@@ -302,14 +302,17 @@ pub fn main() !void {
     // MAIN LOOP and FRAME TIMING =============================================
     const frame = (16 * std.time.ns_per_ms / (std.time.ns_per_s / sirius.frequency));
     const timer_cycles_per_tick = sirius.frequency / timer.frequency;
+    const cycles_per_tenthms = sirius.frequency / 10000;
 
     var alive = true;
     var poweroff = false;
     while (alive and !poweroff) {
         const target = sirius.cycles + frame;
 
-        while (sirius.cycles < target) {
-            poweroff = try sirius.checkExceptions();
+        while (sirius.cycles < target and !arch.Break) {
+            poweroff = sirius.checkExceptions() catch false;
+            if (sirius.cycles % cycles_per_tenthms == 0)
+                system_device.uptimetms+=1;
             if (sirius.cycles % timer_cycles_per_tick == 0) {
                 timer.cycleOne();
             }
@@ -317,4 +320,6 @@ pub fn main() !void {
         alive = try gpu.update();
         gpu.sync(alive);
     }
+
+    std.debug.print("Terminating Emulation\n\n", .{});
 }

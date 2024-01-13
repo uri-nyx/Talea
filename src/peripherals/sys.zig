@@ -15,6 +15,7 @@ pub const Sys = struct {
     pub const MINUTE: u4 = 8;
     pub const SECOND: u4 = 9;
     pub const MILLIS: u4 = 10;
+    pub const COUNTER: u4 = 11;
     pub const DEVICENUM: u4 = 12;
     pub const ARCHID: u4 = 13;
     pub const VENDORID: u4 = 14;
@@ -23,6 +24,8 @@ pub const Sys = struct {
     freq: u64,
     connected: u4,
     unixtime: bool,
+    counter: bool,
+    uptimetms: u32,
 
     pub fn init(irq: *cpu.InterruptController, freq: u64, device_number: u4) Sys {
         return Sys{
@@ -30,6 +33,8 @@ pub const Sys = struct {
             .freq = freq,
             .connected = device_number,
             .unixtime = false,
+            .counter = false,
+            .uptimetms = 0,
         };
     }
 
@@ -44,7 +49,11 @@ pub const Sys = struct {
             },
             YEAR => {
                 self.unixtime = !self.unixtime;
-                std.debug.print("Toggling Unix time: {}\n", .{self.unixtime});
+                //std.debug.print("Toggling Unix time: {}\n", .{self.unixtime});
+            },
+            MINUTE => {
+                self.counter = true;
+                //std.debug.print("Enabling counter\n", .{});
             },
             else => return,
         }
@@ -63,21 +72,29 @@ pub const Sys = struct {
                 return le;
             },
             YEAR => 
-                if (self.unixtime) @bitCast(@as(i8, @truncate(unixnow << 24)))
+                if (self.unixtime) @bitCast(@as(i8, @truncate(unixnow >> 24)))
                 else @truncate(now.getEpochDay().calculateYearDay().year - 2000),
             MONTH =>
-                if (self.unixtime) @bitCast(@as(i8, @truncate(unixnow << 16)))
+                if (self.unixtime) @bitCast(@as(i8, @truncate(unixnow >> 16)))
                 else
             now.getEpochDay().calculateYearDay().calculateMonthDay().month.numeric(),
             DAY =>
-                if (self.unixtime) @bitCast(@as(i8, @truncate(unixnow << 8)))
+                if (self.unixtime) @bitCast(@as(i8, @truncate(unixnow >> 8)))
                 else now.getEpochDay().calculateYearDay().calculateMonthDay().day_index + 1,
             HOUR => 
                 if (self.unixtime) @bitCast(@as(i8, @truncate(unixnow)))
                 else now.getDaySeconds().getHoursIntoDay(),
-            MINUTE => now.getDaySeconds().getMinutesIntoHour(),
-            SECOND => now.getDaySeconds().getSecondsIntoMinute(),
-            MILLIS => @bitCast(@as(i8, @truncate(std.time.milliTimestamp()))),
+            MINUTE => if (self.counter) @truncate(self.uptimetms >> 24) else now.getDaySeconds().getMinutesIntoHour(),
+            SECOND => if (self.counter) @truncate(self.uptimetms >> 16) else now.getDaySeconds().getSecondsIntoMinute(),
+            MILLIS => if (self.counter) @truncate(self.uptimetms >> 8) else @bitCast(@as(i8, @truncate(std.time.milliTimestamp()))),
+            COUNTER => {
+                var tms: u8 = 0;
+                if (self.counter) {
+                    tms = @truncate(self.uptimetms);
+                    self.counter = false;
+                }
+                return tms;
+            },
             DEVICENUM => self.connected,
             ARCHID => arch.ID,
             VENDORID => arch.VENDOR,

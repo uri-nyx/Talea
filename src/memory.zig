@@ -30,7 +30,18 @@ pub const MainBus = struct {
         if (address + data.len > self.mem.len) {
             return error.BusError;
         }
-        std.mem.copy(u8, self.mem[address .. address + data.len], data);
+        @memcpy(self.mem[address .. address + data.len], data);
+        return data.len;
+    }
+
+    pub fn writeBeuBlock(self: *Self, comptime T: type, address: u24, data:  []const T) Error!usize {
+        if (address + data.len * @sizeOf(T) > self.mem.len) {
+            return error.BusError;
+        }
+
+        const mem: [*]T = @alignCast(@ptrCast(&self.mem[address]));
+
+        @memcpy(mem, data);
         return data.len;
     }
 
@@ -39,7 +50,7 @@ pub const MainBus = struct {
             return error.BusError;
         }
         const data = self.mem[address .. address + buff.len];
-        std.mem.copy(u8, buff, data);
+        @memcpy(buff, data);
         return data.len;
     }
 
@@ -265,8 +276,9 @@ pub const Mmu = struct {
         self.page_tables[page_table][linear >> 12].present = present;
     }
 
-    pub fn switch_page_table(self: *Self, page_table: u4) void {
+    pub fn switch_page_table(self: *Self, page_table: u4, clone: u4) void {
         self.page_table = page_table;
+        self.page_tables[page_table] = self.page_tables[clone];
     }
 
     pub fn get_page_table(self: *Self) u4 {

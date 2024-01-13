@@ -357,6 +357,9 @@ MMUGPT = SYS @ 0xf
     ssreg   {rs1: reg} => SSREG @ rs1 @ BLANK10 @ BLANK10
     trace   {r1: reg}, {r2: reg}, {r3: reg}, {r4: reg} => TRACE @ r1 @ r2 @ r3 @ r4 @ BLANK5
     sysret  => SYSRET @ BLANK15 @ BLANK10
+    cli  => SYSRET @ 0b00001 @ BLANK10 @ BLANK10
+    sti  => SYSRET @ 0b00010 @ BLANK10 @ BLANK10
+
 
     mmu.toggle  {r1: reg} => MMUTOGGLE @ r1 @ BLANK10 @ BLANK10
     mmu.map     {r1: reg}, {r2: reg}, {r3: reg}, {r4: reg}, ({w: u1}, {x: u1}) => MMUMAP @ r1 @ r2 @ r3 @ r4 @ 0b000 @ w @ x
@@ -364,7 +367,7 @@ MMUGPT = SYS @ 0xf
     mmu.stat    {rd: reg}, {rs1: reg}, {rs2: reg} => MMUSTAT @ rd @ rs1 @ rs2 @ BLANK10
     mmu.setpt   {r1: reg}, {r2: reg}, {imm: u12} => MMUSETPT @ r1 @ r2 @ 0b000 @ imm
     mmu.update  {r1: reg}, {r2: reg}, {r3: reg} ({pt: u4}, {dirty: u1}, {present: u1}) => MMUUPDATE @ r1 @ r2 @ r3 @ 0b0000 @ pt @ dirty @ present
-    mmu.switch  {r1: reg}, ({pt: u4}) => MMUSW @ r1 @ BLANK15 @ 0b0 @ pt
+    mmu.switch  {r1: reg}, {r2: reg}, ({pt: u4}, {clone: u4}) => MMUSW @ r1 @ r2 @ BLANK5 @ 0b00 @ clone @ pt
     mmu.getpt   {rd1: reg} => MMUGPT @ rd1 @ BLANK10 @ BLANK10
     umode.toggle {entry: reg}, {usp: reg} => UMODETOGGLE @ entry @ usp @ BLANK15
 
@@ -489,19 +492,6 @@ MMUGPT = SYS @ 0xf
 ;                    0b10_000000_00000000_000000000000
 ;                         ; supervisor, intterupt enabled, mmu disabled
 ;                         ; priority 2, ivt at 0xf800, pdt at 0xff00
-    int.clear {rt: reg}, {rt2: reg} => asm {
-        gsreg {rt}
-        li {rt2}, 0xbf_ff_ff_ff
-        and {rt}, {rt}, {rt2}
-        ssreg {rt}
-    }
-
-    int.set {rt: reg}, {rt2: reg} => asm {
-        gsreg {rt}
-        li {rt2}, 0x40_00_00_00
-        or {rt}, {rt}, {rt2}
-        ssreg {rt}
-    }
 
     priority {rs1: reg}, {rt: reg}, {rt2: reg} => asm {
         gsreg {rt}

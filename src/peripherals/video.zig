@@ -104,6 +104,7 @@ pub const VideoDevice = struct {
         c.c.mfb_set_user_data(screen.window, kb);
         c.c.mfb_set_keyboard_callback(screen.window, keyboard_callback);
         c.c.mfb_set_char_input_callback(screen.window, char_input_callback);
+        c.c.mfb_set_close_callback(screen.window, close_callback);
         return Self{
             .registers = [_]u8{0} ** 16,
             .vblank_enable = false,
@@ -143,6 +144,13 @@ pub const VideoDevice = struct {
         kb.character_in(@as(u8, @truncate(char)));
     }
 
+    fn close_callback(window: ?*c.c.mfb_window) callconv(.C) bool {
+        _ = window;
+        arch.WINDOWCLOSED = true;
+        return true;
+        // c.c.mfb_close(window);
+    }
+
     pub fn write(self: *Self, address: u4, data: u8) void {
         switch (address) {
             COMMAND => {
@@ -166,6 +174,9 @@ pub const VideoDevice = struct {
     pub fn update(self: *Self) !bool {
         self.blink += 1;
         try self.render();
+        if (arch.WINDOWCLOSED) return false;
+        if (self.screen.window == null) return false;
+        if (self.screen.framebuffer.pixels == null) return false;
         const state = c.c.mfb_update(self.screen.window, self.screen.framebuffer.pixels);
         if (state < 0) {
             // This means probably that the user closed the window. We shall terminate the program

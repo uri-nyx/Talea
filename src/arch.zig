@@ -13,6 +13,9 @@ pub const TpsPath = "dev/tps/"; //TODO: this must be an absolute path dynamicall
 
 // Video Module configurations
 
+pub var WINDOWCLOSED: bool = false;
+pub var Break: bool = false;
+
 pub const DEVID = enum(u8) {
     VIDEO = 'V',
     STK = 'K', // Serial, timer, and Keyboard
@@ -214,8 +217,8 @@ pub const Instruction = enum(u7) {
     MmuUpdate = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuUpdate)),
     MmuSetPT = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuSetPT)),
     UmodeToggle = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.UmodeToggle)),
-    UmodeToggle = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuSwitch)),
-    UmodeToggle = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuGetPT)),
+    MmuSwitch = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuSwitch)),
+    MmuGetPT = (@as(u7, @intFromEnum(Group.SYS)) << 4 | @intFromEnum(SYS.MmuGetPT)),
 
     Copy = (@as(u7, @intFromEnum(Group.MEM)) << 4 | @intFromEnum(MEM.Copy)),
     Swap = (@as(u7, @intFromEnum(Group.MEM)) << 4 | @intFromEnum(MEM.Swap)),
