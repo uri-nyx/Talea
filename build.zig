@@ -41,17 +41,18 @@ pub fn build(b: *std.Build) void {
         exe.linkSystemLibrary("GL");
         exe.linkSystemLibrary("GLX");
     } else if (target.isWindows()) {
-        exe.addLibraryPath(.{ .path = "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.37.32822/lib/x64" });
-        exe.addLibraryPath(.{ .path = "C:/Program Files (x86)/Windows Kits/10/Lib/10.0.22000.0/ucrt/x64"});
+        exe.addLibraryPath(.{ .path = "/mnt/c/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.37.32822/lib/x64" });
+        exe.addLibraryPath(.{ .path = "/mnt/c/Program Files (x86)/Windows Kits/10/Lib/10.0.22000.0/ucrt/x64"});
+        exe.addLibraryPath(.{ .path = "/mnt/c/Program Files (x86)/Windows Kits/10/Lib/10.0.18362.0/um/x64"});
         exe.addIncludePath(.{ .path = "./src/include" });
-        exe.addIncludePath(.{ .path = "C:/Program Files (x86)/MiniFB/include" });
-        exe.addIncludePath(.{ .path = "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.37.32822/include/GL"});
-        exe.addIncludePath(.{ .path = "C:/Program Files (x86)/Windows Kits/10/Include/"});
+        exe.addIncludePath(.{ .path = "/mnt/c/Program Files (x86)/MiniFB/include" });
+        exe.addIncludePath(.{ .path = "/mnt/c/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.37.32822/include/GL"});
+        exe.addIncludePath(.{ .path = "/mnt/c/Program Files (x86)/Windows Kits/10/Include/"});
         exe.linkSystemLibrary("ucrt");
         exe.linkSystemLibrary("gdi32");
         exe.linkSystemLibrary("Opengl32");
         exe.linkSystemLibrary("winmm");
-        exe.addObjectFile(.{ .path = "C:/Program Files (x86)/MiniFB/lib/minifb.lib" });
+        exe.addObjectFile(.{ .path = "/mnt/c/Program Files (x86)/MiniFB/lib/minifb.lib" });
         //flags[0] = "-D_NO_CRT_STDIO_INLINE";
     }
 
