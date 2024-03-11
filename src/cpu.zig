@@ -121,6 +121,29 @@ pub const InterruptController = struct {
     pub fn poweroff(self: *Self) void {
         self.cpu.poweroff = true;
     }
+
+    pub fn restart(self: *Self) void {
+        self.cpu.restart();
+    }
+
+    pub fn coredump(self: *Self) void {
+        const buff = self.cpu.allocator.alloc(u8, 0x10_000) catch unreachable;
+        defer self.cpu.allocator.free(buff);
+        _= self.cpu.readMain(0, buff) catch unreachable;
+        
+        // Open the file for writing. This creates the file if it does not exist,
+        // or truncates it if it does. The file is opened in binary mode by default.
+        const file = std.fs.cwd().createFile("coredump", .{
+            .read = false,
+            .truncate = true,
+        }) catch unreachable;
+
+        // Ensure the file is closed when we're done.
+        defer file.close();
+
+        // Write the binary data to the file.
+        file.writer().writeAll(buff) catch unreachable;
+    }
 };
 
 /// The State of the processor in any given moment in time
@@ -162,6 +185,7 @@ pub const Sirius = struct {
     interrupt_controller: *InterruptController,
     allocator: std.mem.Allocator,
     poweroff: bool,
+    should_restart: bool,
 
     pub fn init(frequency: u64, registers: *[Register.count]u32, irq: *InterruptController, main_bus: *memory.MainBus, data_bus: *memory.DataBus, mmu: *memory.Mmu, allocator: std.mem.Allocator) Sirius {
         const state = State.init(registers);
@@ -175,7 +199,16 @@ pub const Sirius = struct {
             .interrupt_controller = irq,
             .allocator = allocator,
             .poweroff = false,
+            .should_restart = false,
         };
+    }
+
+    pub fn restart(self: *Self) void {
+        self.should_restart = true;
+        self.cycles = 0;
+        self.setSupervisor();
+        self.state.psr.mmu_enable = false;
+        self.state.pc = 0;
     }
 
     pub fn runFor(self: *Self, ns: u64) Error!void {
@@ -323,7 +356,7 @@ pub const Sirius = struct {
                 self.setupFault(vector) catch |err| {
                     // A double fault Stops the execution inmediately
                     std.debug.print("Fatal Error: a double fault arised {any}.\n", .{err});
-                    std.process.exit(2);
+                    self.restart();
                 };
             },
             //@enumToInt(arch.Exception.PrivilegeViolation) => {
@@ -831,16 +864,35 @@ pub const Sirius = struct {
             },
             @intFromEnum(arch.Instruction.Idiv) => {
                 if (self.getReg(r4) == 0) return Error.DivisionZero;
-                const numerator: i32 = @as(i32, @bitCast(self.getReg(r3)));
-                const denominator: i32 = @as(i32, @bitCast(self.getReg(r4)));
-                self.setReg(r1, @as(u32, @bitCast(@divFloor(numerator, denominator))));
-                self.setReg(r2, @as(u32, @bitCast(@mod(numerator, denominator))));
+
+                if (vector & 1 == 0) {
+                    const numerator: i32 = @as(i32, @bitCast(self.getReg(r3)));
+                    const denominator: i32 = @as(i32, @bitCast(self.getReg(r4)));
+                
+                    self.setReg(r1, @as(u32, @bitCast(@divFloor(numerator, denominator))));
+                    self.setReg(r2, @as(u32, @bitCast(@rem(numerator, denominator))));
+                } else {
+                    const numerator: u32 = self.getReg(r3);
+                    const denominator: u32 = self.getReg(r4);
+                
+                    self.setReg(r1, @divFloor(numerator, denominator));
+                    self.setReg(r2, numerator % denominator);
+                }
             },
             @intFromEnum(arch.Instruction.Mul) => {
-                const value: u64 = self.getReg(r3) *% self.getReg(r4);
-                // TODO: Implement signed multiplication and unsigned division
-                self.setReg(r1, @as(u32, @truncate(value >> 32)));
-                self.setReg(r2, @as(u32, @truncate(value)));
+
+                if (vector & 1 == 0) {
+                    // IMULU
+                    const value: u64 = self.getReg(r3) *% self.getReg(r4);
+                    // TODO: Implement signed multiplication and unsigned division
+                    self.setReg(r1, @as(u32, @truncate(value >> 32)));
+                    self.setReg(r2, @as(u32, @truncate(value)));
+                } else {
+                    const value: i64 = @as(i32, @bitCast( self.getReg(r3))) *% @as(i32, @bitCast( self.getReg(r4)));
+                    // TODO: Implement signed multiplication and unsigned division
+                    self.setReg(r1, @as(u32, @truncate(@as(u64, @bitCast( value >> 32)))));
+                    self.setReg(r2, @as(u32, @truncate(@as(u64, @bitCast( value))))); 
+                }
             },
             @intFromEnum(arch.Instruction.Or) => {
                 self.setReg(r1, self.getReg(r2) | self.getReg(r3));
@@ -913,7 +965,7 @@ pub const Sirius = struct {
             },
 
             else => {
-                std.debug.print("Illegal Instruction: {x}\n", .{instruction});
+                std.debug.print("Illegal Instruction: {x} at pc {x}\n", .{instruction, self.getPc()});
                 return Error.IllegalInstruction;
             },
         }

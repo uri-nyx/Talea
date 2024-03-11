@@ -311,6 +311,12 @@ pub fn main() !void {
 
         while (sirius.cycles < target and !arch.Break) {
             poweroff = sirius.checkExceptions() catch false;
+            if (sirius.should_restart) {
+                std.debug.print("Restarting System\n\n", .{});
+                _ = try main_bus.write(0, program[0..flen]);
+                sirius.should_restart = false;
+                break;
+            }
             if (sirius.cycles % cycles_per_tenthms == 0)
                 system_device.uptimetms+=1;
             if (sirius.cycles % timer_cycles_per_tick == 0) {
