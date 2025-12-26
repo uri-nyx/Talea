@@ -1,0 +1,41 @@
+# --- Build Artifacts ---
+build/
+bin/
+x64/
+x86/
+*.exe
+*.out
+*.app
+*.o
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.a
+*.so
+*.dll
+
+akai.tps
+
+
+# --- Taleä Specific Binaries ---
+# Don't track generated firmware or disk images
+resources/*.bin
+resources/*.tps
+resources/emulated/devices/hcs/*.hcs
+firmware.bin
+
+# --- IDE & System ---
+.vscode/
+.vs/
+.DS_Store
+*.swp
+*.user
+Talea/
+
+# --- External Libraries ---
+# If you are compiling raylib or others from source 
+# and don't want the build artifacts tracked
+external/*/build/
+external/*/bin/
+raylib_src/

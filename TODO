@@ -1,0 +1,81 @@
+Hardware:
+    1. Clean up emulator:
+        PHASE 1: PREPARATION & DIRECTORY SETUP:
+            Create new folder structure:
+                ✔ src/core/ (CPU, Bus, Logic) @done(25-12-24 15:25)
+                ✔ src/devices/ (Video, Storage, Terminal) @done(25-12-24 15:25)
+                ✔ src/frontend/ (Raylib, GUI, Input mapping) @done(25-12-24 15:25)
+                ✔ include/ (Public headers) @done(25-12-24 15:25)
+                ✔ external/ (Third-party libraries) @done(25-12-24 15:25)
+            ✔ Setup a Build System (Makefile or CMakeLists.txt) to handle subdirectories. @done(25-12-24 15:25)
+            [ ] Initialize Git and create a .gitignore to exclude build artifacts.
+        PHASE 2: CORE ENGINE REFACTORING:
+            ✔ Implement the TaleaMachine struct in talea.h to hold all global state. @done(25-12-24 15:25)
+            ✔ Create the System Bus (src/core/bus.c) to route memory-mapped I/O. @done(25-12-24 15:25)
+            ✔ Move CPU instruction logic and the RunCycles loop to src/core/cpu.c. @done(25-12-24 15:25)
+            ✔ Ensure CPU only interacts with memory through the Bus interface. @done(25-12-24 15:25)
+            ✔ Modularize the Storage Device (src/devices/storage.c). @done(25-12-24 15:25)
+            [ ] Remove direct Raylib/UI calls from the storage backend.
+        PHASE 3: FRONTEND & UI SEPARATION:
+            ✔ Move all Raylib initialization and shader code to src/frontend/. @done(25-12-24 15:26)
+            ✔ Move UpdateDrawFrame logic to a dedicated renderer module. @done(25-12-24 15:26)
+            ✔ Refactor the GUI to modify the machine state via API functions. @done(25-12-25 19:32)
+            ✔ Create a dedicated input handler to map Raylib keys to internal scancodes. @done(25-12-24 15:26)
+            [ ] Isolate Audio (OPLL and PCM stream) into src/devices/audio.c.
+    ☐ 2. Test for UB and memory leaks
+    ☐ 3. Document everyting:
+        ☐ Emulator code
+        ☐ Talea System Manual
+    ☐ 4. Create a working network stack
+    5. Polish everithing:
+        [ ] Implement a tiered logging system (INFO, WARN, ERROR).
+        [ ] Standardize error handling (replace exit(1) with safe defaults).
+        [ ] Write a comprehensive README.md with build instructions.
+        [ ] Add a standard Open Source License file (e.g., MIT or GPL).
+        [ ] Fix hardcoded paths to allow the app to run from any directory.
+        [ ] Include a "Hello World" assembly sample for new users.
+    ☐ 6. Make a website
+    ☐ 7. Package a distribution and use a well structured git
+
+Software:
+    8. Make a simple SDK for games and little apps:
+        ☐ Minimal OS
+        ☐ Text editor (visual)
+        ☐ Assembler
+        ☐ C cross compiler and simple library (no c stdilb)
+        ☐ Self hosted compiler (can be any language)
+        ☐ Interpreter
+        Hardware libraries and for games:
+            ☐ Graphics
+            ☐ UI
+            ☐ Sound
+            ☐ Text
+            ☐ Input
+            ☐ Network
+        ☐ Image editor
+        ☐ Music and sound editor
+        ☐ Binary editor
+        ☐ Utilities
+        ☐ BBS client
+        ☐ Message client
+
+9. Resources, community and network:
+    ☐ Subreddit
+    ☐ Discord
+    ☐ Software distribution
+    ☐ In-universe BBS server (decentralized?)
+
+    
+Misc:
+     Language coverage:
+        ☐ Alantar 'Lanat
+        ☐ English
+        ☐ Spanish
+            
+    ☐ 10. Promotion and maintenance
+        
+
+Bugs:
+    ☐ when shutting down with the UI button, the socket cannot reconnect
+    ☐ when loading a firmware and closing the emulator, the string on the config file of windows does not escape backlashes properly
+

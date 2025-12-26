@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\frontend\config.c">
+      <Filter>frontend</Filter>
+    </ClCompile>
+    <ClCompile Include="src\frontend\frontend.c">
+      <Filter>frontend</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\audio.c">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\emu2413.c">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\bus.c">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\cpu.c">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\video.c">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\sock.c">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\storage.c">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\terminal.c">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\mouse.c">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\system.c">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\talea.h" />
+    <ClInclude Include="external\include\emu2413.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="external\include\raygui.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="external\include\raylib.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="external\include\raymath.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="external\include\rlgl.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="external\include\tinycsocket.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="external\include\toml-c.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="external\include\gui_window_file_dialog.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="src\frontend\config.h">
+      <Filter>frontend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\frontend\frontend.h">
+      <Filter>frontend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\audio.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\bus.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\cpu.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\need-from-raylib.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="core">
+      <UniqueIdentifier>{c3e895ec-4faf-4cc6-8da2-dd330065ba9d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="frontend">
+      <UniqueIdentifier>{5e81b285-9b92-428d-9569-2d722d602356}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="devices">
+      <UniqueIdentifier>{24950896-13d1-44a8-8c4c-b34133930233}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{894356a8-6942-4503-a0fe-5607b3ef94b0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

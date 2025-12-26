@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{ABC12345-6789-ABCD-EF12-34567890ABCD}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>TaleaSystem</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;$(ProjectDir)external\include;$(ProjectDir)src;$%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;PLATFORM_DESKTOP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>raylib.lib;winmm.lib;gdi32.lib;opengl32.lib;shell32.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)\external\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)external/lib</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="src\core\bus.c" />
+    <ClCompile Include="src\core\cpu.c" />
+    <ClCompile Include="src\core\system.c" />
+    <ClCompile Include="src\devices\audio.c" />
+    <ClCompile Include="src\devices\emu2413.c" />
+    <ClCompile Include="src\devices\mouse.c" />
+    <ClCompile Include="src\devices\sock.c" />
+    <ClCompile Include="src\devices\storage.c" />
+    <ClCompile Include="src\devices\terminal.c" />
+    <ClCompile Include="src\devices\video.c" />
+    <ClCompile Include="src\frontend\config.c" />
+    <ClCompile Include="src\frontend\frontend.c" />
+    <ClCompile Include="src\main.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="external\include\emu2413.h" />
+    <ClInclude Include="external\include\gui_window_file_dialog.h" />
+    <ClInclude Include="external\include\raygui.h" />
+    <ClInclude Include="external\include\raylib.h" />
+    <ClInclude Include="external\include\raymath.h" />
+    <ClInclude Include="external\include\rlgl.h" />
+    <ClInclude Include="external\include\tinycsocket.h" />
+    <ClInclude Include="external\include\toml-c.h" />
+    <ClInclude Include="include\need-from-raylib.h" />
+    <ClInclude Include="include\talea.h" />
+    <ClInclude Include="src\core\bus.h" />
+    <ClInclude Include="src\core\cpu.h" />
+    <ClInclude Include="src\devices\audio.h" />
+    <ClInclude Include="src\frontend\config.h" />
+    <ClInclude Include="src\frontend\frontend.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
