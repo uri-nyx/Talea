@@ -11,14 +11,14 @@ The Taleä System uses a 32-bit processor, clocked at a base frequency of 10Mhz,
 
 ## Hardware Specifications
 
-Component|Specification
------------------------
-CPU | Sirius 24-bit Processor (16MB Address Space)
-RAM | Up to 16MB Main Memory
-ROM | 8KB System BIOS (Mapped at 0xFFE000)
-Display | 640x480 Indexed Color (RGBA Buffer)
-Storage | 128MB Fixed Storage (HCS) + Removable Media(TPS)
-Terminal | Dual Timer, Keyboard, Serial Modem
+| Component | Specification |
+| -----------| ------------ |
+| CPU | Sirius 24-bit Processor (16MB Address Space) |
+| RAM | Up to 16MB Main Memory |
+| ROM | 8KB System BIOS (Mapped at 0xFFE000) |
+| Display | 640x480 Indexed Color (RGBA Buffer) |
+| Storage | 128MB Fixed Storage (HCS) + Removable Media(TPS) |
+| Terminal | Dual Timer, Keyboard, Serial Modem |
 
 ## Software Toolchain
 
