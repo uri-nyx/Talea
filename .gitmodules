@@ -1,0 +1,3 @@
+[submodule "tools/lcc-sirius"]
+	path = tools/lcc-sirius
+	url = https://github.com/uri-nyx/lcc-sirius.git
