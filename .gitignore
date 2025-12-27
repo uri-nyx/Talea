@@ -17,6 +17,8 @@ x86/
 
 akai.tps
 
+*.bin
+
 
 # --- Taleä Specific Binaries ---
 # Don't track generated firmware or disk images
@@ -39,3 +41,4 @@ Talea/
 external/*/build/
 external/*/bin/
 raylib_src/
+resources/emulated/firmware/bios.bin
