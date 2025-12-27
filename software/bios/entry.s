@@ -106,7 +106,7 @@ _syscall_handler:
     addi    x8,x2,32
     sw      x1,24(x2)
 
-    call    bios_syscall_handler
+    #call    bios_syscall_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -133,28 +133,28 @@ _isr_tty_transmit:
 
     .extern bios_reset
 _isr_reset:
-    call    bios_reset
+    #call    bios_reset
     li      x5, 0xffe000     # jump to the firmware
     jalr    x0, 0(x5)
 
     .extern bios_abort
 _isr_address_error:
     li      x12, 0x3
-    call    bios_abort
+    #call    bios_abort
     sysret
 
 _isr_illegal_instruction:
     li      x12, 0x4
-    call    bios_abort
+    #call    bios_abort
     sysret
 
 _isr_division_zero:
     li      x12, 0x5
-    call    bios_abort
+    #call    bios_abort
 
 _isr_privilege_violation:
     li      x12, 0x6
-    call    bios_abort
+    #call    bios_abort
 
     .extern bios_panic
 _panic:
@@ -168,7 +168,7 @@ _panic:
     addi    x8,x2,32
     sw      x1,24(x2)
 
-    call    bios_panic
+    #call    bios_panic
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -199,7 +199,7 @@ _isr_kbd_scancode:
     addi    x8,x2,32
     sw      x1,24(x2)
 
-    call    bios_kbd_handler
+    #call    bios_kbd_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -221,7 +221,8 @@ _isr_timer_timeout:
     sw      x8,44(x2)
     addi    x8,x2,32
     sw      x1,24(x2)
-    call    bios_timeout_handler
+
+    #call    bios_timeout_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -243,7 +244,8 @@ _isr_timer_interval:
     sw      x8,44(x2)
     addi    x8,x2,32
     sw      x1,24(x2)
-    call    bios_interval_handler
+
+    #call    bios_interval_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -266,7 +268,8 @@ _isr_video_refresh:
     sw      x8,44(x2)
     addi    x8,x2,32
     sw      x1,24(x2)
-    call    bios_vblank_handler
+
+    #call    bios_vblank_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -289,7 +292,8 @@ _isr_pointer_pressed:
     sw      x8,44(x2)
     addi    x8,x2,32
     sw      x1,24(x2)
-    call    bios_pointer_pressed
+
+    #call    bios_pointer_pressed
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -313,7 +317,8 @@ _isr_tps_ejected:
     addi    x8,x2,32
     sw      x1,24(x2)
     li      x12, 0x0
-    call    bios_tps_ejected_handler
+
+    #call    bios_tps_ejected_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -337,7 +342,8 @@ _isr_tps_inserted:
     addi    x8,x2,32
     sw      x1,24(x2)
     li      x12, 0x1
-    call    bios_tps_inserted_handler
+
+    #call    bios_tps_inserted_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -360,7 +366,8 @@ _isr_music_note_end:
     sw      x8,44(x2)
     addi    x8,x2,32
     sw      x1,24(x2)
-    call    bios_music_note_end
+
+    #call    bios_music_note_end
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -394,6 +401,12 @@ _sbd:
 
     .globl _lbud # extern u8 _lbud(u16 addr)
 _lbud:
-    lbu     x10, 0(x12) #x12 addr
+    lbud     x10, 0(x12) #x12 addr
     ret
 
+    .globl memset # extern void *memset(void *s, int c, size_t n)
+memset:
+    # fill buff, n, fill
+    mv   x10, x12
+    fill x12, x14, x13 
+    ret

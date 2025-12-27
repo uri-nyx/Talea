@@ -10,6 +10,6 @@ V-Sync = true
 HiDPI = true
 Port = 1212
 Speed = 0.200000
-Firmware = "resources/emulated/firmware/hello.bin"
+Firmware = "resources/emulated/firmware/bios.bin"
 TPS_A = "resources/tps_images/akai.tps"
 Hardware_font = "spleen8x16.fnt"

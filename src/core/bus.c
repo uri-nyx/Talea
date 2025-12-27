@@ -218,4 +218,9 @@ void Bus_RegisterDevices(TaleaMachine *m, const int *id_array,
     for (size_t i = start_index; i < (end_index + 1); i++) {
         m->data_memory[DEV_MAP_BASE + i] = id_array[i];
     }
+
+    TALEA_LOG_TRACE("DEVICE MAP REGISTRY\n");
+    for (size_t i = start_index; i < (end_index + 1); i++) {
+        TALEA_LOG_TRACE("0x%04x: 0x%02x (%c)\n", DEV_MAP_BASE + i, m->data_memory[DEV_MAP_BASE + i], m->data_memory[DEV_MAP_BASE + i]);
+    }
 }

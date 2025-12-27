@@ -31,22 +31,28 @@ static void find_devices(void)
     u8 i, dev_id, audio_channel = 0, audio_channels[4];
     u8 tty, video, storage, mouse;
     for (i = 0; i < 16; i++) {
-        dev_id = hw_lbud(DEVICE_MAP + i);
+        dev_id = _lbud(DEVICE_MAP + i);
+
         switch (dev_id) {
         case DEVICE_ID_TTY:
             tty = i * 0x10;
+    
             break;
         case DEVICE_ID_VIDEO:
             video = i * 0x10;
+    
             break;
         case DEVICE_ID_STORAGE:
             storage = i * 0x10;
+    
             break;
         case DEVICE_ID_AUDIO:
             audio_channels[audio_channel++] = i * 0x10;
+    
             break;
         case DEVICE_ID_MOUSE:
             mouse = i * 0x10;
+    
             break;
         default:
             break;
@@ -80,7 +86,7 @@ static void bios_init(void)
 {
     usize i;
 
-    Memsize = (u32)hw_lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MEMSIZE) * 0x100000;
+    Memsize = (u32)_lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MEMSIZE) * 0x100000;
 
     find_devices();
 
@@ -128,12 +134,23 @@ static const ushell_command_t commands[] = {
 
 void bios_start(void)
 {
+
     bios_init();
+
+
+    while (!serial_connected()); /* wait for conection*/
+    serial_print("Talea System BIOS v0.5-beta\n");
 
     ushell_init(commands, sizeof(commands) / sizeof(commands[0]));
 
+
 wait_for_connection:
     while (!serial_connected()); /* wait for conection*/
-    if (serial_available()) ushell_process(_lbud(Devices.tty + SER_RX));
+    if (serial_available()) {
+        static int i = 0;
+        u8 chr = _lbud(Devices.tty + SER_RX);
+        _trace(i++, chr);
+        ushell_process(chr); /* Why the last char read is 0? is it being transmitted? or is it reading wrong*/
+    }
     goto wait_for_connection;
 }
