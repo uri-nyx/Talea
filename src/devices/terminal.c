@@ -127,6 +127,7 @@ static inline void Serial_PushByte(TaleaMachine *m, u8 byte)
 {
     TerminalSerial *s    = &m->terminal.serial;
     u8              next = (s->head + 1) % SERIAL_FIFO_SIZE;
+
     if (next != s->tail) {
         s->rx_fifo[s->head] = byte;
         s->head             = next;
@@ -141,12 +142,15 @@ static inline void Serial_PushByte(TaleaMachine *m, u8 byte)
 
 static inline u8 Serial_PopByte(TerminalSerial *s)
 {
+    u8 value = 0;
+
     if (s->head != s->tail) {
-        return s->rx_fifo[s->tail++];
-    } else {
-        s->status &= ~SER_STATUS_DATA_AVAILABLE;
-        return 0;
-    }
+        value = s->rx_fifo[s->tail++];
+        /* We check and clear the flag after a succesful read */
+        if (s->head == s->tail) s->status &= ~SER_STATUS_DATA_AVAILABLE;
+    } 
+
+    return value;
 }
 
 static inline u8 Serial_PeekByte(TerminalSerial *s)
@@ -163,7 +167,6 @@ u8 Terminal_ReadHandler(TaleaMachine *m, u16 addr)
 {
     switch (addr) {
     case P_SERIAL_DATA: {
-        TALEA_LOG_TRACE("Read from RX!\n");
         return Serial_PopByte(&m->terminal.serial);
     }
     case P_SERIAL_STATUS:
@@ -232,7 +235,6 @@ void Terminal_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
     switch (addr) {
     case P_SERIAL_DATA: {
         // COMMAND and data modes
-        TALEA_LOG_TRACE("Written to TX!\n");
         Serial_SendByte(m, value);
     }
     case P_SERIAL_STATUS:
