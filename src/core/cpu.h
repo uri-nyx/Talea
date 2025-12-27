@@ -1,6 +1,8 @@
 #ifndef CPU_H
 #define CPU_H
 
+#include "talea.h"
+
 typedef u32 Register;
 enum TaleaRegisters {
     x0,

@@ -125,11 +125,11 @@ enum TaleaInterrupt {
     EXCEPTION_RESET,
     EXCEPTION_BUS_ERROR = 0x2,
     EXCEPTION_ADDRESS_ERROR,
-    EXCEPTION_ILLEGAL_INSTRUCTION,
+    EXCEPTION_ILLEGAL_INSTRUCTION_TALEA,
     EXCEPTION_DIVISION_ZERO,
     EXCEPTION_PRIVILEGE_VIOLATION,
     EXCEPTION_PAGE_FAULT,
-    EXCEPTION_ACCESS_VIOLATION,
+    EXCEPTION_ACCESS_VIOLATION_TALEA,
 
     INT_TTY_TRANSMIT = 0xA,
     INT_KBD_CHAR,
@@ -468,7 +468,7 @@ typedef struct DeviceSystem {
 
 void System_WriteHandler(TaleaMachine *m, u16 addr, u8 value);
 u8   System_ReadHandler(TaleaMachine *m, u16 addr);
-
+ 
 void Bus_RegisterDevices(TaleaMachine *m, const int *id_array, u8 start_index,
                          u8 end_index);
 

@@ -4,6 +4,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <stdbool.h>
 typedef SOCKET talea_net_t;
 #define T_INVALID_SOCKET INVALID_SOCKET
 #define T_NET_ERROR      SOCKET_ERROR
