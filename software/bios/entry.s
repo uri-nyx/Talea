@@ -20,7 +20,7 @@ _start:
     lbu     x2, 0xF0(x0)
     muli    x2, x2, 1024
     muli    x2, x2, 1024
-    addi    x2, x2, -8192
+    addi    x2, x2, -32768
 
 #       4. Initialize the IVT.
 
@@ -82,7 +82,8 @@ _start:
 #       5. Transfer to C code. Interrupts are still disabled.
 
     .extern  bios_start # _noreturn void bios_start(void);
-    call    bios_start
+    sti
+    call     bios_start
 
 #       6. Trap if somehow execution comes here
 
@@ -199,7 +200,7 @@ _isr_kbd_scancode:
     addi    x8,x2,32
     sw      x1,24(x2)
 
-    #call    bios_kbd_handler
+    call    bios_kbd_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -399,9 +400,24 @@ _sbd:
     sbd     x13, 0(x12) #x12 addr, x13 u8 value
     ret
 
+    .globl _shd # extern void _shd(u16 addr, u16 value);
+_shd:
+    shd     x13, 0(x12)
+    ret
+
     .globl _lbud # extern u8 _lbud(u16 addr)
 _lbud:
     lbud     x10, 0(x12) #x12 addr
+    ret
+
+    .globl _lhud # extern u16  _lhud(u16 addr);
+_lhud:
+    lhud    x10, 0(x12)
+    ret
+
+    .globl _lwd # extern u32 _lwd(u16 addr)
+_lwd:
+    lwd     x10, 0(x12) #x12 addr
     ret
 
     .globl memset # extern void *memset(void *s, int c, size_t n)
@@ -410,3 +426,7 @@ memset:
     mv   x10, x12
     fill x12, x14, x13 
     ret
+    .globl memcpy # extern void* memcpy(void* dest, const void* src, size_t n);
+memcpy:
+    mv x10, x12
+    copy x13, x12, x14

@@ -13,6 +13,10 @@
 #define DEVICE_SYSTEM 0xf0
 #define DEVICE_MAP    0x100
 
+/* Official IDs registered by the House of Talea*/
+#define VENDOR_ID 'T'
+#define ARCH_ID   'S'
+
 /* STARNDARD TALEA DEVICE IDS */
 #define DEVICE_ID_TTY     'K'
 #define DEVICE_ID_VIDEO   'V'
@@ -76,11 +80,23 @@ enum PortsTimer {
 #define SCROLLLOCK 0x20
 #define RALT       0x40
 
+/* KEYBOARD CSR CONFIG */
+enum KeyboardCSR {
+    KB_IE_DOWN = 0x01,   // Fire interrupt when a key is pressed.
+    KB_IE_UP   = 0x02,   // Fire interrupt when a key is released.
+    KB_IE_CHAR = 0x04,   // Filter: Only fire if the CHARACTER register is
+                         // non-zero (ASCII).
+    KB_GLOBAL_EN = 0x80, // Master switch for Keyboard Interrupts.
+    KB_GET_CSR   = 0x10, // If set, when read, CSR register returns the status of
+                         // the Interrupt enable flags and this flag is cleared
+                         // //TODO: Document this
+};
+
 /* KEYBOARD DEVICE PORTS */
 enum PortsKeyboard {
     KBD_CSR  = 0x0, /* R/W */
     KBD_CHAR = 0x1, /* R */
-    KBD_SCAN = 0x1  /* R */
+    KBD_SCAN = 0x2  /* R */
 };
 
 enum TaleaVideoMode {
@@ -121,40 +137,31 @@ enum VideoCommand {
     VIDEO_COMMAND_SET_BPC,
     VIDEO_COMMAND_FONTINFO,
     VIDEO_COMMAND_MODE_INFO,
-    VIDEO_COMMAND_SCREEN_INFO
+    VIDEO_COMMAND_SCREEN_INFO,
+
+    COMMAND_CURSOR_SETPOS,
+    COMMAND_CURSOR_SETMODE,
+    COMMAND_CURSOR_GETPOS
 };
 
-enum StorageMedium {
-    NoMedia,
-    Tps128K,
-    Tps512K,
-    Tps1M,
-    Hcs32M,
-    Hcs64M,
-    Hcs128M
-};
+enum StorageMedium { NoMedia, Tps128K, Tps512K, Tps1M, Hcs32M, Hcs64M, Hcs128M };
 
 enum StorageStatus {
     STOR_STATUS_READY = 0x01,
-    STOR_STATUS_ERROR = 0x02, // an error happened in the last operation
-    STOR_STATUS_DONE  = 0x04, // thread is done processing, it is safe to raise
-                              // interrupt
+    STOR_STATUS_ERROR = 0x02,    // an error happened in the last operation
+    STOR_STATUS_DONE  = 0x04,    // thread is done processing, it is safe to raise
+                                 // interrupt
     STOR_STATUS_INSERTED = 0x08, // always high if inserted
     STOR_STATUS_WPROT    = 0x10, // always high if write protected
-    STOR_STATUS_BOOT = 0x20, // always high if disk is bootable. Also marked in
-                             // first sector
-    STOR_STATUS_BUSY = 0x80, // currently doing something, locked
+    STOR_STATUS_BOOT     = 0x20, // always high if disk is bootable. Also marked in
+                                 // first sector
+    STOR_STATUS_BUSY = 0x80,     // currently doing something, locked
 };
 
 enum TpsId { TPS_ID_A, TPS_ID_B, TPS_TOTAL_DRIVES };
 
 /* TPS DEVICE PORTS */
-enum PortsTps {
-    TPS_COMMAND = 0x00,
-    TPS_DATA    = 0x01,
-    TPS_POINT   = 0x02,
-    TPS_STATUS  = 0x04
-};
+enum PortsTps { TPS_COMMAND = 0x00, TPS_DATA = 0x01, TPS_POINT = 0x02, TPS_STATUS = 0x04 };
 
 /* HCS DEVICE PORTS */
 enum PortsHCS {
@@ -178,16 +185,15 @@ enum StorageCommand {
     STORAGE_COMMAND_SETCURRENT, /* Sets the drive (A or B) */
     STORAGE_COMMAND_GETCURRENT, /* returns the current selected drive on
                                    STATUS_H */
-    STORAGE_COMMAND_MEDIUM,  /* Returns the medium type in STATUS_H. Can infer
-                                size, */
-                             /* sector count, etc based on a lookup table */
-    STORAGE_COMMAND_BANK,    /* changes bank */
-    STORAGE_COMMAND_GETBANK, /* Return the current selected bank on STATUS_H */
+    STORAGE_COMMAND_MEDIUM,     /* Returns the medium type in STATUS_H. Can infer
+                                   size, */
+                                /* sector count, etc based on a lookup table */
+    STORAGE_COMMAND_BANK,       /* changes bank */
+    STORAGE_COMMAND_GETBANK,    /* Return the current selected bank on STATUS_H */
 };
 
 /* AUDIO DEVICE PORTS */
 /* TODO: Support not yet documented */
-
 
 enum MouseButtons {
     MOUSE_BUTT_RIGHT = 0x01,

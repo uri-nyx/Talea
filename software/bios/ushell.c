@@ -99,7 +99,7 @@ static void ushell_receive(char chr)
     case ASCII_DEL:
         if (ushell.rx_ptr > 0) {
             --ushell.rx_ptr;
-            ushell_print("\b");
+            ushell_print("\b \b");
         }
         break;
 

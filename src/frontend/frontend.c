@@ -17,14 +17,11 @@ struct FrontendState state = { 0 };
 static inline Rectangle GetScaledViewport(void)
 {
     return ((Rectangle){
-        (GetRenderWidth() -
-         ((float)state.window.gameScreenWidth * state.window.scale)) *
+        (GetRenderWidth() - ((float)state.window.gameScreenWidth * state.window.scale)) *
             (0.5f / state.window.ScaleDPI.x),
-        (GetRenderHeight() -
-         (((float)state.window.gameScreenHeight - 5) * state.window.scale)) *
+        (GetRenderHeight() - (((float)state.window.gameScreenHeight - 5) * state.window.scale)) *
             (0.5f / state.window.ScaleDPI.y),
-        (float)(state.window.gameScreenWidth) *
-            (state.window.scale / state.window.ScaleDPI.x),
+        (float)(state.window.gameScreenWidth) * (state.window.scale / state.window.ScaleDPI.x),
         (float)(state.window.gameScreenHeight - 35) *
             (state.window.scale / state.window.ScaleDPI.y) });
 }
@@ -32,8 +29,7 @@ static inline Rectangle GetScaledViewport(void)
 static inline void PlayNextStorageAccessSfx(void)
 {
     PlaySound(state.sfx.storageAcessSfx[state.sfx.nextStorageAccessSfx]);
-    if (++state.sfx.nextStorageAccessSfx >= MAX_ACCESS_SFX)
-        state.sfx.nextStorageAccessSfx = 0;
+    if (++state.sfx.nextStorageAccessSfx >= MAX_ACCESS_SFX) state.sfx.nextStorageAccessSfx = 0;
 }
 
 void Frontend_InitWindow(TaleaConfig *config)
@@ -45,9 +41,8 @@ void Frontend_InitWindow(TaleaConfig *config)
                                     // UI
 
 #if defined(PLATFORM_DESKTOP)
-    SetWindowPosition(
-        (GetMonitorWidth(GetCurrentMonitor()) - GetRenderWidth()) / 2,
-        (GetMonitorHeight(GetCurrentMonitor()) - GetRenderHeight()) / 2);
+    SetWindowPosition((GetMonitorWidth(GetCurrentMonitor()) - GetRenderWidth()) / 2,
+                      (GetMonitorHeight(GetCurrentMonitor()) - GetRenderHeight()) / 2);
     SetWindowMinSize(320, 240);
 #endif
 
@@ -62,8 +57,7 @@ void Frontend_InitWindow(TaleaConfig *config)
                 .gameScreenHeight = TALEA_SCREEN_HEIGHT,
                 .scale            = 0,
                 .ScaleDPI         = WINDOW_SCALE_DPI,
-                .screenTexture =
-                    LoadRenderTexture(TALEA_SCREEN_WIDTH, TALEA_SCREEN_HEIGHT),
+                .screenTexture    = LoadRenderTexture(TALEA_SCREEN_WIDTH, TALEA_SCREEN_HEIGHT),
             },
         .ui =
             (struct FrontendUICtx){
@@ -77,8 +71,8 @@ void Frontend_InitWindow(TaleaConfig *config)
                 .isTpsDialog         = false,
                 .dialogTexture       = { 0 },
                 .firmwarePath        = { 0 },
-                .fileDialogState     = InitGuiWindowFileDialog(TextFormat(
-                    "%s" TPS_IMAGES_DEFAULT_DIR, GetWorkingDirectory())),
+                .fileDialogState     = InitGuiWindowFileDialog(
+                    TextFormat("%s" TPS_IMAGES_DEFAULT_DIR, GetWorkingDirectory())),
             },
         .sfx =
             (struct FrontendSFXCtx){
@@ -92,9 +86,8 @@ void Frontend_InitWindow(TaleaConfig *config)
             },
         .crt =
             (struct FrontendCRTShaderCtx){
-                .viewport = LoadRenderTexture(TALEA_SCREEN_WIDTH * 2,
-                                              TALEA_SCREEN_HEIGHT * 2),
-                .shader   = LoadShader(VERTEX_SHADER, SHADERS_PATH("crt.fs")),
+                .viewport    = LoadRenderTexture(TALEA_SCREEN_WIDTH * 2, TALEA_SCREEN_HEIGHT * 2),
+                .shader      = LoadShader(VERTEX_SHADER, SHADERS_PATH("crt.fs")),
                 .texture_loc = 0,
                 .time_loc    = 0,
             },
@@ -105,17 +98,16 @@ void Frontend_InitWindow(TaleaConfig *config)
         .is_restart = false,
     };
 
-    state.window.scale =
-        MIN((float)GetRenderWidth() / (state.window.gameScreenWidth),
-            ((float)GetRenderHeight() / (state.window.gameScreenHeight)));
+    state.window.scale  = MIN((float)GetRenderWidth() / (state.window.gameScreenWidth),
+                              ((float)GetRenderHeight() / (state.window.gameScreenHeight)));
     state.ui.button_row = ((float)GetRenderHeight() / state.window.scale) *
                           (state.window.scale / state.window.ScaleDPI.y);
     GuiLoadStyle("resources/terminal.rgs"); // TODO: put in config file
     strncpy(state.ui.firmwarePath, config->firmware_path, 512);
 
     for (size_t i = 0; i < MAX_ACCESS_SFX; i++) {
-        state.sfx.storageAcessSfx[i] = LoadSound(
-            TextFormat("%sfloppy_access%d.ogg", SFX_ACCESS_TPS, i + 1));
+        state.sfx.storageAcessSfx[i] =
+            LoadSound(TextFormat("%sfloppy_access%d.ogg", SFX_ACCESS_TPS, i + 1));
         SetSoundVolume(state.sfx.storageAcessSfx[i], 0.07f);
     }
 
@@ -210,33 +202,15 @@ static void Frontend_PollKeyboard(TaleaMachine *m, TaleaConfig *config)
     if (key) {
         // Maybe use a table
         switch (key) {
-        case KEY_ENTER:
-            chr = '\r';
-            break;
-        case KEY_TAB:
-            chr = '\t';
-            break;
-        case KEY_BACKSPACE:
-            chr = '\b';
-            break;
-        case KEY_ESCAPE:
-            chr = 27;
-            break;
-        case KEY_UP:
-            chr = 28;
-            break;
-        case KEY_DOWN:
-            chr = 29;
-            break;
-        case KEY_LEFT:
-            chr = 30;
-            break;
-        case KEY_RIGHT:
-            chr = 31;
-            break;
-        case KEY_DELETE:
-            chr = 127;
-            break;
+        case KEY_ENTER: chr = '\r'; break;
+        case KEY_TAB: chr = '\t'; break;
+        case KEY_BACKSPACE: chr = '\b'; break;
+        case KEY_ESCAPE: chr = 27; break;
+        case KEY_UP: chr = 28; break;
+        case KEY_DOWN: chr = 29; break;
+        case KEY_LEFT: chr = 30; break;
+        case KEY_RIGHT: chr = 31; break;
+        case KEY_DELETE: chr = 127; break;
         /* EMULATOR GUI CONTROLS */
         case KEY_F9:
             emulator_control = true;
@@ -246,8 +220,7 @@ static void Frontend_PollKeyboard(TaleaMachine *m, TaleaConfig *config)
             emulator_control  = true;
             state.ui.open_gui = !state.ui.open_gui;
             break;
-        default:
-            break;
+        default: break;
         }
         prev_key = key;
 
@@ -261,7 +234,8 @@ static void Frontend_PollKeyboard(TaleaMachine *m, TaleaConfig *config)
     if (!state.ui.open_gui && !emulator_control) {
         if (IsKeyReleased(prev_key))
             Keyboard_ProcessKeypress(m, false, prev_key, prev_chr, prev_mod);
-        if (IsKeyPressed(key)) Keyboard_ProcessKeypress(m, true, key, chr, mod);
+        if (IsKeyPressed(key) || (config->krepeat && IsKeyPressedRepeat(key)))
+            Keyboard_ProcessKeypress(m, true, key, chr, mod);
     }
 
     prev_mod = mod;
@@ -273,11 +247,9 @@ static void Frontend_PollMouse(TaleaMachine *m, TaleaConfig *config)
     Rectangle viewport      = GetScaledViewport();
 
     int scaled_x =
-        (int)(positionMouse.x - (GetRenderWidth() - viewport.width) / 2) *
-        state.window.scale;
+        (int)(positionMouse.x - (GetRenderWidth() - viewport.width) / 2) * state.window.scale;
     int scaled_y =
-        (int)(positionMouse.y - (GetRenderWidth() - viewport.height) / 2) *
-        state.window.scale;
+        (int)(positionMouse.y - (GetRenderWidth() - viewport.height) / 2) * state.window.scale;
 
     u8 current_state = 0;
 
@@ -321,19 +293,15 @@ void  Frontend_SetupFrame(TaleaMachine *m, TaleaConfig *config)
 {
     config->frequency = state.ui.frequencyMultiplier;
     u_time            = (float)GetTime();
-    SetShaderValue(m->video.renderer.shader, m->video.renderer.time_loc,
-                   &u_time, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(state.crt.shader, state.crt.time_loc, &u_time,
+    SetShaderValue(m->video.renderer.shader, m->video.renderer.time_loc, &u_time,
                    SHADER_UNIFORM_FLOAT);
+    SetShaderValue(state.crt.shader, state.crt.time_loc, &u_time, SHADER_UNIFORM_FLOAT);
 
-    if (!IsShaderValid(m->video.renderer.shader))
-        TALEA_LOG_ERROR("Renderer Shader is not valid");
-    if (!IsShaderValid(state.crt.shader))
-        TALEA_LOG_ERROR("CRT Shader is not valid");
+    if (!IsShaderValid(m->video.renderer.shader)) TALEA_LOG_ERROR("Renderer Shader is not valid");
+    if (!IsShaderValid(state.crt.shader)) TALEA_LOG_ERROR("CRT Shader is not valid");
 
-    state.window.scale =
-        MIN((float)GetRenderWidth() / (state.window.gameScreenWidth),
-            ((float)GetRenderHeight() / (state.window.gameScreenHeight)));
+    state.window.scale  = MIN((float)GetRenderWidth() / (state.window.gameScreenWidth),
+                              ((float)GetRenderHeight() / (state.window.gameScreenHeight)));
     state.ui.button_row = ((float)GetRenderHeight() / state.window.scale) *
                           (state.window.scale / state.window.ScaleDPI.y);
 }
@@ -345,8 +313,7 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
     BeginDrawing();
     if (state.ui.fileDialogState.SelectFilePressed) {
         if (state.ui.isTpsDialog) {
-            bool success = Storage_InsertTps(
-                tpsToLoad, state.ui.fileDialogState.fileNameText);
+            bool success = Storage_InsertTps(tpsToLoad, state.ui.fileDialogState.fileNameText);
             if (!success)
                 TALEA_LOG_ERROR("Error Loading TPS\n");
             else
@@ -355,19 +322,16 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
             bool writeProtected = false;
             // Load firmware file (if supported extension)
             // Check this for the restarts
-            if (IsFileExtension(state.ui.fileDialogState.fileNameText,
-                                ".bin")) {
+            if (IsFileExtension(state.ui.fileDialogState.fileNameText, ".bin")) {
                 strcpy(state.ui.firmwarePath,
-                       TextFormat("%s" PATH_SEPERATOR "%s",
-                                  state.ui.fileDialogState.dirPathText,
+                       TextFormat("%s" PATH_SEPERATOR "%s", state.ui.fileDialogState.dirPathText,
                                   state.ui.fileDialogState.fileNameText));
 
                 strcpy(config->firmware_path, state.ui.firmwarePath);
                 state.is_restart = true;
                 Machine_Init(m, config);
             } else {
-                TALEA_LOG_WARNING(
-                    "Can only load absolute binaries as firmware");
+                TALEA_LOG_WARNING("Can only load absolute binaries as firmware");
             }
         }
 
@@ -377,14 +341,11 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
     }
 
     ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
-    DrawTexture(state.ui.dialogTexture,
-                GetScreenWidth() / 2 - state.ui.dialogTexture.width / 2,
-                GetScreenHeight() / 2 - state.ui.dialogTexture.height / 2 - 5,
-                WHITE);
-    DrawRectangleLines(
-        GetScreenWidth() / 2 - state.ui.dialogTexture.width / 2,
-        GetScreenHeight() / 2 - state.ui.dialogTexture.height / 2 - 5,
-        state.ui.dialogTexture.width, state.ui.dialogTexture.height, BLACK);
+    DrawTexture(state.ui.dialogTexture, GetScreenWidth() / 2 - state.ui.dialogTexture.width / 2,
+                GetScreenHeight() / 2 - state.ui.dialogTexture.height / 2 - 5, WHITE);
+    DrawRectangleLines(GetScreenWidth() / 2 - state.ui.dialogTexture.width / 2,
+                       GetScreenHeight() / 2 - state.ui.dialogTexture.height / 2 - 5,
+                       state.ui.dialogTexture.width, state.ui.dialogTexture.height, BLACK);
 
     // raygui: controls drawing
     //----------------------------------------------------------------------------------
@@ -392,12 +353,9 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
         GuiLock();
     }
 
-    GuiToggle((Rectangle){ 320, 20, 160, 30 }, "Sync TPS on eject",
-              &config->sync_on_eject);
-    GuiToggle((Rectangle){ 320, 60, 160, 30 }, "Dynamic cycle quota",
-              &config->dynamic_cycles);
-    GuiToggle((Rectangle){ 320, 100, 160, 30 }, "CRT simulation",
-              &config->crt_shader);
+    GuiToggle((Rectangle){ 320, 20, 160, 30 }, "Sync TPS on eject", &config->sync_on_eject);
+    GuiToggle((Rectangle){ 320, 60, 160, 30 }, "Dynamic cycle quota", &config->dynamic_cycles);
+    GuiToggle((Rectangle){ 320, 100, 160, 30 }, "CRT simulation", &config->crt_shader);
 
     if (GuiButton((Rectangle){ 320, 140, 160, 30 }, "Toggle full screen")) {
         ToggleFullscreen();
@@ -407,8 +365,8 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
         ToggleBorderlessWindowed();
     }
 
-    GuiSlider((Rectangle){ 320, 220, 160, 30 }, "10 Mhz", "100Mhz",
-              &state.ui.frequencyMultiplier, 0.1f, 1.0f);
+    GuiSlider((Rectangle){ 320, 220, 160, 30 }, "10 Mhz", "100Mhz", &state.ui.frequencyMultiplier,
+              0.1f, 1.0f);
 
     if (GuiButton((Rectangle){ 20, 20, 140, 30 },
                   GuiIconText(ICON_FILE_SAVE_CLASSIC, "Load TPS A"))) {
@@ -424,14 +382,12 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
         tpsToLoad                             = TPS_ID_B;
     }
 
-    if (GuiButton((Rectangle){ 20, 60, 140, 30 },
-                  GuiIconText(ICON_CROSS, "Eject TPS A"))) {
+    if (GuiButton((Rectangle){ 20, 60, 140, 30 }, GuiIconText(ICON_CROSS, "Eject TPS A"))) {
         Storage_EjectTps(TPS_ID_A);
         PlaySound(state.sfx.tpsEjectSfx);
     }
 
-    if (GuiButton((Rectangle){ 170, 60, 140, 30 },
-                  GuiIconText(ICON_CROSS, "Eject TPS B"))) {
+    if (GuiButton((Rectangle){ 170, 60, 140, 30 }, GuiIconText(ICON_CROSS, "Eject TPS B"))) {
         Storage_EjectTps(TPS_ID_B);
         PlaySound(state.sfx.tpsEjectSfx);
     }
@@ -447,8 +403,7 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
         // TODO: do this with a list from the config file
         state.ui.dropdownFont = !state.ui.dropdownFont;
         if (!state.ui.dropdownFont)
-            TALEA_LOG_WARNING(
-                "Should change font\n"); // VideoChangeFont(state.ui.activeFont);
+            TALEA_LOG_WARNING("Should change font\n"); // VideoChangeFont(state.ui.activeFont);
     }
 
     if (GuiButton((Rectangle){ 170, 100, 140, 30 }, "Load Firmware")) {
@@ -493,26 +448,22 @@ static void RenderScreen(TaleaMachine *m, TaleaConfig *config)
                               state.window.screenTexture.texture);
 
         DrawTexturePro(state.crt.viewport.texture,
-                       (Rectangle){ 0.0f, 0.0f,
-                                    (float)state.crt.viewport.texture.width,
+                       (Rectangle){ 0.0f, 0.0f, (float)state.crt.viewport.texture.width,
                                     (float)-state.crt.viewport.texture.height },
                        GetScaledViewport(), (Vector2){ 0, 0 }, 0.0f, WHITE);
         EndShaderMode();
     } else {
-        DrawTexturePro(
-            state.window.screenTexture.texture,
-            (Rectangle){ 0.0, 0.0f,
-                         (float)state.window.screenTexture.texture.width,
-                         (float)-state.window.screenTexture.texture.height },
-            GetScaledViewport(), (Vector2){ 0, 0 }, 0.0f, WHITE);
+        DrawTexturePro(state.window.screenTexture.texture,
+                       (Rectangle){ 0.0, 0.0f, (float)state.window.screenTexture.texture.width,
+                                    (float)-state.window.screenTexture.texture.height },
+                       GetScaledViewport(), (Vector2){ 0, 0 }, 0.0f, WHITE);
     }
 
     if (state.ui.hide_ui) goto end;
 
     if (GuiButton((Rectangle){ 610, (state.ui.button_row) - 30, 140, 30 },
-                  (m->cpu.poweroff) ?
-                      GuiIconText(ICON_PLAYER_PLAY, "Start") :
-                      GuiIconText(ICON_PLAYER_STOP, "Shutdown"))) {
+                  (m->cpu.poweroff) ? GuiIconText(ICON_PLAYER_PLAY, "Start") :
+                                      GuiIconText(ICON_PLAYER_STOP, "Shutdown"))) {
         if (m->cpu.poweroff) {
             state.is_restart = true;
             Machine_Init(m, config);
@@ -523,8 +474,7 @@ static void RenderScreen(TaleaMachine *m, TaleaConfig *config)
     if (GuiButton((Rectangle){ 10, (state.ui.button_row) - 30, 140, 30 },
                   GuiIconText(ICON_PLAYER_PAUSE, "Pause [F10]")))
         state.ui.open_gui = true;
-    if (GuiButton((Rectangle){ 460, (state.ui.button_row) - 30, 140, 30 },
-                  "Hide UI [F9]"))
+    if (GuiButton((Rectangle){ 460, (state.ui.button_row) - 30, 140, 30 }, "Hide UI [F9]"))
         state.ui.hide_ui = true;
 end:
     DrawFPS(((float)GetRenderWidth() / state.window.scale) *

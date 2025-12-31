@@ -69,8 +69,8 @@ static inline u32 PopW(TaleaMachine *m)
     return word;
 }
 
-#define DEBUG_LOG_EXCEPTIONS
-#define DEBUG_LOG_INTERRUPTS
+//#define DEBUG_LOG_EXCEPTIONS
+//#define DEBUG_LOG_INTERRUPTS
 
 static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 {
@@ -797,7 +797,7 @@ void Cpu_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
 {
     m->cpu = (CpuState){
         // Register file
-        .pc        = 0xFFE000, // TODO: really think about this approach...
+        .pc        = TALEA_FIRMWARE_ADDRESS, // TODO: really think about this approach...
         .virtualPc = 0,
         .status    = 0,
         .gpr       = { 0 },

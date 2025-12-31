@@ -2,12 +2,21 @@
 #define NET_COMPAT_H
 
 #ifdef _WIN32
+#include <stdbool.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <stdbool.h>
 typedef SOCKET talea_net_t;
 #define T_INVALID_SOCKET INVALID_SOCKET
 #define T_NET_ERROR      SOCKET_ERROR
+
+#define T_EINPROGRESS WSAEWOULDBLOCK
+
+#define net_set_nonblocking(s)          \
+    {                                   \
+        u_long mode = 1;                \
+        ioctlsocket(s, FIONBIO, &mode); \
+    }
+    
 
 // Check if the error is just "nothing ready yet"
 inline bool net_would_block()
@@ -27,8 +36,10 @@ inline void net_close(talea_net_t s)
 #include <sys/socket.h>
 #include <unistd.h>
 typedef int talea_net_t;
-#define T_INVALID_SOCKET -1
-#define T_NET_ERROR      -1
+#define T_INVALID_SOCKET       -1
+#define T_NET_ERROR            -1
+#define T_EINPROGRESS          EINPROGRESS
+#define net_set_nonblocking(s) fcntl(s, F_SETFL, O_NONBLOCK)
 
 inline bool net_would_block()
 {
@@ -38,6 +49,7 @@ inline void net_close(talea_net_t s)
 {
     close(s);
 }
+
 #endif
 
 #endif

@@ -19,6 +19,21 @@
 #define P_SYSTEM_ARCHID        (DEV_SYSTEM_BASE + 13)
 #define P_SYSTEM_VENDORID      (DEV_SYSTEM_BASE + 14)
 
+static inline u8 freq_to_byte(float target_mhz)
+{
+    TALEA_LOG_TRACE("%f MHZn", target_mhz);
+
+    /* Quantization for the frequency byte */
+    if (target_mhz < 10.0f) target_mhz = 10.0f;
+    if (target_mhz > 100.0f) target_mhz = 100.0f;
+
+    float byte_val = ((target_mhz - 10.0f) / 90.0f) * 255.0f;
+
+    TALEA_LOG_TRACE("%f MHZ -> %d\n", target_mhz, (u8)(byte_val + 0.5f));
+    // Add 0.5 for proper rounding before casting to int
+    return (u8)(byte_val + 0.5f);
+}
+
 u8 System_ReadHandler(TaleaMachine *m, u16 addr)
 {
     struct tm *timeinfo;
@@ -26,13 +41,14 @@ u8 System_ReadHandler(TaleaMachine *m, u16 addr)
     time_t rawtime; // Make this more precise
     time(&rawtime);
     timeinfo      = localtime(&rawtime);
-    m->sys.uptime = GetTime();
+    m->sys.uptime = GetTime() * 1000; // to ms
 
     switch (addr) {
     case P_SYSTEM_MEMSIZE_FLASH:
         return (TALEA_MEM_SZ_MB);
     case P_SYSTEM_CLOCK:
-        return (m->cpu.frequency / 1000000); // in Mhz
+        return (freq_to_byte(m->cpu.frequency / 1000000));
+        // TODO: Document this. Get freequency back by 10000 + (reg_val * 353)
     case P_SYSTEM_INT:
         return (m->cpu.exception);
     case P_SYSTEM_POWER:
@@ -71,13 +87,14 @@ u8 System_ReadHandler(TaleaMachine *m, u16 addr)
         if (m->sys.counter_mode)
             return (m->sys.uptime >> 8);
         else
-            return (rawtime);
+            return (rawtime >> 8);
     case P_SYSTEM_COUNTER:
         if (m->sys.counter_mode) {
             m->sys.counter_mode = false;
             return (m->sys.uptime);
+        } else {
+            return (rawtime & 0xff);
         }
-        break;
     case P_SYSTEM_DEVICENUM:
         return (TALEA_NUM_INSTALLED_DEVICES);
     case P_SYSTEM_ARCHID:

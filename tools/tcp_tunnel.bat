@@ -1,0 +1,1 @@
+.\ponticulus.exe --com "\\.\COM9" 300 8 n 1 --1on1 --tcp  --host 127.0.0.1 4321

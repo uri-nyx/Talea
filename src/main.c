@@ -71,12 +71,12 @@ void Machine_LoadFirmware(TaleaMachine *m, const char *path)
     firmware_size = -1;
     firmware      = LoadFileData(path, &firmware_size);
 
-    if (firmware == NULL || firmware_size < 1 || firmware_size > 8191) {
-        TALEA_LOG_ERROR("Error, firmware file is too big or not valid");
+    if (firmware == NULL || firmware_size < 1 || firmware_size > TALEA_MAX_FIRMWARE_SIZE) {
+        TALEA_LOG_ERROR("Error, firmware file is too big or not valid (size: %d, max: %d)", firmware_size, TALEA_MAX_FIRMWARE_SIZE);
         exit(1);
     }
 
-    memcpy(&m->main_memory[0xFFE000], firmware, firmware_size);
+    memcpy(&m->main_memory[TALEA_FIRMWARE_ADDRESS], firmware, firmware_size);
     UnloadFileData(firmware);
 }
 

@@ -48,13 +48,12 @@ typedef uint64_t u64;
 #endif
 
 // SHADERS
-#define VIDEO_FONT_FILE_HACK                             \
-    "resources" PATH_SEPARATOR "emulated" PATH_SEPARATOR \
-    "firmware" PATH_SEPARATOR "font_from_talea.fnt"
+#define VIDEO_FONT_FILE_HACK                                                       \
+    "resources" PATH_SEPARATOR "emulated" PATH_SEPARATOR "firmware" PATH_SEPARATOR \
+    "font_from_talea.fnt"
 #define FONT_PATH "resources" PATH_SEPARATOR "fonts" PATH_SEPARATOR
-#define SHADERS_PATH(name)                                         \
-    TextFormat("resources" PATH_SEPARATOR "shaders" PATH_SEPARATOR \
-               "glsl%i" PATH_SEPARATOR "%s",                       \
+#define SHADERS_PATH(name)                                                                       \
+    TextFormat("resources" PATH_SEPARATOR "shaders" PATH_SEPARATOR "glsl%i" PATH_SEPARATOR "%s", \
                GLSL_VERSION, name)
 #if GLSL_VERSION == 130
 // #define VERTEX_SHADER 0
@@ -80,12 +79,10 @@ typedef uint64_t u64;
 #define TALEA_SCREEN_HEIGHT 480
 
 // TODO: put in config file
-#define HCS_FILE_LOCATION                                \
-    "resources" PATH_SEPARATOR "emulated" PATH_SEPARATOR \
-    "devices" PATH_SEPARATOR "hcs"
-#define TPS_IMAGES_DEFAULT_DIR \
-    PATH_SEPARATOR "resources" PATH_SEPARATOR "tps_images"
-#define HCS_DRIVES 4
+#define HCS_FILE_LOCATION \
+    "resources" PATH_SEPARATOR "emulated" PATH_SEPARATOR "devices" PATH_SEPARATOR "hcs"
+#define TPS_IMAGES_DEFAULT_DIR PATH_SEPARATOR "resources" PATH_SEPARATOR "tps_images"
+#define HCS_DRIVES             4
 
 #define CONFIG_FILE_PATH            "resources/config.toml"
 #define TALEA_NUM_INSTALLED_DEVICES 8
@@ -95,6 +92,11 @@ typedef uint64_t u64;
 #define FPS                         60
 #define TALEA_MAIN_MEM_SZ           (1U << 24) // 16MB
 #define TALEA_DATA_MEM_SZ           (1U << 16) // 64KB
+#define TALEA_MAX_FIRMWARE_SIZE     (32 * 1024)
+// TODO: This should be a fixed  address at the top of the  address space, no matter  how much
+// memory we have
+//  0xFF8000
+#define TALEA_FIRMWARE_ADDRESS (TALEA_MAIN_MEM_SZ - TALEA_MAX_FIRMWARE_SIZE)
 
 #define TALEA_MEM_SZ_MB 16
 
@@ -189,14 +191,15 @@ enum KeyboardCSR {
     KB_IE_CHAR = 0x04,   // Filter: Only fire if the CHARACTER register is
                          // non-zero (ASCII).
     KB_GLOBAL_EN = 0x80, // Master switch for Keyboard Interrupts.
-    KB_GET_CSR = 0x10, // If set, when read, CSR register returns the status of
-                       // the Interrupt enable flags and this flag is cleared
-                       // //TODO: Document this
+    KB_GET_CSR   = 0x10, // If set, when read, CSR register returns the status of
+                         // the Interrupt enable flags and this flag is cleared
+                         // //TODO: Document this
 };
 
 typedef struct {
     u16  scancode;
     u8   character;
+    u8   modifiers;
     bool is_down;
 } KbdEvent;
 
@@ -210,8 +213,7 @@ typedef struct {
 
 } TerminalKeyboard;
 
-void Keyboard_ProcessKeypress(TaleaMachine *m, bool is_down, int key, u8 chr,
-                              u16 mod);
+void Keyboard_ProcessKeypress(TaleaMachine *m, bool is_down, int key, u8 chr, u16 mod);
 
 enum TimerCSR {
     TIM_TIMEOUT_EN  = 0x01, // start/stop timeout
@@ -238,6 +240,7 @@ void Timer_Update(TaleaMachine *m, u32 cycles);
 enum SerialStatus {
     SER_STATUS_DATA_AVAILABLE = 0x1, // RX FIFO not empty
     SER_STATUS_CARRIER_DETECT = 0x2, // Socket is connected
+    SER_STATUS_BUFFER_OVERRUN = 0x4,
 };
 
 enum SerialControl {
@@ -245,6 +248,50 @@ enum SerialControl {
     SER_CONTROL_MASTER_RESET = 0x80, // Master reset (clear all buffers)
 };
 
+enum HayesResponse { HAYES_OK, HAYES_CONNECT, HAYES_RING, HAYES_NO_CARRIER, HAYES_ERROR };
+enum ModemState {
+    MODEM_STATE_COMMAND,      /* Accepting AT commands */
+    MODEM_STATE_DIALING,      /* TCP connect() in progress (Non-blocking) */
+    MODEM_STATE_DATA,         /* Transparent pass-through mode */
+    MODEM_STATE_DISCONNECTING /* Closing socket/Cleaning up */
+};
+
+#define MODEM_CMD_BUFFER_SIZE 65
+#define GET_GUARD_TIME(m) ((double)((m)->s_regs[12]) / 50.0)
+
+typedef struct {
+    // --- Internal State Machine ---
+    enum ModemState state;  
+
+    char cmd_buffer[MODEM_CMD_BUFFER_SIZE]; // Stores AT commands
+    char last_valid_command[MODEM_CMD_BUFFER_SIZE]; // Stores The last valid executed AT command
+    int  cmd_pos;
+
+    // Configuration
+    bool echo_enabled;
+    bool defer_response;
+    bool last_was_A;
+    bool verbose_mode;
+
+    u8 s_regs[16]; // S registers
+    u8 current_s_reg;
+
+    // --- Escape Sequence (+++) ---
+    double last_tx_time;  // For "Guard Time" checks
+    int    plus_count;    // Counts '+' symbols
+    bool   waiting_after; // waiting after escape
+
+    // Networking
+    double dial_start;
+    
+} HayesModem;
+
+void Modem_CheckEscapeSequence(TaleaMachine *m, u8 byte);
+void Modem_Update(TaleaMachine *m);
+void Modem_ResetSregs(HayesModem *modem);
+void Modem_SendResponse(TaleaMachine *m, enum HayesResponse code);
+
+#define SERIAL_BAUD_RATE 9600
 #define SERIAL_FIFO_SIZE 256
 typedef struct {
     // --- Hardware Registers ---
@@ -254,20 +301,20 @@ typedef struct {
     u8 status;  // Status bits (Data Avail, Carrier)
     u8 control; // Interrupt enable flags
 
-    // --- Internal State Machine ---
-    bool is_command_mode; // True = Parsing AT commands, False = Pass-through
-    char cmd_buffer[64];  // Stores AT commands
-    int  cmd_pos;
+    HayesModem modem;
 
-    // --- Escape Sequence (+++) ---
-    double last_tx_time; // For "Guard Time" checks
-    int    plus_count;   // Counts '+' symbols
+    // --- Throttling logic ---
+    double last_update_time;
+    double byte_credit;
 
     // --- Host/Networking Layer ---
     talea_net_t host_socket;  // The "Active Line" (Could be Telnet or BBS)
     talea_net_t server_fd;    // The "Wall Jack" (Always listening for incoming)
     bool        is_listening; // State for AT_LISTEN
 } TerminalSerial;
+
+void Serial_PushByte(TaleaMachine *m, u8 byte);
+void Serial_PushString(TaleaMachine *m, const u8 *str);
 
 typedef struct DeviceTerminal {
     TerminalKeyboard kb;
@@ -313,9 +360,16 @@ typedef struct Videorenderer {
     int    time_loc;
     int    charSize_loc;
     int    baseColor_loc;
-    int    cursorChar_loc;
+    int    cursorIndex_loc;
+    int    cursorCsr_loc;
     int    textureSize_loc;
 } VideoRenderer;
+
+enum VideoCursorMode {
+    CURSOR_ENABLE = 0x1,
+    CURSOR_BLINK  = 0x2,
+    CURSOR_SHAPE  = 0x4,
+};
 
 typedef struct DeviceVideo {
     u8 mode;
@@ -329,7 +383,8 @@ typedef struct DeviceVideo {
     u32 charbuffer_addr;
     u8  charbuffer_w, charbuffer_h;
     u8  bpc, bpp;
-    int cursorChar;
+    u16 cursorIndex;
+    u8  cursorCSR;
 
     VideoRenderer renderer;
 } DeviceVideo;
@@ -345,45 +400,35 @@ enum MouseButtons {
     MOUSE_BUTT_LEFT  = 0x02,
 };
 
-void Mouse_ProcessButtonPress(TaleaMachine *m, int buttons, int scaled_x,
-                              int scaled_y);
-void Mouse_UpdateCoordinates(TaleaMachine *m, int buttons, int scaled_x,
-                             int scaled_y);
+void Mouse_ProcessButtonPress(TaleaMachine *m, int buttons, int scaled_x, int scaled_y);
+void Mouse_UpdateCoordinates(TaleaMachine *m, int buttons, int scaled_x, int scaled_y);
 
 /*
 ALL INTEGER MULTIBYTE INTEGER VALUES ARE STORED BIG ENDIAN
 0x00	Magic Number	    4B	TPS! or HCS! (Identifies this as a Taleä disk).
 0x04	Version	            1B	Hardware revision (e.g., 0x01).
 0x05	Flags	            1B	Bit 0: Bootable, Bit 1: Write-Protected.
-0x06	Medium Type	        1B	see StorageMedium. 
-0x07	Bank count          1B	number of 256 banks 
-0x08	Sector Count	    4B	Total LBA sectors (e.g., 2048 for 1MB). 
-0x0C	Sector Size	        2B	Usually 512. 
-0x0E	Creation Date	    8B	Unix Timestamp (64-bit) 
+0x06	Medium Type	        1B	see StorageMedium.
+0x07	Bank count          1B	number of 256 banks
+0x08	Sector Count	    4B	Total LBA sectors (e.g., 2048 for 1MB).
+0x0C	Sector Size	        2B	Usually 512.
+0x0E	Creation Date	    8B	Unix Timestamp (64-bit)
 0x16    Disk Name	        16B	ASCII label (e.g., "SYSTEM_DISK_01").
 0x26 -- 0x200               Reserved.
 */
 
-enum StorageMedium {
-    NoMedia,
-    Tps128K,
-    Tps512K,
-    Tps1M,
-    Hcs32M,
-    Hcs64M,
-    Hcs128M
-};
+enum StorageMedium { NoMedia, Tps128K, Tps512K, Tps1M, Hcs32M, Hcs64M, Hcs128M };
 
 enum StorageStatus {
     STOR_STATUS_READY = 0x01,
-    STOR_STATUS_ERROR = 0x02, // an error happened in the last operation
-    STOR_STATUS_DONE  = 0x04, // thread is done processing, it is safe to raise
-                              // interrupt
+    STOR_STATUS_ERROR = 0x02,    // an error happened in the last operation
+    STOR_STATUS_DONE  = 0x04,    // thread is done processing, it is safe to raise
+                                 // interrupt
     STOR_STATUS_INSERTED = 0x08, // always high if inserted
     STOR_STATUS_WPROT    = 0x10, // always high if write protected
-    STOR_STATUS_BOOT = 0x20, // always high if disk is bootable. Also marked in
-                             // first sector
-    STOR_STATUS_BUSY = 0x80, // currently doing something, locked
+    STOR_STATUS_BOOT     = 0x20, // always high if disk is bootable. Also marked in
+                                 // first sector
+    STOR_STATUS_BUSY = 0x80,     // currently doing something, locked
 };
 
 #define STOR_HEADER_SIZE      512
@@ -468,9 +513,8 @@ typedef struct DeviceSystem {
 
 void System_WriteHandler(TaleaMachine *m, u16 addr, u8 value);
 u8   System_ReadHandler(TaleaMachine *m, u16 addr);
- 
-void Bus_RegisterDevices(TaleaMachine *m, const int *id_array, u8 start_index,
-                         u8 end_index);
+
+void Bus_RegisterDevices(TaleaMachine *m, const int *id_array, u8 start_index, u8 end_index);
 
 /* --- The Talea Machine Structure --- */
 
