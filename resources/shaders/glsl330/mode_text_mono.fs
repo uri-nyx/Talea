@@ -6,12 +6,11 @@ in vec2 fragTexCoord;
 in vec4 fragColor;
 
 // Input uniform values
-uniform ivec3     baseColor;
 uniform int       cursorIndex;
-uniform int       cursorCsr; // bitmask: 0x1: ENABLE, 0x2: Blink, 0x4: SHAPE
+uniform int       csr; // bitmask: 0x1: ENABLE, 0x2: Blink, 0x4: SHAPE
 uniform float     uTime;
 uniform sampler2D texture0;   // screen
-uniform sampler2D font;       // font
+uniform sampler2D font_cp0;       // font
 uniform sampler2D characters; // characters
 
 out vec4 finalColor;
@@ -20,7 +19,7 @@ void main()
 {
     ivec2 charTextureSize = textureSize(characters, 0);
     ivec2 mainTextureSize = textureSize(texture0, 0);
-    ivec2 fontTextureSize = textureSize(font, 0);
+    ivec2 fontTextureSize = textureSize(font_cp0, 0);
 
     // how are distributed chars in the atlas?
     ivec2 atlasCharSize = fontTextureSize / ivec2(8, 16);
@@ -46,14 +45,14 @@ void main()
     int   currentIndex = currentCell.y * charTextureSize.x + currentCell.x;
 
     // Render font
-    vec4  fontRead = texture(font, charIndexUV + charUV);
+    vec4  fontRead = texture(font_cp0, charIndexUV + charUV);
     float alpha    = fontRead.a;
 
     // Cursor Overlay Logic. Maybe pass uniform bools of the csr
-    if (currentIndex == cursorIndex && ((cursorCsr & 1) == 1)) {
+    if (currentIndex == cursorIndex && ((csr& 1) == 1)) {
         float blinkFactor = 1.0;
         
-        if ((cursorCsr & 2) == 2)
+        if ((csr& 2) == 2)
         {
             // Blink
             blinkFactor = (sin(uTime * 3.14159) * 0.5) + 0.5;

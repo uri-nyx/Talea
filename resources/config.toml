@@ -12,4 +12,4 @@ Port = 1212
 Speed = 0.189583
 Firmware = "resources/emulated/firmware/bios.bin"
 TPS_A = "resources/tps_images/akai.tps"
-Hardware_font = "default.fnt"
+Hardware_font = "default"

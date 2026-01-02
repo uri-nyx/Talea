@@ -266,7 +266,7 @@ void serial_outc(Ttty *tty, char c)
 
 /*----------------------------------------------------------------------------*/
 /*----------------------VIDEO DRIVER------------------------------------------*/
-
+#if 0
 /* 1. info */
 
 /* Get the text buffer sizes (cols*rows*bpc) */
@@ -323,9 +323,17 @@ u8 video_get_csr(void)
 /* Checks have already been performed */
 void video_outc(Ttty *tty, char c)
 {
-    u8 *vram = tty->priv;
+    static u8 fg  = 15;
+    static u8 bg  = 0;
+    static u8 att = 0;
 
-    vram[(tty->y * tty->w) + tty->x] = c;
+    u8 *vram  = tty->priv;
+    u16 index = (tty->y * tty->w) + tty->x * 4;
+
+    vram[index]     = c;
+    vram[index + 1] = fg;
+    vram[index + 2] = bg;
+    vram[index + 3] = att;
 }
 
 void video_setpos(Ttty *tty, u8 x, u8 y)
@@ -380,6 +388,9 @@ static void bios_init(void)
 
     find_devices();
 
+    _sbd(Devices.video + VIDEO_DATA, 0x5);
+    _sbd(Devices.video + VIDEO_COMMAND, VIDEO_COMMAND_SETMODE);
+
     video_text_screen_size(&cols, &rows, &bpc);
     Charbuff_size = rows * cols * bpc;
     Charbuff      = (u8 *)((u32)Stack_base - 1024 - Charbuff_size);
@@ -390,8 +401,8 @@ static void bios_init(void)
     _sbd(Devices.video + VIDEO_COMMAND, VIDEO_COMMAND_SETCB);
 
     /* TODO: use a proper driver for the video */
-    ttty_init(&Video_tty, "System Console", TTTY_XYLF | TTTY_ANSI, cols, rows, 1, (void *)Charbuff,
-              video_outc, video_setpos);
+    ttty_init(&Video_tty, "System Console", TTTY_XYLF | TTTY_ANSI, cols, rows, bpc,
+              (void *)Charbuff, video_outc, video_setpos);
     ttty_init(&Serial_tty, "Dumb Terminal", TTTY_STREAM, 0xff, 0xff, 1, (void *)&Devices.tty,
               serial_outc, NULL);
 
@@ -404,7 +415,7 @@ static void bios_init(void)
 
     CurrentTps = 0;
 }
-
+#endif
 /*----------------------------------------------------------------------------*/
 /* ----------------------------- ushell --------------------------------------*/
 
@@ -759,7 +770,44 @@ static const ushell_command_t commands[] = {
 
 void bios_start(void)
 {
-    bios_init();
+    usize i, a = 0;
+    u8   *text_buffer = (u8 *)0xE51000;
+    
+    for (a = 0, i = 0; a < 256; i += 4, a++) {
+        text_buffer[i]     = a;
+        text_buffer[i + 1] = 0xf;
+        text_buffer[i + 2] = 0;
+        text_buffer[i + 3] = 0; /* 1 for cp1, 2 for alt-cp0 and 3 for alt-cp1*/
+    }
+
+    for (a = 0; a < 256; i += 4, a++) {
+        text_buffer[i]     = a;
+        text_buffer[i + 1] = 0xf;
+        text_buffer[i + 2] = 11;
+        text_buffer[i + 3] = 1; /* 1 for cp1, 2 for alt-cp0 and 3 for alt-cp1*/
+    }
+
+    for (a = 0; a < 256; i += 4, a++) {
+        text_buffer[i]     = a;
+        text_buffer[i + 1] = 0xf;
+        text_buffer[i + 2] = 22;
+        text_buffer[i + 3] = 2; /* 1 for cp1, 2 for alt-cp0 and 3 for alt-cp1*/
+    }
+
+    for (a = 0; a < 256; i += 4, a++) {
+        text_buffer[i]     = a;
+        text_buffer[i + 1] = 0xf;
+        text_buffer[i + 2] = 33;
+        text_buffer[i + 3] = 3; /* 1 for cp1, 2 for alt-cp0 and 3 for alt-cp1*/
+    }
+
+loop:
+    goto loop;
+
+    /*_sbd(0x10 + VIDEO_DATA, 0x5);
+    _sbd(0x10 + VIDEO_COMMAND, VIDEO_COMMAND_SETMODE);*/
+
+    /*bios_init();
 
     ttty_mux_clear(&Con);
 
@@ -771,4 +819,5 @@ void bios_start(void)
         u8 chr = tins_getc(&Keyboard_in);
         ushell_process(chr);
     }
+    */
 }

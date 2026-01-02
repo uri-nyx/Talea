@@ -82,7 +82,7 @@ _start:
 #       5. Transfer to C code. Interrupts are still disabled.
 
     .extern  bios_start # _noreturn void bios_start(void);
-    sti
+    
     call     bios_start
 
 #       6. Trap if somehow execution comes here
@@ -426,7 +426,9 @@ memset:
     mv   x10, x12
     fill x12, x14, x13 
     ret
+
     .globl memcpy # extern void* memcpy(void* dest, const void* src, size_t n);
 memcpy:
     mv x10, x12
     copy x13, x12, x14
+    ret

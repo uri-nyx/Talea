@@ -34,11 +34,19 @@ static inline void PlayNextStorageAccessSfx(void)
 
 void Frontend_InitWindow(TaleaConfig *config)
 {
+    int Ww = TALEA_WINDOW_WIDTH;
+    int Wh = TALEA_WINDOW_HEIGHT;
+
+#if defined(PLATFORM_DESKTOP) && defined(HACK_HIDPI)
+    if (config->hidpi) {
+        Ww *= HACK_HIDPI;
+        Wh *= HACK_HIDPI;
+    } 
+#endif
+
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | config->flags); // TODO: Put in the
-                                                           // UI
-    InitWindow(TALEA_WINDOW_WIDTH, TALEA_WINDOW_HEIGHT,
-               TALEA_WINDOW_TITLE); // TODO: Put in the config file AND in the
-                                    // UI
+    // TODO: Put in the config file AND in the  UI
+    InitWindow(Ww, Wh, TALEA_WINDOW_TITLE);
 
 #if defined(PLATFORM_DESKTOP)
     SetWindowPosition((GetMonitorWidth(GetCurrentMonitor()) - GetRenderWidth()) / 2,

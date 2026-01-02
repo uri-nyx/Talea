@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define HACK_HIDPI 3
+
 #ifndef DO_NOT_INCLUDE_RAYLIB
 // Due to confilcts with the WinAPI
 #include "raylib.h"
@@ -257,13 +259,13 @@ enum ModemState {
 };
 
 #define MODEM_CMD_BUFFER_SIZE 65
-#define GET_GUARD_TIME(m) ((double)((m)->s_regs[12]) / 50.0)
+#define GET_GUARD_TIME(m)     ((double)((m)->s_regs[12]) / 50.0)
 
 typedef struct {
     // --- Internal State Machine ---
-    enum ModemState state;  
+    enum ModemState state;
 
-    char cmd_buffer[MODEM_CMD_BUFFER_SIZE]; // Stores AT commands
+    char cmd_buffer[MODEM_CMD_BUFFER_SIZE];         // Stores AT commands
     char last_valid_command[MODEM_CMD_BUFFER_SIZE]; // Stores The last valid executed AT command
     int  cmd_pos;
 
@@ -283,7 +285,7 @@ typedef struct {
 
     // Networking
     double dial_start;
-    
+
 } HayesModem;
 
 void Modem_CheckEscapeSequence(TaleaMachine *m, u8 byte);
@@ -327,64 +329,136 @@ void Terminal_Reset(TaleaMachine *m, TaleaConfig *conf, bool is_restart);
 u8   Terminal_ReadHandler(TaleaMachine *m, u16 addr);
 void Terminal_WriteHandler(TaleaMachine *m, u16 addr, u8 value);
 
-#define TALEA_FRAMEBUFFER_ADDR 0xE53000
+#define TALEA_FRAMEBUFFER_ADDR 0xE60000
 #define TALEA_CHARBUFFER_ADDR  0xE51000
 
-enum TaleaVideoMode {
+enum TextModeAttrib {
+    TEXTMODE_CHAR = 0xFF000000,
+    TEXTMODE_FG   = 0X00FF0000,
+    TEXTMODE_BG   = 0X0000FF00,
+    TEXTMODE_ATT  = 0X000000FF,
+
+    TEXTMODE_ATT_CODEPAGE    = 0x01,
+    TEXTMODE_ATT_ALT_FONT    = 0x02,
+    TEXTMODE_ATT_TRANSPARENT = 0x04,
+    TEXTMODE_ATT_OBLIQUE     = 0x08,
+    TEXTMODE_ATT_DIM         = 0x10,
+    TEXTMODE_ATT_UNDERLINE   = 0x20,
+    TEXTMODE_ATT_BOLD        = 0x40,
+    TEXTMODE_ATT_BLINK       = 0x80,
+};
+
+enum VideoCSR {
+    VIDEO_VBLANK_EN    = 0X01,
+    VIDEO_RESET_REGS   = 0X02,
+    VIDEO_CURSOR_EN    = 0X04,
+    VIDEO_CURSOR_BLINK = 0X08,
+    VIDEO_ROP0         = 0X10,
+    VIDEO_ROP1         = 0X20,
+    VIDEO_RESERVED     = 0X40,
+    VIDEO_QUEUE_FULL   = 0X80,
+};
+
+enum VideoROP {
+    VIDEO_CONFIG_ROP_COPY = 0,
+    VIDEO_CONFIG_ROP_AND  = VIDEO_ROP0,
+    VIDEO_CONFIG_ROP_OR   = VIDEO_ROP1,
+    VIDEO_CONFIG_ROP_XOR  = VIDEO_ROP1 | VIDEO_ROP0,
+};
+
+enum VideoFontID {
+    VIDEO_FONT_BASE_CP0,
+    VIDEO_FONT_BASE_CP1,
+    VIDEO_ALT_FONT_CP0,
+    VIDEO_ALT_FONT_CP1,
+    VIDEO_FONT_IDS
+};
+
+enum VideoMode {
     VIDEO_MODE_TEXT_MONO,
     VIDEO_MODE_TEXT_COLOR,
     VIDEO_MODE_GRAPHIC = 4,
     VIDEO_MODE_TEXT_AND_GRAPHIC,
-/*    VIDEO_GRAPHIC_CUSTOM_SZ,
-    TEXT_AND_GRAPHIC_CUSTOM_SZ,
-*/ // TODO: maybe implement this or UTF16 or UTF8
+    VIDEO_MODE_SMALL_FONT = 0x100,
+};
+
+enum VideoError {
+    VIDEO_NO_ERROR = 0,
+    VIDEO_NOT_ENOUGH_ARGS,
+    VIDEO_TOO_MANY_ARGS,
+    VIDEO_ERROR_QUEUE_FULL,
 };
 
 typedef struct Videorenderer {
-    u8 fontTranslationTable[256];
+    u8 font_translation_tables[VIDEO_FONT_IDS][256];
 
-    Color            background_color, foreground_color;
+    Color background_color, foreground_color;
+
     RenderTexture2D *screen_texture;
     RenderTexture2D  characters_texture;
     RenderTexture2D  framebuffer;
     Color           *charsFake;
 
-    int shaderPalette[16 * 4];
-    int shaderPaletteBg[8 * 4];
+    u32 shaderPalette[256 * 4];
 
     Shader shader;
     int    chars_loc;
-    int    font_loc;
+    int    font_locs[VIDEO_FONT_IDS];
     int    palette_loc;
     int    palettebg_loc;
     int    time_loc;
-    int    charSize_loc;
-    int    baseColor_loc;
-    int    cursorIndex_loc;
-    int    cursorCsr_loc;
-    int    textureSize_loc;
+    int    char_size_loc;
+    int    base_color_loc;
+    int    cursor_cell_idx_loc;
+    int    csr_loc;
+    int    texture_size_loc;
 } VideoRenderer;
 
-enum VideoCursorMode {
-    CURSOR_ENABLE = 0x1,
-    CURSOR_BLINK  = 0x2,
-    CURSOR_SHAPE  = 0x4,
+struct Buff2D {
+    u32 addr;
+    u32 w, h;
+    u32 size;
+    u32 stride;
+};
+
+#define VIDEO_CMD_MAX_ARGS 8
+struct VideoCmd {
+    enum VideoCommand op;
+
+    u64 args[VIDEO_CMD_MAX_ARGS];
+    u8  argc;
+};
+
+#define VIDEO_CMD_QUEUE_SIZE 64
+struct CommandQueue {
+    struct VideoCmd cmd[VIDEO_CMD_QUEUE_SIZE];
+    u8             head, tail;
 };
 
 typedef struct DeviceVideo {
-    u8 mode;
+    enum VideoMode    mode;
+    enum VideoError   error;
+    enum VideoROP     rop;
+    enum VideoCommand last_executed_command;
 
-    Font *font, fonts[256];
-    u8    next_font, current_font;
-    bool  vblank_enable;
+    u8   csr;
+    bool is_drawing;
+    bool vblank_enable;
+    bool cursor_enable;
+    bool cursor_blink;
+    bool queue_full;
 
-    u32 framebuffer_addr;
-    u32 framebuffer_w, framebuffer_h;
-    u32 charbuffer_addr;
-    u8  charbuffer_w, charbuffer_h;
-    u8  bpc, bpp;
-    u16 cursorIndex;
-    u8  cursorCSR;
+    Font fonts[VIDEO_FONT_IDS];
+
+    struct CommandQueue cmd_queue;
+
+    struct VideoCmd current_cmd;
+
+    struct Buff2D framebuffer;
+    struct Buff2D textbuffer;
+    struct Buff2D spritebuffer;
+
+    u16 cursor_cell_index;
 
     VideoRenderer renderer;
 } DeviceVideo;

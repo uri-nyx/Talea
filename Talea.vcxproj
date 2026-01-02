@@ -56,7 +56,7 @@
     <ClCompile Include="src\devices\sock.c" />
     <ClCompile Include="src\devices\storage.c" />
     <ClCompile Include="src\devices\terminal.c" />
-    <ClCompile Include="src\devices\video.c" />
+    <ClCompile Include="src\devices\video-new.c" />
     <ClCompile Include="src\frontend\config.c" />
     <ClCompile Include="src\frontend\frontend.c" />
     <ClCompile Include="src\main.c" />

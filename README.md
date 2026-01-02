@@ -47,6 +47,8 @@ $ make
 
 The emulator depends on raylib (and everything raylib depends on -- OpenGL, Math, etc...), the threading library, and the network library for your system (Ws2_32.lib in windows).
 
+> Note if building from source: make sure to build also raylib, and that RL_DEFAULT_BATCH_MAX_TEXTURE_UNITS is at least 8. otherwise the text mode may not work.  
+
 ### Build the utilities
 
 For Windows, use `tcc` and the provided batch files. On POSIX, just:

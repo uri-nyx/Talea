@@ -17,11 +17,12 @@ Hardware:
             ✔ Modularize the Storage Device (src/devices/storage.c). @done(25-12-24 15:25)
             ✔ Remove direct Raylib/UI calls from the storage backend. @done(25-12-27 03:22)
         PHASE 3: FRONTEND & UI SEPARATION:
+            ☐ cooler UI
             ✔ Move all Raylib initialization and shader code to src/frontend/. @done(25-12-24 15:26)
             ✔ Move UpdateDrawFrame logic to a dedicated renderer module. @done(25-12-24 15:26)
             ✔ Refactor the GUI to modify the machine state via API functions. @done(25-12-25 19:32)
             ✔ Create a dedicated input handler to map Raylib keys to internal scancodes. @done(25-12-24 15:26)
-            [ ] Isolate Audio (OPLL and PCM stream) into src/devices/audio.c.
+            ☐ Isolate Audio (OPLL and PCM stream) into src/devices/audio.c.
     ☐ 2. Test for UB and memory leaks
     ☐ 3. Document everyting:
         ☐ Emulator code
@@ -29,16 +30,16 @@ Hardware:
     ☐ 4. Create a working network stack
     ☐ finish video device
     5. Polish everithing:
-        [ ] Make memory size able to be configurable and not hardcoded
-        [ ] Make Rom non writable at 16MB - 32K in the address space
+        ☐ Make memory size able to be configurable and not hardcoded
+        ☐ Make Rom non writable at 16MB - 32K in the address space
         ☐ Make sure all memory writes pass through WriteMain or WriteData
-        [ ] Implement a tiered logging system (INFO, WARN, ERROR).
-        [ ] Implement loading a sesqui.
-        [ ] Standardize error handling (replace exit(1) with safe defaults).
-        [ ] Write a comprehensive README.md with build instructions.
+        ☐ Implement a tiered logging system (INFO, WARN, ERROR).
+        ✘ Implement loading a sesqui. @cancelled(25-12-31 21:36)
+        ☐ Standardize error handling (replace exit(1) with safe defaults).
+        ☐ Write a comprehensive README.md with build instructions.
         ✔ Add a standard Open Source License file (e.g., MIT or GPL). @done(25-12-27 03:22)
-        [ ] Fix hardcoded paths to allow the app to run from any directory.
-        [ ] Include a "Hello World" assembly sample for new users.
+        ☐ Fix hardcoded paths to allow the app to run from any directory.
+        ☐ Include a "Hello World" assembly sample for new users.
     ☐ 6. Make a website
     ☐ 7. Package a distribution and use a well structured git
 
@@ -89,4 +90,5 @@ Misc:
 Bugs:
     ☐ when shutting down with the UI button, the socket cannot reconnect
     ☐ when loading a firmware and closing the emulator, the string on the config file of windows does not escape backlashes properly
+    ☐ In init window, we have to hack the hidpi, seems it broke a little bit ago in raylib?
 

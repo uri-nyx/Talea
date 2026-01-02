@@ -19,9 +19,6 @@
     <ClCompile Include="src\core\cpu.c">
       <Filter>core</Filter>
     </ClCompile>
-    <ClCompile Include="src\devices\video.c">
-      <Filter>devices</Filter>
-    </ClCompile>
     <ClCompile Include="src\devices\sock.c">
       <Filter>devices</Filter>
     </ClCompile>
@@ -38,6 +35,9 @@
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="src\main.c" />
+    <ClCompile Include="src\devices\video-new.c">
+      <Filter>devices</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\talea.h" />

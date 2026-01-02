@@ -2,6 +2,8 @@
 #include "core/bus.h"
 #include "frontend/frontend.h"
 #include "talea.h"
+#include "palettes.h"
+
 #include <string.h>
 
 // PORTS
@@ -52,6 +54,11 @@ enum VideoCommand {
     COMMAND_CURSOR_SETPOS,
     COMMAND_CURSOR_SETMODE,
     COMMAND_CURSOR_GETPOS,
+
+    // TODO: add this
+    COMMAND_GPU_DRAW_RECT,
+    COMMAND_GPU_DRAW_LINE,
+
 };
 
 u8 Video_ReadHandler(TaleaMachine *m, u16 addr)
@@ -59,8 +66,7 @@ u8 Video_ReadHandler(TaleaMachine *m, u16 addr)
     return m->data_memory[addr];
 }
 
-// Computes a table of 256 bytes that map each character to tis index in the
-// font texture
+// Computes a table of 512 bytes that map each character to its index in the font texture
 void Video_computeFontTranslationTable(DeviceVideo *v, Font font)
 {
     int charH       = font.baseSize;
@@ -145,9 +151,7 @@ void Video_RendererInit(DeviceVideo *v, const char *path)
     SetShaderValue(v->renderer.shader, v->renderer.baseColor_loc, &v->renderer.foreground_color,
                    SHADER_UNIFORM_IVEC4);
     SetShaderValueV(v->renderer.shader, v->renderer.palette_loc, v->renderer.shaderPalette,
-                    SHADER_UNIFORM_IVEC4, 16);
-    SetShaderValueV(v->renderer.shader, v->renderer.palettebg_loc, v->renderer.shaderPaletteBg,
-                    SHADER_UNIFORM_IVEC4, 8);
+                    SHADER_UNIFORM_IVEC4, 256);
 }
 
 static void ClearScreen(TaleaMachine *m)
@@ -158,89 +162,110 @@ static void ClearScreen(TaleaMachine *m)
            (size_t)m->video.charbuffer_h * (size_t)m->video.charbuffer_w * m->video.bpc);
 };
 
+static inline void TextMode_AssembleCharacters(TaleaMachine *m)
+{
+    for (size_t i = 0; i < m->video.charbuffer_h; i++) {
+        for (size_t j = 0, k = 0; j < (size_t)m->video.charbuffer_w * m->video.bpc;
+             j += m->video.bpc, k++) {
+            size_t cell_addr =
+                m->video.charbuffer_addr + ((size_t)m->video.charbuffer_w * m->video.bpc * i) + j;
+
+            // TODO: change fontTranslationTable to be 512 bytes.
+
+            if (m->video.mode == VIDEO_MODE_TEXT_COLOR ||
+                m->video.mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
+                u8 codepage = m->main_memory[cell_addr + 3] & 0x2; // TODO: use an enum
+                u8 alt = m->main_memory[cell_addr + 3] & 0x4; // TODO: use an enum
+                u8 character =
+                    m->video.renderer
+                        .fontTranslationTable[m->main_memory[cell_addr]]; // TODO: implement the other codepage and the
+                u8 fg         = m->main_memory[cell_addr + 1];
+                u8 bg         = m->main_memory[cell_addr + 2];
+                u8 attributes = m->main_memory[cell_addr + 3];
+                m->video.renderer.charsFake[(m->video.charbuffer_w * i) + k] = (Color){
+                    character,
+                    fg,         // foreground (index)
+                    bg,         // background (index)
+                    attributes, // unpacking in shader
+                };
+            } else {
+                u8 character = m->video.renderer.fontTranslationTable[m->main_memory[cell_addr]];
+                m->video.renderer.charsFake[(m->video.charbuffer_w * i) + k] =
+                    (Color){ character, 0, 0, 0 };
+            }
+        }
+    }
+}
+
+// BUG: now in rich text mode the tty does not work as expected
+
+static inline void Framebuffer_Update(TaleaMachine *m)
+{
+    UpdateTexture(m->video.renderer.framebuffer.texture,
+                  &m->main_memory[m->video.framebuffer_addr]);
+    DrawTexturePro(m->video.renderer.framebuffer.texture,
+                   (Rectangle){ 0.0, 0.0f, (float)m->video.renderer.framebuffer.texture.width,
+                                (float)m->video.renderer.framebuffer.texture.height },
+                   (Rectangle){ 0.0, 0.0f, (float)m->video.renderer.screen_texture->texture.width,
+                                (float)m->video.renderer.screen_texture->texture.height },
+                   (Vector2){ 0, 0 }, 0.0f, WHITE);
+}
+
+static inline void TextMode_Render(TaleaMachine *m)
+{
+    UpdateTexture(m->video.renderer.characters_texture.texture, m->video.renderer.charsFake);
+
+    float charSize[2] = { MeasureTextEx(*m->video.font, "M", (float)m->video.font->baseSize, 0.0f).x,
+                          (float)m->video.font->baseSize };
+    int textureSize[2] = { m->video.renderer.screen_texture->texture.width,
+                           m->video.renderer.screen_texture->texture.height };
+    int cursorIndex    = m->video.cursorIndex;
+    int cursorCsr      = m->video.cursorCSR;
+
+    BeginShaderMode(m->video.renderer.shader);
+
+    SetShaderValue(m->video.renderer.shader, m->video.renderer.cursorIndex_loc, &cursorIndex,
+                   SHADER_UNIFORM_INT);
+    SetShaderValue(m->video.renderer.shader, m->video.renderer.cursorCsr_loc, &cursorCsr,
+                   SHADER_UNIFORM_INT);
+    SetShaderValue(m->video.renderer.shader, m->video.renderer.baseColor_loc,
+                   &m->video.renderer.foreground_color, SHADER_UNIFORM_IVEC4);
+    SetShaderValue(m->video.renderer.shader, m->video.renderer.charSize_loc, &charSize,
+                   SHADER_UNIFORM_VEC2);
+    SetShaderValue(m->video.renderer.shader, m->video.renderer.textureSize_loc, &textureSize,
+                   SHADER_UNIFORM_IVEC2);
+    SetShaderValueTexture(m->video.renderer.shader, m->video.renderer.font_loc,
+                          m->video.font->texture); // Add a font2 for the other font
+    SetShaderValueTexture(m->video.renderer.shader, m->video.renderer.chars_loc,
+                          m->video.renderer.characters_texture.texture);
+
+    if (!IsShaderValid(m->video.renderer.shader))
+        TALEA_LOG_ERROR("On UpdateVideo: Shader is not valid\n");
+
+    DrawTexture(m->video.renderer.screen_texture->texture, 0, 0,
+                WHITE); // Drawing BLANK texture, all magic happens on shader
+    EndShaderMode();    // Disable our custom shader, return to default shader
+}
+
 void Video_Update(TaleaMachine *m)
 {
     if (m->video.mode == VIDEO_MODE_TEXT_MONO || m->video.mode == VIDEO_MODE_TEXT_COLOR ||
         m->video.mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
-        for (size_t i = 0; i < m->video.charbuffer_h; i++) {
-            for (size_t j = 0, k = 0; j < (size_t)m->video.charbuffer_w * m->video.bpc;
-                 j += m->video.bpc, k++) {
-                u8 character =
-                    m->video.renderer.fontTranslationTable
-                        [m->main_memory[m->video.charbuffer_addr +
-                                        ((size_t)m->video.charbuffer_w * m->video.bpc * i) + j]];
-
-                if (m->video.mode == VIDEO_MODE_TEXT_COLOR ||
-                    m->video.mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
-                    u8 rawColor =
-                        m->main_memory[m->video.charbuffer_addr +
-                                       ((size_t)m->video.charbuffer_w * m->video.bpc * i) + j + 1];
-                    m->video.renderer.charsFake[(m->video.charbuffer_w * i) + k] = (Color){
-                        character,
-                        0,        // reserved
-                        0,        // reserved
-                        rawColor, // unpacking in shader
-                    };
-                } else {
-                    m->video.renderer.charsFake[(m->video.charbuffer_w * i) + k] =
-                        (Color){ character, 0, 0, 0 };
-                }
-            }
-        }
+        TextMode_AssembleCharacters(m);
     }
 
     BeginTextureMode(*m->video.renderer.screen_texture);
     ClearBackground(BLANK);
 
     if (m->video.mode == VIDEO_MODE_GRAPHIC || m->video.mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
-        UpdateTexture(m->video.renderer.framebuffer.texture,
-                      &m->main_memory[m->video.framebuffer_addr]);
-        DrawTexturePro(m->video.renderer.framebuffer.texture,
-                       (Rectangle){ 0.0, 0.0f, (float)m->video.renderer.framebuffer.texture.width,
-                                    (float)m->video.renderer.framebuffer.texture.height },
-                       (Rectangle){ 0.0, 0.0f,
-                                    (float)m->video.renderer.screen_texture->texture.width,
-                                    (float)m->video.renderer.screen_texture->texture.height },
-                       (Vector2){ 0, 0 }, 0.0f, WHITE);
+        Framebuffer_Update(m);
     }
 
     if (m->video.mode == VIDEO_MODE_TEXT_MONO || m->video.mode == VIDEO_MODE_TEXT_COLOR ||
         m->video.mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
-        // TALEA_LOG_TRACE("Blitting characters by way of a shader\n");
-
-        UpdateTexture(m->video.renderer.characters_texture.texture, m->video.renderer.charsFake);
-
-        float charSize[2] = {
-            MeasureTextEx(*m->video.font, "M", (float)m->video.font->baseSize, 0.0f).x,
-            (float)m->video.font->baseSize
-        };
-        int textureSize[2] = { m->video.renderer.screen_texture->texture.width,
-                               m->video.renderer.screen_texture->texture.height };
-        int cursorIndex    = m->video.cursorIndex;
-        int cursorCsr      = m->video.cursorCSR;
-        BeginShaderMode(m->video.renderer.shader);
-
-        SetShaderValue(m->video.renderer.shader, m->video.renderer.cursorIndex_loc, &cursorIndex,
-                       SHADER_UNIFORM_INT);
-        SetShaderValue(m->video.renderer.shader, m->video.renderer.cursorCsr_loc, &cursorCsr,
-                       SHADER_UNIFORM_INT);
-        SetShaderValue(m->video.renderer.shader, m->video.renderer.baseColor_loc,
-                       &m->video.renderer.foreground_color, SHADER_UNIFORM_IVEC4);
-        SetShaderValue(m->video.renderer.shader, m->video.renderer.charSize_loc, &charSize,
-                       SHADER_UNIFORM_VEC2);
-        SetShaderValue(m->video.renderer.shader, m->video.renderer.textureSize_loc, &textureSize,
-                       SHADER_UNIFORM_IVEC2);
-        SetShaderValueTexture(m->video.renderer.shader, m->video.renderer.font_loc,
-                              m->video.font->texture);
-        SetShaderValueTexture(m->video.renderer.shader, m->video.renderer.chars_loc,
-                              m->video.renderer.characters_texture.texture);
-        if (!IsShaderValid(m->video.renderer.shader))
-            TALEA_LOG_ERROR("On UpdateVideo: Shader is not valid\n");
-        DrawTexture(m->video.renderer.screen_texture->texture, 0, 0,
-                    WHITE); // Drawing BLANK texture, all magic happens on
-                            // shader
-        EndShaderMode();    // Disable our custom shader, return to default shader
+        TextMode_Render(m);
     }
+
     EndTextureMode();
 
     if (m->video.vblank_enable)
@@ -265,7 +290,7 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
                 Video_RendererInit(&m->video, SHADERS_PATH("mode_text_mono.fs"));
             } else {
                 UnloadShader(m->video.renderer.shader);
-                m->video.bpc = 2;
+                m->video.bpc = 4;
                 Video_RendererInit(&m->video, SHADERS_PATH("mode_text_color.fs"));
             };
             break;
@@ -320,12 +345,6 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
                                    (u32)m->data_memory[P_VIDEO_DATAM] << 8 |
                                    m->data_memory[P_VIDEO_DATAL]],
                    sizeof(m->video.renderer.shaderPalette));
-            memcpy(&m->video.renderer.shaderPaletteBg,
-                   &m->main_memory[(u32)m->data_memory[P_VIDEO_DATAH] << 16 |
-                                   (u32)m->data_memory[P_VIDEO_DATAM] << 8 |
-                                   m->data_memory[P_VIDEO_DATAL]],
-                   sizeof(m->video.renderer.shaderPaletteBg));
-            m->video.renderer.shaderPaletteBg[0] = 0;
             break;
         case COMMAND_SETBGCOLOR:
             m->video.renderer.background_color =
@@ -371,15 +390,17 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
             // sets the cursor position based on DATA_M and DATA_L
             m->video.cursorIndex = m->data_memory[P_VIDEO_DATAM] << 8 |
                                    m->data_memory[P_VIDEO_DATAL];
+            m->video.cursorIndex *= m->video.bpc;
             break;
         case COMMAND_CURSOR_SETMODE:
             // sets the cursor mode (see CURSOR_CSR)
             m->video.cursorCSR = m->data_memory[P_VIDEO_DATAL];
+            break;
         case COMMAND_CURSOR_GETPOS:
             // returns the cursor position based on DATA_M and DATA_L
             // and the CSR in DATAH
             m->data_memory[P_VIDEO_DATAH] = m->video.cursorCSR;
-            m->data_memory[P_VIDEO_DATAM] = m->video.cursorCSR >>  8;
+            m->data_memory[P_VIDEO_DATAM] = m->video.cursorCSR >> 8;
             m->data_memory[P_VIDEO_DATAL] = m->video.cursorIndex;
             break;
         default:
@@ -417,34 +438,7 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
             .background_color = BLACK,
             .foreground_color = GOLD,
             .screen_texture   = &state->window.screenTexture,
-            .shaderPalette = {
-                0x00, 0x00, 0x00, 0xff, // BLACK
-                0x99, 0x00, 0x00, 0xff, // RED
-                0x00, 0x66, 0x00, 0xff, // GREEN
-                0xcc, 0xcc, 0x00, 0xff, // GOLD
-                0x00, 0x00, 0x99, 0xff, // INDIGO
-                0x99, 0x00, 0x99, 0xff, // MAGENTA
-                0x00, 0x4c, 0x99, 0xff, // BLUE
-                0xe0, 0xe0, 0xe0, 0xff, // BONE
-                0x60, 0x60, 0x60, 0xff, // GREY
-                0xff, 0x99, 0x33, 0xff, // ORANGE
-                0x33, 0xff, 0x33, 0xff, // LIME
-                0xff, 0xff, 0x33, 0xff, // YELLOW
-                0x66, 0x66, 0xff, 0xff, // VIOLET
-                0xff, 0x33, 0xff, 0xff, // PINK
-                0x33, 0xff, 0xff, 0xff, // CYAN
-                0xff, 0xff, 0xff, 0xff, // WHITE
-            },
-            .shaderPaletteBg = {
-                0x00, 0x00, 0x00, 0x00, // TRANS 
-                0x99, 0x00, 0x00, 0xff, // RED
-                0x00, 0x66, 0x00, 0xff, // GREEN
-                0xcc, 0xcc, 0x00, 0xff, // YELLOW
-                0x00, 0x00, 0x99, 0xff, // INDIGO
-                0x99, 0x00, 0x99, 0xff, // MAGENTA
-                0x00, 0x4c, 0x99, 0xff, // BLUE
-                0xe0, 0xe0, 0xe0, 0xff, // WHITE
-            },
+            .shaderPalette = Pallete_Default_Aurora,
         },
     };
 
