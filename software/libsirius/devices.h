@@ -109,9 +109,17 @@ enum TaleaVideoMode {
 /* VIDEO DEVICE PORTS */
 enum PortsVideo {
     VIDEO_COMMAND = 0x00,
-    VIDEO_GPU0    = 0x01,
-    VIDEO_GPU3    = 0x04,
-    VIDEO_GPU7    = 0x08,
+    VIDEO_GPU0    = 1,
+    VIDEO_GPU1    = 2,
+    VIDEO_GPU2    = 3,
+    VIDEO_GPU3    = 4,
+    VIDEO_GPU4    = 5,
+    VIDEO_GPU5    = 6,
+    VIDEO_GPU6    = 7,
+    VIDEO_GPU7    = 8,
+    VIDEO_GPU8    = 9,
+    VIDEO_GPU9    = 10,
+    VIDEO_GPU10   = 11,
     VIDEO_CUR_X   = 0x0c,
     VIDEO_CUR_Y   = 0x0d,
     VIDEO_CSR     = 0x0e,
@@ -143,6 +151,10 @@ enum VideoCommand {
     COMMAND_DRAW_TRI,
     COMMAND_DRAW_BATCH,
     COMMAND_FILL_SPAN,
+    COMMAND_FILL_VSPAN,
+
+    COMMAND_SET_CSR, // queued for use in blits
+    COMMAND_BIND_CTX,
 };
 
 enum StorageMedium { NoMedia, Tps128K, Tps512K, Tps1M, Hcs32M, Hcs64M, Hcs128M };

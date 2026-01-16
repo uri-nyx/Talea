@@ -40,6 +40,8 @@ Hardware:
         ✔ Add a standard Open Source License file (e.g., MIT or GPL). @done(25-12-27 03:22)
         ☐ Fix hardcoded paths to allow the app to run from any directory.
         ☐ Include a "Hello World" assembly sample for new users.
+        ☐ use a texture for the rich text mode rendering like with the framebuffer
+        ☐ Check bounds on every memory access directly through the array
     ☐ 6. Make a website
     ☐ 7. Package a distribution and use a well structured git
 

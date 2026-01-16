@@ -9,8 +9,7 @@
 #define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
 #include "gui_window_file_dialog.h"
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 
 struct FrontendState state = { 0 };
 

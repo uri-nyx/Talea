@@ -1,7 +1,7 @@
 # Configuration file for the Talea Computer System
 Screen = "windowed" # "windowed", "fullscreen", or "borderless"
 Dynamic_Cycles = false
-CRT_shader = true
+CRT_shader = false
 Keep_TPS_loaded = true
 Sync_TPS_when_ejected = true
 Key_Repeat = true
@@ -9,7 +9,7 @@ Enable_Serial = false
 V-Sync = true
 HiDPI = true
 Port = 1212
-Speed = 0.189583
+Speed = 0.100000
 Firmware = "resources/emulated/firmware/bios.bin"
 TPS_A = "resources/tps_images/akai.tps"
 Hardware_font = "default"

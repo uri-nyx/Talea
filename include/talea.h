@@ -33,8 +33,12 @@ typedef int talea_net_t;
 /* TYPE SHORTHANDS */
 typedef uint8_t  u8;
 typedef uint16_t u16;
+typedef int16_t  i16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 /* PATHS */
 #ifdef _WIN32
@@ -355,15 +359,30 @@ enum VideoCSR {
     VIDEO_CURSOR_BLINK = 0X08,
     VIDEO_ROP0         = 0X10,
     VIDEO_ROP1         = 0X20,
-    VIDEO_RESERVED     = 0X40,
+    VIDEO_ROP2         = 0X40,
     VIDEO_QUEUE_FULL   = 0X80,
 };
 
 enum VideoROP {
-    VIDEO_CONFIG_ROP_COPY = 0,
-    VIDEO_CONFIG_ROP_AND  = VIDEO_ROP0,
-    VIDEO_CONFIG_ROP_OR   = VIDEO_ROP1,
-    VIDEO_CONFIG_ROP_XOR  = VIDEO_ROP1 | VIDEO_ROP0,
+    VIDEO_CONFIG_ROP_COPY    = 0,
+    VIDEO_CONFIG_ROP_AND     = (VIDEO_ROP0) >> 4,
+    VIDEO_CONFIG_ROP_OR      = (VIDEO_ROP1) >> 4,
+    VIDEO_CONFIG_ROP_XOR     = (VIDEO_ROP1 | VIDEO_ROP0) >> 4,
+    VIDEO_CONFIG_ROP_NOT     = (VIDEO_ROP2) >> 4,
+    VIDEO_CONFIG_ROP_TRANS   = (VIDEO_ROP2 | VIDEO_ROP0) >> 4,
+    VIDEO_CONFIG_ROP_AND_NOT = (VIDEO_ROP2 | VIDEO_ROP1) >> 4,
+    VIDEO_CONFIG_ROP_ADDS    = (VIDEO_ROP2 | VIDEO_ROP1 | VIDEO_ROP0) >> 4,
+};
+
+enum VideoSpriteRotation {
+    VIDEO_ROT_IDENT,
+    VIDEO_ROT_FLIPH,
+    VIDEO_ROT_FLIPV,
+    VIDEO_ROT_90,
+    VIDEO_ROT_180,
+    VIDEO_ROT_270,
+    VIDEO_ROT_TRANS,
+    VIDEO_ROT_ANTITRANS,
 };
 
 enum VideoFontID {
@@ -387,7 +406,14 @@ enum VideoError {
     VIDEO_NOT_ENOUGH_ARGS,
     VIDEO_TOO_MANY_ARGS,
     VIDEO_ERROR_QUEUE_FULL,
+    VIDEO_ERROR_NO_MODE,
 };
+
+enum VideoDrawMode {
+    DRAW_MODE_CIRCLE_OUTLINE = 0,
+    DRAW_MODE_CIRCLE_FILL    = 0x2,
+};
+
 
 typedef struct Videorenderer {
     u8 font_translation_tables[VIDEO_FONT_IDS][256];
@@ -396,10 +422,15 @@ typedef struct Videorenderer {
 
     RenderTexture2D *screen_texture;
     RenderTexture2D  characters_texture;
+    Texture2D        pixels;
     RenderTexture2D  framebuffer;
     Color           *charsFake;
 
     u32 shaderPalette[256 * 4];
+
+    Shader fb_shader;
+    int    fb_loc;
+    int    fb_palette_loc;
 
     Shader shader;
     int    chars_loc;
@@ -432,7 +463,7 @@ struct VideoCmd {
 #define VIDEO_CMD_QUEUE_SIZE 64
 struct CommandQueue {
     struct VideoCmd cmd[VIDEO_CMD_QUEUE_SIZE];
-    u8             head, tail;
+    u8              head, tail;
 };
 
 typedef struct DeviceVideo {
@@ -442,6 +473,7 @@ typedef struct DeviceVideo {
     enum VideoCommand last_executed_command;
 
     u8   csr;
+    u8   transparency;
     bool is_drawing;
     bool vblank_enable;
     bool cursor_enable;
@@ -456,7 +488,7 @@ typedef struct DeviceVideo {
 
     struct Buff2D framebuffer;
     struct Buff2D textbuffer;
-    struct Buff2D spritebuffer;
+    struct Buff2D ctx[256];
 
     u16 cursor_cell_index;
 

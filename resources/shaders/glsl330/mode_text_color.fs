@@ -105,7 +105,7 @@ void main()
         outColor = fgColor;
         if (dim) outColor.rgb *= 0.5; // Apply DIM attribute
     } else {
-        //if (transparent) discard;
+        if (transparent) discard;
         outColor = bgColor;
     }
 

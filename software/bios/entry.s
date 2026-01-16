@@ -405,6 +405,12 @@ _shd:
     shd     x13, 0(x12)
     ret
 
+    .globl _swd # extern void _swd(u16 addr, u32 value);
+_swd:
+    trace   x12, x13, x0, x0
+    swd     x13, 0(x12)
+    ret
+
     .globl _lbud # extern u8 _lbud(u16 addr)
 _lbud:
     lbud     x10, 0(x12) #x12 addr
@@ -425,6 +431,13 @@ memset:
     # fill buff, n, fill
     mv   x10, x12
     fill x12, x14, x13 
+    ret
+
+    .globl memseth # extern void *memseth(void *s, u16 c, size_t n)
+memseth:
+    # fillh buff, n, fill
+    mv   x10, x12
+    fillh x12, x14, x13 
     ret
 
     .globl memcpy # extern void* memcpy(void* dest, const void* src, size_t n);

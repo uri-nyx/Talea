@@ -47,6 +47,7 @@ extern u16  _lhud(u16 addr);
 extern u32  _lwd(u16 addr);
 extern void _sbd(u16 addr, u8 value);
 extern void _shd(u16 addr, u16 value);
+extern void _swd(u16 addr, u32 value);
 
 struct KbdEvent {
     u16  scancode;
@@ -768,11 +769,335 @@ static const ushell_command_t commands[] = {
  * *************************************/
 /**************************************************************************************************/
 
+static u8 blit_buff[10 * 10] = {
+    0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf,
+    0x0, 0xf, 0x0, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0xf, 0x0, 0xf, 0x0,
+    0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0xf,
+    0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf,
+    0x0, 0xf, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0x0, 0xf, 0x0, 0xf, 0x0,
+    0xf, 0x0, 0xf, 0x0, 0xf, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0,
+};
+
+// clang-format off
+static u8 test_sprite[10*16] = {
+    0x0,0x0,0x0,0x0,0x0,0x0,0xf,0xf,0xf,0xf,
+    0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,0xf,0xf,
+    0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,0xf,0xf,
+    0x0,0x0,0x0,0x0,0x0,0x0,0xf,0x0,0x0,0xf,
+    0x0,0x0,0x0,0x0,0x0,0xf,0x0,0x0,0x0,0x0,
+    0x0,0x0,0x0,0x0,0xf,0xf,0x0,0x0,0x0,0x0,
+    0x0,0x0,0x0,0xf,0x0,0x0,0xf,0x0,0x0,0x0,
+    0x0,0x0,0xf,0x0,0x0,0x0,0x0,0xf,0x0,0x0,
+    0x0,0xf,0x0,0x0,0x0,0x0,0x0,0x0,0xf,0x0,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf
+};
+
+/* Simple 8x8 checkerboard/grid pattern */
+static u8 checker_pat[64] = {
+    15,15, 0, 0,15,15, 0, 0,
+    15,15, 0, 0,15,15, 0, 0,
+     100, 100, 7, 7, 100, 100, 7, 7,
+     0, 0, 7, 7, 0, 0, 7, 7,
+    15,15, 0, 0,15,15, 0, 0,
+    15,15, 0, 0,15,15, 0, 0,
+     0, 0, 7, 7, 0, 0, 7, 7,
+     0, 0, 7, 7, 0, 0, 7, 7
+};
+
+// clang-format on
+
+static u8 another_buff[64 * 64];
+
+void test_polygon_fill()
+{
+    u16 y;
+    u8  color = 0x3A; /* A distinct purple/pink */
+    u8  ctx   = 1;
+
+    /* Phase 1: Top point to middle indent (y 50 to 70) */
+    /* x0 moves 100 -> 95, x1 moves 100 -> 105 */
+    for (y = 0; y < 20; y++) {
+        u16 offset = (y - 50) / 4; /* slow widening */
+        _sbd(Devices.video + VIDEO_GPU0, ctx);
+        _sbd(Devices.video + VIDEO_GPU1, color);
+        _shd(Devices.video + VIDEO_GPU2, 20 - y); /* x0 widening */
+        _shd(Devices.video + VIDEO_GPU4, 20 + y); /* x1 widening */
+        _shd(Devices.video + VIDEO_GPU6, y);      /* y -> Queue Arg 0 */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+    }
+
+    /* Phase 2: Create a 'bite' out of the side (y 70 to 80) */
+    /* We draw two separate spans on the same Y to create a hole or indent */
+    for (y = 20; y < 30; y++) {
+        /* Left part of the 'bite' */
+        _sbd(Devices.video + VIDEO_GPU0, ctx);
+        _sbd(Devices.video + VIDEO_GPU1, color);
+        _shd(Devices.video + VIDEO_GPU2, 0);  /* x0 */
+        _shd(Devices.video + VIDEO_GPU4, 10); /* x1 */
+        _shd(Devices.video + VIDEO_GPU6, y);  /* y */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+
+        /* Right part of the 'bite' */
+        _sbd(Devices.video + VIDEO_GPU0, ctx);
+        _sbd(Devices.video + VIDEO_GPU1, color);
+        _shd(Devices.video + VIDEO_GPU2, 30); /* x0 */
+        _shd(Devices.video + VIDEO_GPU4, 40); /* x1 */
+        _shd(Devices.video + VIDEO_GPU6, y);  /* y */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+    }
+
+    /* Phase 3: Closing the bottom (y 80 to 100) */
+    for (y = 30; y <= 50; y++) {
+        u16 shrink = (y - 30);
+        _sbd(Devices.video + VIDEO_GPU0, ctx);
+        _sbd(Devices.video + VIDEO_GPU1, color);
+        _shd(Devices.video + VIDEO_GPU2, shrink);      /* narrowing x0 */
+        _shd(Devices.video + VIDEO_GPU4, 40 - shrink); /* narrowing x1 */
+        _shd(Devices.video + VIDEO_GPU6, y);           /* y */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+    }
+}
+
+void test_ui_frame()
+{
+    u16 x = 50, y = 50, w = 150, h = 100;
+    u8  light = 0x0F; /* White/Light gray */
+    u8  dark  = 0x08; /* Dark gray */
+
+    /* 1. Top edge (Light) */
+    _sbd(Devices.video + VIDEO_GPU0, 0);
+    _sbd(Devices.video + VIDEO_GPU1, light);
+    _shd(Devices.video + VIDEO_GPU2, x);
+    _shd(Devices.video + VIDEO_GPU4, x + w);
+    _shd(Devices.video + VIDEO_GPU6, y);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+
+    /* 2. Left edge (Light) */
+    _sbd(Devices.video + VIDEO_GPU0, 0);
+    _sbd(Devices.video + VIDEO_GPU1, light);
+    _shd(Devices.video + VIDEO_GPU2, x);
+    _shd(Devices.video + VIDEO_GPU4, y);
+    _shd(Devices.video + VIDEO_GPU6, y + h);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_VSPAN);
+
+    /* 3. Bottom edge (Dark) */
+    _sbd(Devices.video + VIDEO_GPU0, 0);
+    _sbd(Devices.video + VIDEO_GPU1, dark);
+    _shd(Devices.video + VIDEO_GPU2, x);
+    _shd(Devices.video + VIDEO_GPU4, x + w);
+    _shd(Devices.video + VIDEO_GPU6, y + h);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+
+    /* 4. Right edge (Dark) */
+    _sbd(Devices.video + VIDEO_GPU0, 0);
+    _sbd(Devices.video + VIDEO_GPU1, dark);
+    _shd(Devices.video + VIDEO_GPU2, x + w);
+    _shd(Devices.video + VIDEO_GPU4, y);
+    _shd(Devices.video + VIDEO_GPU6, y + h);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_VSPAN);
+}
+
+void test_pattern_fills()
+{
+    u32 p_addr = (u32)checker_pat;
+    u8  rotation, ctx, u_off, v_off;
+    u16 x, y, dw, dh, pw, ph;
+
+    /* --- TEST 1: ALIGNED BOXES (Rotation 0, Context 0) --- */
+    ctx      = 0;
+    rotation = 0;
+    pw       = 8;
+    ph       = 8;
+
+    /* Box 1 at (10, 10) */
+    x     = 10;
+    y     = 10;
+    dw    = 60;
+    dh    = 60;
+    u_off = (u8)x;
+    v_off = (u8)y; /* Pin pattern to screen */
+
+    /* Arg 0: GPU0(Rot|Ctx), GPU1-3(Addr), GPU4(W), GPU5(H), GPU6(U), GPU7(V) */
+    _swd(Devices.video + VIDEO_GPU0, p_addr);
+    _sbd(Devices.video + VIDEO_GPU0, (u8)(ctx | (rotation << 5)));
+    _sbd(Devices.video + VIDEO_GPU4, (u8)pw);
+    _sbd(Devices.video + VIDEO_GPU5, (u8)ph);
+    _sbd(Devices.video + VIDEO_GPU6, u_off);
+    _sbd(Devices.video + VIDEO_GPU7, v_off);
+
+    /* Arg 1: GPU0-1(X), GPU2-3(Y), GPU4-5(DW), GPU6-7(DH) */
+    _shd(Devices.video + VIDEO_GPU0, x);
+    _shd(Devices.video + VIDEO_GPU2, y);
+    _shd(Devices.video + VIDEO_GPU4, dw);
+    _shd(Devices.video + VIDEO_GPU6, dh);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_PATTERN_FILL);
+    _trace(0x1, 0xb00b);
+
+    /* --- TEST 2: ROTATED 90 DEGREES (Rotation 4) --- */
+    /* Arg 0 */
+    _swd(Devices.video + VIDEO_GPU0, p_addr);
+    _sbd(Devices.video + VIDEO_GPU0, (u8)(ctx | (4 << 5))); /* Rot 4 */
+    _sbd(Devices.video + VIDEO_GPU4, (u8)pw);
+    _sbd(Devices.video + VIDEO_GPU5, (u8)ph);
+    _sbd(Devices.video + VIDEO_GPU6, 0);
+    _sbd(Devices.video + VIDEO_GPU7, 0); /* QUEUE ARG 0 */
+
+    /* Arg 1 */
+    _shd(Devices.video + VIDEO_GPU0, 80); /* x */
+    _shd(Devices.video + VIDEO_GPU2, 10); /* y */
+    _shd(Devices.video + VIDEO_GPU4, 60);
+    _shd(Devices.video + VIDEO_GPU6, 60); /* QUEUE ARG 1 */
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_PATTERN_FILL);
+    _trace(0x2, 0xb00b);
+
+    /* --- TEST 3: SCROLLED PATTERN (U/V Offsets) --- */
+    /* Arg 0 */
+    _sbd(Devices.video + VIDEO_GPU0, (u8)(ctx | (0 << 5)));
+    _sbd(Devices.video + VIDEO_GPU1, (u8)((p_addr >> 16) & 0xFF));
+    _sbd(Devices.video + VIDEO_GPU2, (u8)((p_addr >> 8) & 0xFF));
+    _sbd(Devices.video + VIDEO_GPU3, (u8)(p_addr & 0xFF));
+    _sbd(Devices.video + VIDEO_GPU4, 8);
+    _sbd(Devices.video + VIDEO_GPU5, 8);
+    _sbd(Devices.video + VIDEO_GPU6, 4); /* u_off = 4 */
+    _sbd(Devices.video + VIDEO_GPU7, 4); /* v_off = 4 -> QUEUE ARG 0 */
+
+    /* Arg 1 */
+    _shd(Devices.video + VIDEO_GPU0, 10);
+    _shd(Devices.video + VIDEO_GPU2, 80);
+    _shd(Devices.video + VIDEO_GPU4, 60);
+    _shd(Devices.video + VIDEO_GPU6, 60); /* QUEUE ARG 1 */
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_PATTERN_FILL);
+    _trace(0x3, 0xb00b);
+}
+
+void test_all_rotations()
+{
+    u16 i;
+    u32 sprite_addr  = (u32)test_sprite;
+    u8  dest_context = 0; /* Default screen context */
+    u16 start_x      = 20;
+    u16 start_y      = 20;
+    u16 spacing      = 80;
+
+    for (i = 0; i < 8; i++) {
+        /* Calculate screen position for this test case */
+        u16 dx = start_x + (i % 4) * spacing;
+        u16 dy = start_y + (i / 4) * spacing;
+
+        /* --- ARGUMENT 0 --- */
+
+        /* GPU1-3: Buffer Address (3 bytes / 24-bit) */
+        _swd(Devices.video + VIDEO_GPU0, sprite_addr);
+
+        /* GPU0: 3 bits rotation (i), 5 bits context */
+        _sbd(Devices.video + VIDEO_GPU0, (u8)((i << 5) | (dest_context & 0x1f)));
+
+        /* GPU4-5: Buffer Width (10) */
+        _shd(Devices.video + VIDEO_GPU4, 10);
+
+        /* GPU6-7: Buffer Height (10) */
+        _shd(Devices.video + VIDEO_GPU6, 16);
+
+        /* --- ARGUMENT 1 --- */
+        /* GPU0-1: Dest X */
+        _shd(Devices.video + VIDEO_GPU0, dx);
+
+        /* GPU2-3: Dest Y */
+        _shd(Devices.video + VIDEO_GPU2, dy);
+
+        /* GPU4-5: Dest W (Stretching to 20 for visibility) */
+        _shd(Devices.video + VIDEO_GPU4, 20);
+
+        /* GPU6-7: Dest H (Stretching to 20 for visibility) */
+        _shd(Devices.video + VIDEO_GPU6, 32);
+
+        /* --- EXECUTE COMMAND --- */
+        /* Command 10: Blit Stretched */
+        _sbd(Devices.video + VIDEO_COMMAND, 10);
+    }
+}
+
+static u32 lcg_seed = 12345;
+static u16 talea_rand()
+{
+    lcg_seed = (lcg_seed * 1103515245 + 12345) & 0x7fffffff;
+    return (u16)(lcg_seed >> 16);
+}
+
+void stress_test_triangles()
+{
+    int i;
+    u16 x0, y0, x1, y1, x2, y2;
+    u8  color;
+    u8  target_ctx = 1; /* Drawing to off-screen buffer */
+    u32 start, end;
+
+    _sbd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE, 1); // enable counter mode
+    start = _lwd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+
+    for (i = 0; i < 10000; i++) {
+        /* Generate coordinates within 640x480 */
+        x0    = talea_rand() % 640;
+        y0    = talea_rand() % 480;
+        x1    = talea_rand() % 640;
+        y1    = talea_rand() % 480;
+        x2    = talea_rand() % 640;
+        y2    = talea_rand() % 480;
+        color = (u8)(talea_rand() % 255) + 1;
+
+        /* Prepare Argument 0 */
+        _sbd(Devices.video + VIDEO_GPU0, target_ctx); /* Dest Context */
+        _sbd(Devices.video + VIDEO_GPU1, color);      /* Triangle Color */
+        /* GPU2-3 skipped based on your spec */
+        _shd(Devices.video + VIDEO_GPU4, x0); /* x0 */
+        _shd(Devices.video + VIDEO_GPU6, y0); /* y0 */
+
+        /* Prepare Argument 1 */
+        _shd(Devices.video + VIDEO_GPU0, x1); /* x1 */
+        _shd(Devices.video + VIDEO_GPU2, y1); /* y1 */
+        _shd(Devices.video + VIDEO_GPU4, x2); /* x2 */
+        _shd(Devices.video + VIDEO_GPU6, y2); /* y2 */
+
+        /* Execute Command */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_DRAW_TRI);
+    }
+
+    _sbd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE, 1); // enable counter mode
+    end = _lwd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+
+    _trace(0xdeadbeef, end - start);
+
+    _swd(Devices.video + VIDEO_GPU0, (0 << 24) | 0x100000);
+    _shd(Devices.video + VIDEO_GPU4, 640); // buff w
+    _shd(Devices.video + VIDEO_GPU6, 480); // buff h
+    _shd(Devices.video + VIDEO_GPU0, 0);   // x
+    _shd(Devices.video + VIDEO_GPU2, 0);   // y
+    _shd(Devices.video + VIDEO_GPU7, 0);   // latch
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BLIT);
+}
+
 void bios_start(void)
 {
     usize i, a = 0;
-    u8   *text_buffer = (u8 *)0xE51000;
-    
+    u8   *text_buffer    = (u8 *)0xE51000;
+    u32  *text_buffer_32 = (u32 *)0xE51000;
+    u8   *framebuffer    = (u8 *)0xE60000;
+    u32   grid_x, grid_y;
+    u32   px, py;
+    u8    vcsr;
+
+    for (i = 0; i < 80 * 30; i++) {
+        text_buffer_32[i] = 0x20000004;
+    }
+#if 0
     for (a = 0, i = 0; a < 256; i += 4, a++) {
         text_buffer[i]     = a;
         text_buffer[i + 1] = 0xf;
@@ -800,6 +1125,142 @@ void bios_start(void)
         text_buffer[i + 2] = 33;
         text_buffer[i + 3] = 3; /* 1 for cp1, 2 for alt-cp0 and 3 for alt-cp1*/
     }
+#endif
+
+    /* Loop through a 16x16 grid of color cells */
+    for (grid_y = 0; grid_y < 16; grid_y++) {
+        for (grid_x = 0; grid_x < 16; grid_x++) {
+            /* Calculate the palette index for this cell (0-255) */
+            u8 color_index = (u8)((grid_y * 16) + grid_x);
+
+            /* Draw the square (40x30 pixels) */
+            for (py = 0; py < 30; py++) {
+                for (px = 0; px < 40; px++) {
+                    /* Calculate absolute pixel coordinates */
+                    u32 x = (grid_x * 40) + px;
+                    u32 y = (grid_y * 30) + py;
+
+                    /* Calculate memory offset: y * width + x */
+                    u32 offset = (y * 640) + x;
+
+                    framebuffer[offset] = color_index;
+                }
+            }
+        }
+    }
+
+    Devices.video = 0x10;
+    _sbd(Devices.video + VIDEO_COMMAND, 2); // Begin draw
+    _swd(Devices.video + VIDEO_GPU0, 0x200f0004);
+    _sbd(Devices.video + VIDEO_GPU3 + 1, 255);
+    _sbd(Devices.video + VIDEO_GPU7, 0);    // Trigger argument queue
+    _sbd(Devices.video + VIDEO_COMMAND, 5); // clear
+
+    _swd(Devices.video + VIDEO_GPU0, (1 << 24) | 0x100000); // slot |buff addr
+    _shd(Devices.video + VIDEO_GPU4, 640);                  // buff w
+    _shd(Devices.video + VIDEO_GPU6, 480);                  // buff h
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BIND_CTX);  // bind ctx
+
+    stress_test_triangles();
+
+    _sbd(Devices.video + VIDEO_COMMAND, 1); // end draw
+
+    /*
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 40);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _sbd(Devices.video + VIDEO_GPU7, 0);              // Trigger argument queue
+        _sbd(Devices.video + VIDEO_COMMAND, 9);           // blit
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 60);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 50);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 50);        // dw
+        _sbd(Devices.video + VIDEO_COMMAND, 10);           // blit streched
+
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 130);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 50);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 100);        // dy
+        _sbd(Devices.video + VIDEO_COMMAND, 10);           // blit streched
+
+
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 200);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 20);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 20);        // dw
+        _sbd(Devices.video + VIDEO_COMMAND, 10);           // blit streched
+
+        vcsr = _lbud(Devices.video + VIDEO_CSR);
+        vcsr &= ~112; // Clear rop
+        vcsr |= 5<<4; // ROP TRANS
+        _sbd(Devices.video + VIDEO_GPU0, vcsr);
+        _sbd(Devices.video + VIDEO_GPU7, 0);
+        _sbd(Devices.video + VIDEO_COMMAND, 18); // defer set csr
+
+        _swd(Devices.video + VIDEO_GPU0, (1<<24) | (u32)another_buff); // slot |buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 20);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 20);         // buff h
+        _sbd(Devices.video + VIDEO_COMMAND, 19);           // bind ctx
+
+        _swd(Devices.video + VIDEO_GPU0, (1<<24) | (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 0);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 0);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 20);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 20);        // dw
+        _sbd(Devices.video + VIDEO_COMMAND, 10);
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)another_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 20);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 20);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 275);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 20);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 20);        // dw
+        _sbd(Devices.video + VIDEO_COMMAND, 10);
+
+        _shd(Devices.video + VIDEO_GPU0, 200); // rect color
+        _shd(Devices.video + VIDEO_GPU3 + 1, 70);         // rect w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 20);         // rect h
+        _shd(Devices.video + VIDEO_GPU0, 320);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _sbd(Devices.video + VIDEO_GPU7, 0);        // latch
+        _sbd(Devices.video + VIDEO_COMMAND, 12); // draw rect
+
+        _shd(Devices.video + VIDEO_GPU0, 100); // line color
+        _shd(Devices.video + VIDEO_GPU3 + 1, 100);         // line x0
+        _shd(Devices.video + VIDEO_GPU3 + 3, 200);         // line y0
+        _shd(Devices.video + VIDEO_GPU0, 0);             // x1
+        _shd(Devices.video + VIDEO_GPU0 + 2, 500);        // y1
+        _sbd(Devices.video + VIDEO_GPU7, 0);        // latch
+        _sbd(Devices.video + VIDEO_COMMAND, 13); // draw line
+
+        _shd(Devices.video + VIDEO_GPU0, 120); // outiline color
+        _sbd(Devices.video + VIDEO_GPU0+2, 100);         // fill x0
+        _sbd(Devices.video + VIDEO_GPU3, 0x2);         // mode
+        _shd(Devices.video + VIDEO_GPU3+1, 300);             // xm
+        _shd(Devices.video + VIDEO_GPU3+3, 300);        // ym
+        _shd(Devices.video + VIDEO_GPU0, 40);        // radius
+        _sbd(Devices.video + VIDEO_GPU7, 0);        // latch
+        _sbd(Devices.video + VIDEO_COMMAND, 14); // draw circle
+
+    */
 
 loop:
     goto loop;

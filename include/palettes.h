@@ -270,8 +270,7 @@ static uint32_t Palette_Default_Aurora[] = {
         0x98, 0x34, 0x4d, 0xff,
         0x91, 0x14, 0x37, 0xff,
 };
-
-// clnag-format on
+// clang-format on
 
 
 #endif /* PALETTES_H */
