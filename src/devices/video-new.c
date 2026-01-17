@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <math.h>
 #include <string.h>
 
@@ -56,6 +57,7 @@ enum VideoCommand {
 
     COMMAND_SET_CSR, // queued for use in blits
     COMMAND_BIND_CTX,
+    COMMAND_GET_MARKER,
 };
 
 // clang-format off
@@ -283,9 +285,12 @@ static inline void TextMode_Render(TaleaMachine *m)
 static struct VideoCmd *Video_PopCommandQueue(TaleaMachine *m)
 {
     DeviceVideo *v = &m->video;
+    struct VideoCmd * res;
 
     if (v->cmd_queue.head != v->cmd_queue.tail) {
-        return &v->cmd_queue.cmd[v->cmd_queue.tail++];
+        res = &v->cmd_queue.cmd[v->cmd_queue.tail];
+        v->cmd_queue.tail = (v->cmd_queue.tail + 1) % VIDEO_CMD_QUEUE_SIZE;
+        return res;
     }
 
     return NULL;
@@ -299,15 +304,15 @@ static inline u32 toBe32(u32 u)
 static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 color)
 {
     if (v->mode == VIDEO_MODE_TEXT_MONO) {
-        memset(&m->main_memory[v->textbuffer.addr], ' ', v->textbuffer.h * v->textbuffer.w);
+        memset(&m->main_memory[v->textbuffer.addr], ' ', (size_t)v->textbuffer.h * v->textbuffer.w);
     } else {
         u32 *text       = (u32 *)&m->main_memory[v->textbuffer.addr];
         u32  be_pattern = toBe32(pattern);
-        for (size_t i = 0; i < v->textbuffer.w * v->textbuffer.h; i++) {
+        for (size_t i = 0; i < (size_t)v->textbuffer.w * v->textbuffer.h; i++) {
             text[i] = be_pattern;
         }
 
-        memset(&m->main_memory[v->framebuffer.addr], color, v->framebuffer.w * v->framebuffer.h);
+        memset(&m->main_memory[v->framebuffer.addr], color, (size_t)v->framebuffer.w * v->framebuffer.h);
     }
 }
 
@@ -381,21 +386,21 @@ static void Video_Blit(TaleaMachine *m, DeviceVideo *vid, struct Buff2D *dest, u
 
     if (src >= dest_start && src < dest_end) {
         // buffers overlap
-        temp_src = malloc(w * h * sizeof(u8));
+        temp_src = malloc((size_t)w * h * sizeof(u8));
         if (!temp_src) {
             // panic here?
             TALEA_LOG_ERROR("Out of mem blitting\n");
             return;
         }
 
-        memcpy(temp_src, src, w * h * sizeof(u8));
+        memcpy(temp_src, src, (size_t)w * h * sizeof(u8));
         is_temp = true;
     }
 
     u16 v_x1 = MAX(0, x);
     u16 v_y1 = MAX(0, y);
-    u16 v_x2 = MIN(dest->w, x + dest_w);
-    u16 v_y2 = MIN(dest->h, y + dest_h);
+    u16 v_x2 = MIN((i64)dest->w, x + dest_w);
+    u16 v_y2 = MIN((i64)dest->h, y + dest_h);
 
     if (v_x1 >= v_x2 || v_y1 >= v_y2) {
         if (is_temp) free(temp_src);
@@ -412,8 +417,6 @@ static void Video_Blit(TaleaMachine *m, DeviceVideo *vid, struct Buff2D *dest, u
 
     double ratio_x = (double)dest_w / (double)ew;
     double ratio_y = (double)dest_h / (double)eh;
-
-    TALEA_LOG_TRACE("Blitting with rotation: %d\n", rotation);
 
     for (size_t v = 0; v < h; v++) {
         for (size_t u = 0; u < w; u++) {
@@ -464,7 +467,7 @@ static void Video_DrawRect(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest,
     for (size_t row = v_y1; row < v_y2; row++) {
         u8 *rect = fb + (dest->w * row + v_x1) * dest->stride;
         for (size_t col = v_x1; col < v_x2; col++) {
-            Video_ApplyROP(v, &rect[col - v_x1], color);
+            Video_ApplyROP(v, &rect[(col - v_x1) * dest->stride], color);
         }
     }
 }
@@ -522,31 +525,40 @@ static inline void Buff2D_SetPixel(TaleaMachine *m, DeviceVideo *v, struct Buff2
     if (x >= dest->w || y >= dest->h) return;
     if (x < 0 || y < 0) return;
     u8    *surface = &m->main_memory[dest->addr];
-    size_t index   = ((y * dest->w) + x) * dest->stride;
+    size_t index   = (((size_t)y * dest->w) + x) * dest->stride;
     Video_ApplyROP(v, &surface[index], color);
 }
 
-static void Video_DrawHorizontalLine(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u8 color,
-                                     i16 x1, i16 x2, i16 y)
+static void inline DrawHorizontalLineNoCheck(DeviceVideo *v, u8 color, u8 *start, i16 len)
 {
-    TALEA_LOG_TRACE("Drawing scanline %d from %d to %d, color %x\n", y, x1, x2, color);
+    // This assumes bounds have been checked, coordinates clipped, and x0 < x1
+    if (len <= 0) return;
+
+    if (v->rop == VIDEO_CONFIG_ROP_COPY) {
+        memset(start, color, len);
+    } else {
+        for (size_t col = 0; col < len; col++) {
+            Video_ApplyROP(v, &start[col], color);
+        }
+    }
+}
+
+static void Video_DrawHorizontalLine(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u8 color,
+                                     i16 x0, i16 x1, i16 y)
+{
+    // TALEA_LOG_TRACE("Drawing scanline %d from %d to %d, color %x\n", y, x1, x2, color);
 
     if (y < 0 || y >= dest->h) return;
 
-    size_t start_x = MAX(0, MIN(x1, x2));
-    size_t end_x   = MIN(dest->w - 1, MAX(x1, x2));
+    size_t start_x = MAX(0, MIN(x0, x1));
+    size_t end_x   = MIN(dest->w - 1, MAX(x0, x1));
 
     if (start_x > end_x) return;
 
-    u8 *row = &m->main_memory[dest->addr + ((y * dest->w))];
+    u8 *start = &m->main_memory[dest->addr + ((y * dest->w))];
+    u16 len   = (end_x - start_x) + 1;
 
-    if (v->rop == VIDEO_CONFIG_ROP_COPY) {
-        memset(&row[start_x], color, (end_x - start_x) + 1);
-    } else {
-        for (size_t col = start_x; col < end_x + 1; col++) {
-            Video_ApplyROP(v, &row[col], color);
-        }
-    }
+    DrawHorizontalLineNoCheck(v, color, start, len);
 }
 
 static void Video_DrawVerticalLine(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u8 color,
@@ -666,8 +678,8 @@ static inline bool isTopLeft(i16 x0, i16 y0, i16 x1, i16 y1)
     return is_left || is_top;
 }
 
-static void Video_DrawTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u8 color, i16 x0,
-                          i16 y0, i16 x1, i16 y1, i16 x2, i16 y2)
+static void Video_DrawTriBarycentric(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u8 color,
+                                     i16 x0, i16 y0, i16 x1, i16 y1, i16 x2, i16 y2)
 {
     int minx = MAX(0, MIN(x0, MIN(x1, x2)));
     int miny = MAX(0, MIN(y0, MIN(y1, y2)));
@@ -716,6 +728,383 @@ static void Video_DrawTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, 
         abp += B12;
         bcp += B20;
         cap += B01;
+    }
+}
+
+static inline void fillBottomFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u8 color,
+                                     bool clip, fx16 x0, fx16 y0, fx16 x1, fx16 y1, fx16 x2,
+                                     fx16 y2)
+{
+    // vertices alreary ordered
+
+    if (y1 <= y0) return; /* BottomFlat: y1 is bottom, y0 is top */
+    fx16 dy = y1 - y0;
+
+    fx16 invs0 = (fx16)(((i64)(x1 - x0) << FX16) / dy);
+    fx16 invs1 = (fx16)(((i64)(x2 - x0) << FX16) / dy);
+
+    fx16 invl = (invs0 < invs1) ? invs0 : invs1;
+    fx16 invr = (invs0 < invs1) ? invs1 : invs0;
+
+    fx16 xl = x0;
+    fx16 xr = x0;
+
+    int start_y = FROM_FX16(y0);
+    int end_y   = FROM_FX16(y1);
+
+    if (start_y < 0) {
+        int prestep = 0 - start_y;
+        xl += (fx16)((i64)invl * prestep);
+        xr += (fx16)((i64)invr * prestep);
+        start_y = 0;
+    }
+
+    end_y = end_y > dest->h ? dest->h : end_y;
+
+    u8 *row = &m->main_memory[dest->addr + ((start_y * dest->w))];
+
+    if (!clip)
+        for (size_t scany = start_y; scany < end_y;
+             xl += invl, xr += invr, row += dest->w, scany++) {
+            DrawHorizontalLineNoCheck(v, color, row + FROM_FX16(xl), FROM_FX16(xr) - FROM_FX16(xl));
+        }
+    else
+        for (size_t scany = start_y; scany < end_y;
+             xl += invl, xr += invr, row += dest->w, scany++) {
+            int l = FROM_FX16(xl);
+            int r = FROM_FX16(xr);
+
+            l = l < 0 ? 0 : l;
+            r = r >= dest->w ? dest->w : r;
+
+            if (l < r) DrawHorizontalLineNoCheck(v, color, row + l, r - l);
+        }
+}
+
+static inline void fillTopFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u8 color,
+                                  bool clip, fx16 x0, fx16 y0, fx16 x1, fx16 y1, fx16 x2, fx16 y2)
+{
+    // verices alreary ordered
+
+    if (y2 <= y0) return; /* TopFlat: y2 is bottom, y0 is top */
+
+    fx16 dy1 = y2 - y1;
+    fx16 dy0 = y2 - y0;
+
+    fx16 invs0 = (fx16)(((i64)(x2 - x0) << FX16) / dy0);
+    fx16 invs1 = (fx16)(((i64)(x2 - x1) << FX16) / dy1);
+
+    fx16 invl, invr, xl, xr;
+
+    if (x0 < x1) {
+        xl   = x0;
+        xr   = x1;
+        invl = invs0;
+        invr = invs1;
+    } else {
+        xl   = x1;
+        xr   = x0;
+        invl = invs1;
+        invr = invs0;
+    }
+
+    if (xr < xl) {
+        fx16 t = xl;
+        xl     = xr;
+        xr     = t;
+        t      = invl;
+        invl   = invr;
+        invr   = t;
+    }
+
+    int start_y = FROM_FX16(y0);
+    int end_y   = FROM_FX16(y2);
+
+    if (start_y < 0) {
+        int prestep = 0 - start_y;
+        xl += (fx16)((i64)invl * prestep);
+        xr += (fx16)((i64)invr * prestep);
+        start_y = 0;
+    }
+
+    end_y = end_y >= dest->h ? dest->h - 1 : end_y;
+
+    u8 *row = &m->main_memory[dest->addr + ((start_y * dest->w))];
+
+    if (!clip)
+        for (size_t scany = start_y; scany <= end_y;
+             xl += invl, xr += invr, row += dest->w, scany++) {
+            DrawHorizontalLineNoCheck(v, color, row + FROM_FX16(xl), FROM_FX16(xr) - FROM_FX16(xl));
+        }
+    else
+        for (size_t scany = start_y; scany <= end_y;
+             xl += invl, xr += invr, row += dest->w, scany++) {
+            int l = FROM_FX16(xl);
+            int r = FROM_FX16(xr);
+
+            l = l < 0 ? 0 : l;
+            r = r >= dest->w ? dest->w : r;
+
+            if (l < r) DrawHorizontalLineNoCheck(v, color, row + l, r - l);
+        }
+}
+
+static void Video_DrawTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u8 color, fx16 x0,
+                          fx16 y0, fx16 x1, fx16 y1, fx16 x2, fx16 y2)
+{
+    // adapted from
+    // https://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
+
+    // sort vertices
+    fx16 tmp_x, tmp_y;
+    if (y0 > y1) {
+        tmp_x = x0;
+        tmp_y = y0;
+        x0    = x1;
+        y0    = y1;
+        x1    = tmp_x;
+        y1    = tmp_y;
+    }
+
+    if (y0 > y2) {
+        tmp_x = x0;
+        tmp_y = y0;
+        x0    = x2;
+        y0    = y2;
+        x2    = tmp_x;
+        y2    = tmp_y;
+    }
+
+    if (y1 > y2) {
+        tmp_x = x1;
+        tmp_y = y1;
+        x1    = x2;
+        y1    = y2;
+        x2    = tmp_x;
+        y2    = tmp_y;
+    }
+
+    if (FROM_FX16(y2) < 0 || FROM_FX16(y0) >= dest->h) return;
+    if (y0 == y2) return;
+
+    int  minx = FROM_FX16(MIN(x0, MIN(x1, x2)));
+    int  maxx = FROM_FX16(MAX(x0, MAX(x1, x2)));
+    bool clip = (minx < 0) || (maxx >= dest->w - 1);
+
+    // sorted, y1 <= y2 <= 3
+    /* check for trivial case of bottom-flat triangle */
+    if (y1 == y2) {
+        fillBottomFlatTri(m, v, dest, color, clip, x0, y0, x1, y1, x2, y2);
+    }
+    /* check for trivial case of top-flat triangle */
+    else if (y0 == y1) {
+        fillTopFlatTri(m, v, dest, color, clip, x0, y0, x1, y1, x2, y2);
+    } else {
+        /* general case - split the triangle in a topflat and bottom-flat one */
+        i64 dx         = (i64)x2 - x0;
+        i64 dy_total   = (i64)y2 - y0;
+        i64 dy_partial = (i64)y1 - y0;
+
+        if (dy_total <= 0) return;
+
+        fx16 x3 = x0 + (fx16)((dy_partial * dx) / dy_total);
+        fx16 y3 = y1;
+
+        fillBottomFlatTri(m, v, dest, color, clip, x0, y0, x1, y1, x3, y3);
+        fillTopFlatTri(m, v, dest, color, clip, x1, y1, x3, y3, x2, y2);
+    }
+}
+
+static vxfx16 vertex_buff[MAX_VERTEX_BUFFER_SZ];
+static vxfx16 v2d[MAX_VERTEX_BUFFER_SZ];
+static i16v2  vscreen[MAX_VERTEX_BUFFER_SZ];
+
+static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u32 vxbuff,
+                               u16 len, u16 focal, fx16v3 world_offset, i16v3 rotation,
+                               fx16 max_distance, u8 flags)
+{
+    // preparation:
+    // 1. calculate rotations
+    double rad_x, rad_y, rad_z;
+    rad_x = ((double)rotation.x / 32768.0) * PI;
+    rad_y = ((double)rotation.y / 32768.0) * PI;
+    rad_z = ((double)rotation.z / 32768.0) * PI;
+
+    double sx, sy, sz, cx, cy, cz;
+    sx = sin(rad_x), cx = cos(rad_x);
+    sy = sin(rad_y), cy = cos(rad_y);
+    sz = sin(rad_z), cz = cos(rad_z);
+
+    double m0f, m1f, m2f;
+    double m3f, m4f, m5f;
+    double m6f, m7f, m8f;
+
+    m0f = cy * cz;
+    m1f = (sx * sy * cz) - (cx * sz);
+    m2f = (cx * sy * cz) + (sx * sz);
+
+    m3f = cy * sz;
+    m4f = (sx * sy * sz) + (cx * cz);
+    m5f = (cx * sy * sz) - (sx * cz);
+
+    m6f = -sy;
+    m7f = sx * cy;
+    m8f = cx * cy;
+
+    fx16 m0 = (int)(m0f * 65536);
+    fx16 m1 = (int)(m1f * 65536);
+    fx16 m2 = (int)(m2f * 65536);
+    fx16 m3 = (int)(m3f * 65536);
+    fx16 m4 = (int)(m4f * 65536);
+    fx16 m5 = (int)(m5f * 65536);
+    fx16 m6 = (int)(m6f * 65536);
+    fx16 m7 = (int)(m7f * 65536);
+    fx16 m8 = (int)(m8f * 65536);
+
+    // 2. clear marker bank
+    memset(v->vertex_markers, 0, sizeof(v->vertex_markers));
+    memset(vertex_buff, 0, sizeof(vertex_buff));
+    memset(v2d, 0, sizeof(v2d));
+
+    // Vertex processing:
+    for (size_t i = 0; i < len; i++) {
+        vxfx16 *vx  = &vertex_buff[i];
+        vxfx16 *pvx = &v2d[i];     // projected vertex
+        i16v2  *svx = &vscreen[i]; // screen coordinates;
+
+        size_t offset = i * VXI16_REPR_SZ;
+
+        // Fetching and coordinate promotion
+        vx->x = TO_FX16(Machine_ReadMain16(m, vxbuff + offset + 0)); // TODO: declare inline in the
+                                                                     // header
+        vx->y     = TO_FX16(Machine_ReadMain16(m, vxbuff + offset + 2));
+        vx->z     = TO_FX16(Machine_ReadMain16(m, vxbuff + offset + 4));
+        vx->color = Machine_ReadMain8(m, vxbuff + offset + 6);
+        vx->flags = Machine_ReadMain8(m, vxbuff + offset + 7);
+
+        pvx->color = vx->color;
+        pvx->flags = vx->flags;
+        // Transformation
+
+        // Rotate the vertex
+        fx16 rx, ry, rz;
+        rx = ((i64)vx->x * m0 + (i64)vx->y * m1 + (i64)vx->z * m2) >> FX16;
+        ry = ((i64)vx->x * m3 + (i64)vx->y * m4 + (i64)vx->z * m5) >> FX16;
+        rz = ((i64)vx->x * m6 + (i64)vx->y * m7 + (i64)vx->z * m8) >> FX16;
+
+        // Translate to world offset IF not absolute
+        if (!(flags & VIDEO_BATCH_ABSOLUTE)) {
+            pvx->x = rx + world_offset.x;
+            pvx->y = ry + world_offset.y;
+            pvx->z = rz + world_offset.z;
+        } else {
+            pvx->x = rx;
+            pvx->y = ry;
+            pvx->z = rz;
+        }
+
+        // Projection
+
+        if (pvx->z < TO_FX16(1)) { // near z clipping
+            pvx->flags |= VX_HIDE;
+            continue;
+        } else if (pvx->z > max_distance) {
+            TALEA_LOG_TRACE("MAX distantce: %d\n", max_distance);
+            pvx->flags |= VX_HIDE;
+            continue;
+        } else if (flags & VIDEO_BATCH_PERSPECTIVE) {
+            pvx->x = ((((i64)pvx->x * (i64)focal) << FX16) / pvx->z);
+            pvx->y = ((((i64)pvx->y * (i64)focal) << FX16) / pvx->z);
+            
+            if (ABS(FROM_FX16(pvx->x)) > (i64)dest->w * 2 || ABS(FROM_FX16(pvx->y)) > (i64)dest->h * 2) {
+                pvx->flags |= VX_HIDE;
+                continue;
+            }
+        }
+
+        // Scaling and centering
+        int raw_sx = (dest->w / 2) + FROM_FX16(pvx->x);
+        int raw_sy = (dest->h / 2) - FROM_FX16(pvx->y);
+
+        // Safe clamp to avoid i16 wrap-around glitches
+        if (raw_sx < -32000) raw_sx = -32000;
+        if (raw_sx > 32000) raw_sx = 32000;
+        if (raw_sy < -32000) raw_sy = -32000;
+        if (raw_sy > 32000) raw_sy = 32000;
+
+        svx->x = raw_sx;
+        svx->y = raw_sy;
+
+        if (i == 0) {
+            TALEA_LOG_TRACE("V0: World X: %f, Y: %f, Z: %f, Flags: %d\n", (float)pvx->x / 65536.0,
+                            (float)pvx->y / 65536.0, (float)pvx->z / 65536.0, pvx->flags);
+            TALEA_LOG_TRACE("Projected: X: %f, Y: %f\n", (float)pvx->x / 65536.0,
+                            (float)pvx->y / 65536.0);
+            TALEA_LOG_TRACE("Screen: X: %d, Y: %d\n", raw_sx, raw_sy);
+        }
+
+        // Marker handling
+        if (pvx->flags & VX_MARK) {
+            u8 id                   = pvx->flags >> 4;
+            v->vertex_markers[id].x = pvx->x;
+            v->vertex_markers[id].y = pvx->y;
+            v->vertex_markers[id].z = pvx->z;
+        }
+    }
+
+    enum VideoBatchType primitive = flags & (VIDEO_BATCH_TYPE1 | VIDEO_BATCH_TYPE0);
+    switch (primitive) {
+    case VIDEO_BATCH_TYPE_POINT:
+        /* points: clipping, z-near check*/
+        /* calculate Z-shading if enabled */
+        /* how to handle dithering? */
+        /* raster with Buff2D_SetPixel() */
+        if (flags & VIDEO_BATCH_ZSHADING)
+            for (size_t i = 0; i < len; i++) {
+                vxfx16 *pvx = &v2d[i]; // projected vertex
+                i16v2  *svx = &vscreen[i];
+
+                if (pvx->flags & VX_HIDE) continue;
+                if (svx->x < 0 || svx->x >= (i64)dest->w) continue;
+                if (svx->y < 0 || svx->y >= (i64)dest->h) continue;
+
+                u8 final_color = pvx->color;
+                u8 shade       = pvx->z >= max_distance ? 15 :
+                                 pvx->z <= 0            ? 0 :
+                                                          (pvx->z << 4) / max_distance;
+                Buff2D_SetPixel(m, v, dest, v->color_shades[pvx->color][shade], svx->x, svx->y);
+            }
+        else
+            for (size_t i = 0; i < len; i++) {
+                vxfx16 *pvx = &v2d[i]; // projected vertex
+                i16v2  *svx = &vscreen[i];
+
+                if (pvx->flags & VX_HIDE) continue;
+                if (svx->x < 0 || svx->x >= (i64)dest->w) continue;
+                if (svx->y < 0 || svx->y >= (i64)dest->h) continue;
+
+                Buff2D_SetPixel(m, v, dest, pvx->color, svx->x, svx->y);
+            }
+
+        break;
+    case VIDEO_BATCH_TYPE_LINE:
+        /* lines: clipping, z-near check*/
+        /* calculate Z-shading if enabled */
+        /* how to handle dithering? */
+        /* raster with Bresehnhan */
+        break;
+    case VIDEO_BATCH_TYPE_TRI:
+        /* tris: clipping, z-near check*/
+        /* culling if not disabled */
+        /* calculate Z-shading if enabled */
+        /* how to handle dithering? */
+        /* raster with DrawTri, probably we have to update it */
+        break;
+
+    default:
+        TALEA_LOG_ERROR("Error in batch, invalid batch type: %d\n", primitive);
+        v->error = VIDEO_ERROR_INVALID_BATCH_TYPE;
+        return;
     }
 }
 
@@ -813,10 +1202,6 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         enum VideoSpriteRotation rotation = (cmd->args[1] >> 24) & 0x7;
 
-        for (size_t i = 0; i < 8; i++) TALEA_LOG_TRACE("arg%d: %016llx\n", i, cmd->args[i]);
-        TALEA_LOG_TRACE("arg1: %016llx, x: %d, y: %d\n", cmd->args[1], x, y);
-
-        TALEA_LOG_TRACE("Blitting\n");
         Video_Blit(m, v, dest, src, w, h, x, y, w, h, rotation);
 
         break;
@@ -1034,11 +1419,72 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         // TALEA_LOG_TRACE("Drawing Tri color: %d, x0: %d, y0: %d, x1: %d, y1: %d, x2: %d, y2:
         // %d\n",
         //                 color, x0, y0, x1, y1, x2, y2);
-        Video_DrawTri(m, v, dest, color, x0, y0, x1, y1, x2, y2);
+        Video_DrawTri(m, v, dest, color, TO_FX16(x0), TO_FX16(y0), TO_FX16(x1), TO_FX16(y1),
+                      TO_FX16(x2), TO_FX16(y2));
 
         break;
     }
-    case COMMAND_DRAW_BATCH: break;
+    case COMMAND_DRAW_BATCH: {
+        // TODO: Document
+        /**
+         * Arg0:
+         * Takes 1 byte in GPU0 for the destination context pointer
+         * Takes 1 sesqui in GPU1-3 for the address of the vertex buffer
+         * Takes 1 half word on GPU4-5 for the length of the buffer IN VERTICES
+         * Takes 1 half word on GPU6-7 for the focal lenght
+         * Arg1:
+         * Takes 1 word in GPU0-3 for the world offset x as fx16
+         * Takes 1 word in GPU4-7 for the world offset y as fx16
+         * Arg2:
+         * Takes 1 word in GPU0-3 for the world offset z as fx16
+         * Takes 1 half word in GPU4-5 for the rotation x
+         * Takes 1 half word in GPU6-7 for the rotation y
+         * Arg3:
+         * Takes 1 half word in GPU0-1 for the rotation z
+         * Takes 1 half word in GPU2-3 for the max distance in z shading (upscaled later to fx16)
+         * Takes 1 byte in GPU4 for flags
+         */
+
+        if (cmd->argc > 4) {
+            goto too_many_args;
+            break;
+        } else if (cmd->argc < 4) {
+            goto not_enough_args;
+            break;
+        }
+
+        // Arg 0:
+        u8  ctx    = cmd->args[0] >> 56;
+        u32 vxbuff = cmd->args[0] >> 32 & 0xffffff;
+        u16 len    = cmd->args[0] >> 16;
+        u16 f      = cmd->args[0];
+
+        struct Buff2D *dest = ctx ? &v->ctx[ctx] : &v->framebuffer;
+
+        // Arg 1:
+
+        fx16v3 world_offset = { 0 };
+
+        world_offset.x = cmd->args[1] >> 32;
+        world_offset.y = cmd->args[1];
+
+        // Arg 2:
+        world_offset.z = cmd->args[2] >> 32;
+
+        i16v3 rotation = { 0 } ;
+        rotation.x = cmd->args[2] >> 16;
+        rotation.y = cmd->args[2];
+
+        // Arg 3:
+        rotation.z        = cmd->args[3] >> 48;
+        TALEA_LOG_TRACE("Max distance passed: %d\n", (cmd->args[3] >> 32) & 0xffff);
+        fx16 max_distance = TO_FX16((cmd->args[3] >> 32) & 0xffff);
+        u8   flags        = cmd->args[3] >> 24;
+
+        Video_ProcessBatch(m, v, dest, vxbuff, len, f, world_offset, rotation, max_distance, flags);
+
+        break;
+    }
     case COMMAND_FILL_SPAN: {
         // TODO: Document
         // Arg 0:
@@ -1143,8 +1589,9 @@ void Video_Update(TaleaMachine *m)
 
     EndTextureMode();
 
-    if (m->video.vblank_enable)
+    if (m->video.vblank_enable) {
         Machine_RaiseInterrupt(m, INT_VIDEO_REFRESH, PRIORITY_VBLANK_INTERRUPT);
+    }
 }
 
 static void Video_PushCommandQueue(TaleaMachine *m, u8 op, struct VideoCmd *cmd)
@@ -1163,8 +1610,7 @@ static void Video_PushCommandQueue(TaleaMachine *m, u8 op, struct VideoCmd *cmd)
 
     v->cmd_queue.cmd[v->cmd_queue.head].op   = op;
     v->cmd_queue.cmd[v->cmd_queue.head].argc = cmd->argc;
-    memcpy(v->cmd_queue.cmd[v->cmd_queue.head].args, cmd->args,
-           VIDEO_CMD_MAX_ARGS * sizeof(cmd->args));
+    memcpy(v->cmd_queue.cmd[v->cmd_queue.head].args, cmd->args, sizeof(cmd->args));
 
     v->cmd_queue.head = next_head;
 }
@@ -1176,10 +1622,7 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
 
     switch (value) {
     case COMMAND_END_DRAWING: v->is_drawing = false; break;
-    case COMMAND_BEGIN_DRAWING:
-        TALEA_LOG_TRACE("begin draw\n");
-        v->is_drawing = true;
-        break;
+    case COMMAND_BEGIN_DRAWING: v->is_drawing = true; break;
 
     // Immediate commands
     case COMMAND_SYS_INFO:
@@ -1317,11 +1760,11 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
             arg |= ((u64)m->data_memory[P_VIDEO_GPU5]) << 16;
             arg |= ((u64)m->data_memory[P_VIDEO_GPU6]) << 8;
             arg |= value;
-            v->current_cmd.args[v->current_cmd.argc] = arg;
-            // TALEA_LOG_TRACE("Queueing arg%d: (%016llx) %016llx\n", v->current_cmd.argc, arg,
-            //                 v->current_cmd.args[v->current_cmd.argc]);
+            if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS) v->current_cmd.args[v->current_cmd.argc] = arg;
+            TALEA_LOG_TRACE("Queueing arg%d: (%016llx) %016llx\n", v->current_cmd.argc, arg,
+                         v->current_cmd.args[v->current_cmd.argc]);
             memset(&m->data_memory[P_VIDEO_GPU0], 0, 8);
-            v->current_cmd.argc++;
+            if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS) v->current_cmd.argc++;
         }
 
         break;
@@ -1379,6 +1822,7 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
     };
 
     memcpy(&m->video.renderer.shaderPalette, Palette_Default_Aurora, sizeof(u32) * 4 * (256));
+    memcpy(&m->video.color_shades, aurora_shading_table, sizeof(u8) * 256 * 16);
 
     Video_PrepareFont(&m->video, VIDEO_FONT_BASE_CP0,
                       TextFormat("%s%s%s", FONT_PATH, config->hardware_font, "/cp0.fnt"));

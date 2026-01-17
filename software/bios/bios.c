@@ -903,6 +903,97 @@ void test_ui_frame()
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_VSPAN);
 }
 
+enum VideoBatchFlags {
+    VIDEO_BATCH_TYPE0            = 1 << 0,
+    VIDEO_BATCH_TYPE1            = 1 << 1,
+    VIDEO_BATCH_BACKFACE_CULLING = 1 << 2,
+    VIDEO_BATCH_ZSHADING         = 1 << 3,
+    VIDEO_BATCH_DITHER           = 1 << 4,
+    VIDEO_BATCH_ABSOLUTE         = 1 << 5,
+    VIDEO_BATCH_PERSPECTIVE      = 1 << 6,
+    VIDEO_BATCH_DEPTH_SORT       = 1 << 7,
+};
+
+enum VideoBatchType {
+    VIDEO_BATCH_TYPE_POINT = 0,
+    VIDEO_BATCH_TYPE_LINE  = 1,
+    VIDEO_BATCH_TYPE_TRI   = 2,
+};
+
+static i16 test_rx = 0, test_ry = 0, test_rz = 0;
+
+static u8 cube_mesh[] = {
+    0xff, 0x9c, 0xff, 0x9c, 0xff, 0x9c, 15, 0, /* -100, -100, -100 */
+    0x00, 0x64, 0xff, 0x9c, 0xff, 0x9c, 14, 0, /* 100, -100, -100 */
+    0x00, 0x64, 0x00, 0x64, 0xff, 0x9c, 13, 0, /* 100,  100, -100 */
+    0xff, 0x9c, 0x00, 0x64, 0xff, 0x9c, 12, 0, /* -100,  100, -100 */
+    0xff, 0x9c, 0xff, 0x9c, 0x00, 0x64, 11, 0, /* -100, -100,  100 */
+    0x00, 0x64, 0xff, 0x9c, 0x00, 0x64, 10, 0, /* 100, -100,  100 */
+    0x00, 0x64, 0x00, 0x64, 0x00, 0x64, 9,  0, /* 100,  100,  100 */
+    0xff, 0x9c, 0x00, 0x64, 0x00, 0x64, 8,  0  /* -100,  100,  100 */
+};
+
+void Test_DrawRotatingCube()
+{
+    /* 8 vertices of a cube: X, Y, Z (i16), Color (u8), Flags (u8) */
+    /* Total 8 bytes per vertex. */
+
+    u16 focal    = 50;
+    u16 max_dist = 1200;
+    u8  flags    = VIDEO_BATCH_TYPE_POINT | VIDEO_BATCH_PERSPECTIVE;
+
+    /* Arg 0: GPU0(Ctx), GPU1-3(Addr), GPU4-5(Len), GPU6-7(Focal) */
+    _swd(Devices.video + VIDEO_GPU0, (u32)&cube_mesh);
+    _sbd(Devices.video + VIDEO_GPU0, 1); /* Context 1 */
+    _shd(Devices.video + VIDEO_GPU4, 8); /* 8 vertices */
+    _shd(Devices.video + VIDEO_GPU6, focal);
+
+    /* Arg 1: GPU0-3(Offset X), GPU4-7(Offset Y) */
+    _swd(Devices.video + VIDEO_GPU0, 0); /* X = 0 */
+    _swd(Devices.video + VIDEO_GPU4, 0); /* Y = 0 */
+
+    /* Arg 2: GPU0-3(Offset Z), GPU4-5(Rot X), GPU6-7(Rot Y) */
+    _swd(Devices.video + VIDEO_GPU0, 600 << 16); /* Z = 300.0 fx16 */
+    _shd(Devices.video + VIDEO_GPU4, test_rx);
+    _shd(Devices.video + VIDEO_GPU6, test_ry);
+
+    /* Arg 3: GPU0-2(Rot Z), GPU3-4(MaxDist), GPU5(Flags) */
+    /* Note: Rot Z uses 3 bytes here to align with your spec */
+    _shd(Devices.video + VIDEO_GPU0, test_rz);
+    _shd(Devices.video + VIDEO_GPU2, max_dist);
+    _sbd(Devices.video + VIDEO_GPU4, flags);
+    _sbd(Devices.video + VIDEO_GPU7, 0); // latch
+
+    /* Execute */
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_DRAW_BATCH);
+
+    /* Update rotations for next call */
+    test_rx += 512;
+    //test_ry += 256;
+    test_rz += 128;
+}
+
+void bios_vblank_handler(void)
+{
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
+
+    // clear backbuffer
+    memset(0x100000, 0, 640*480);
+
+
+    Test_DrawRotatingCube();
+
+    _swd(Devices.video + VIDEO_GPU0, (0 << 24) | 0x100000);
+    _shd(Devices.video + VIDEO_GPU4, 640); // buff w
+    _shd(Devices.video + VIDEO_GPU6, 480); // buff h
+    _shd(Devices.video + VIDEO_GPU0, 0);   // x
+    _shd(Devices.video + VIDEO_GPU2, 0);   // y
+    _shd(Devices.video + VIDEO_GPU7, 0);   // latch
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BLIT);
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
+}
+
 void test_pattern_fills()
 {
     u32 p_addr = (u32)checker_pat;
@@ -1150,20 +1241,38 @@ void bios_start(void)
     }
 
     Devices.video = 0x10;
-    _sbd(Devices.video + VIDEO_COMMAND, 2); // Begin draw
-    _swd(Devices.video + VIDEO_GPU0, 0x200f0004);
-    _sbd(Devices.video + VIDEO_GPU3 + 1, 255);
-    _sbd(Devices.video + VIDEO_GPU7, 0);    // Trigger argument queue
-    _sbd(Devices.video + VIDEO_COMMAND, 5); // clear
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
 
     _swd(Devices.video + VIDEO_GPU0, (1 << 24) | 0x100000); // slot |buff addr
     _shd(Devices.video + VIDEO_GPU4, 640);                  // buff w
     _shd(Devices.video + VIDEO_GPU6, 480);                  // buff h
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BIND_CTX);  // bind ctx
 
-    stress_test_triangles();
+/*
+    _swd(Devices.video + VIDEO_GPU0, 0x200f0004);
+    _sbd(Devices.video + VIDEO_GPU4, 0);
+    _sbd(Devices.video + VIDEO_GPU7, 0);                // Trigger argument queue
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_CLEAR); // clear
 
-    _sbd(Devices.video + VIDEO_COMMAND, 1); // end draw
+    Test_DrawRotatingCube();
+
+    _swd(Devices.video + VIDEO_GPU0, (0 << 24) | 0x100000);
+    _shd(Devices.video + VIDEO_GPU4, 640); // buff w
+    _shd(Devices.video + VIDEO_GPU6, 480); // buff h
+    _shd(Devices.video + VIDEO_GPU0, 0);   // x
+    _shd(Devices.video + VIDEO_GPU2, 0);   // y
+    _shd(Devices.video + VIDEO_GPU7, 0);   // latch
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BLIT);
+*/
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
+
+    // eneable vblank
+    
+    vcsr = _lbud(Devices.video + VIDEO_CSR);
+    vcsr |= 1; // vblank enable
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
 
     /*
 

@@ -155,6 +155,7 @@ enum VideoCommand {
 
     COMMAND_SET_CSR, // queued for use in blits
     COMMAND_BIND_CTX,
+    COMMAND_GET_MARKER,
 };
 
 enum StorageMedium { NoMedia, Tps128K, Tps512K, Tps1M, Hcs32M, Hcs64M, Hcs128M };

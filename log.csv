@@ -1,0 +1,896 @@
+Queueing arg0: (01100000028001e0) 01100000028001e0
+Binding to slot: 1, addr: 100000, w: 640, h: 480
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000000000000) 0258000000000000
+Queueing arg3: (000004b040000000) 000004b040000000
+Max distance passed: 1200
+V0: World X: -10.000000, Y: -10.000000, Z: 500.000000, Flags: 0
+Projected: X: -10.000000, Y: -10.000000
+Screen: X: 310, Y: 250
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000002000000) 0258000002000000
+Queueing arg3: (008004b040000000) 008004b040000000
+Max distance passed: 1200
+V0: World X: -9.978149, Y: -9.712234, Z: 495.214844, Flags: 0
+Projected: X: -9.978149, Y: -9.712234
+Screen: X: 310, Y: 250
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000004000000) 0258000004000000
+Queueing arg3: (010004b040000000) 010004b040000000
+Max distance passed: 1200
+V0: World X: -9.962433, Y: -9.389313, Z: 490.681458, Flags: 0
+Projected: X: -9.962433, Y: -9.389313
+Screen: X: 310, Y: 250
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000006000000) 0258000006000000
+Queueing arg3: (018004b040000000) 018004b040000000
+Max distance passed: 1200
+V0: World X: -9.953445, Y: -9.032257, Z: 486.410522, Flags: 0
+Projected: X: -9.953445, Y: -9.032257
+Screen: X: 310, Y: 250
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000008000000) 0258000008000000
+Queueing arg3: (020004b040000000) 020004b040000000
+Max distance passed: 1200
+V0: World X: -9.952545, Y: -8.641953, Z: 482.414246, Flags: 0
+Projected: X: -9.952545, Y: -8.641953
+Screen: X: 310, Y: 249
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800000a000000) 025800000a000000
+Queueing arg3: (028004b040000000) 028004b040000000
+Max distance passed: 1200
+V0: World X: -9.959442, Y: -8.220169, Z: 478.701782, Flags: 0
+Projected: X: -9.959442, Y: -8.220169
+Screen: X: 310, Y: 249
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800000c000000) 025800000c000000
+Queueing arg3: (030004b040000000) 030004b040000000
+Max distance passed: 1200
+V0: World X: -9.975662, Y: -7.768280, Z: 475.277710, Flags: 0
+Projected: X: -9.975662, Y: -7.768280
+Screen: X: 310, Y: 248
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800000e000000) 025800000e000000
+Queueing arg3: (038004b040000000) 038004b040000000
+Max distance passed: 1200
+V0: World X: -10.001190, Y: -7.287842, Z: 472.157288, Flags: 0
+Projected: X: -10.001190, Y: -7.287842
+Screen: X: 309, Y: 248
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000010000000) 0258000010000000
+Queueing arg3: (040004b040000000) 040004b040000000
+Max distance passed: 1200
+V0: World X: -10.036728, Y: -6.781754, Z: 469.345093, Flags: 0
+Projected: X: -10.036728, Y: -6.781754
+Screen: X: 309, Y: 247
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000012000000) 0258000012000000
+Queueing arg3: (048004b040000000) 048004b040000000
+Max distance passed: 1200
+V0: World X: -10.082428, Y: -6.251938, Z: 466.847229, Flags: 0
+Projected: X: -10.082428, Y: -6.251938
+Screen: X: 309, Y: 247
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000014000000) 0258000014000000
+Queueing arg3: (050004b040000000) 050004b040000000
+Max distance passed: 1200
+V0: World X: -10.138535, Y: -5.701141, Z: 464.669800, Flags: 0
+Projected: X: -10.138535, Y: -5.701141
+Screen: X: 309, Y: 246
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000016000000) 0258000016000000
+Queueing arg3: (058004b040000000) 058004b040000000
+Max distance passed: 1200
+V0: World X: -10.205322, Y: -5.132324, Z: 462.817383, Flags: 0
+Projected: X: -10.205322, Y: -5.132324
+Screen: X: 309, Y: 246
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000018000000) 0258000018000000
+Queueing arg3: (060004b040000000) 060004b040000000
+Max distance passed: 1200
+V0: World X: -10.282776, Y: -4.548538, Z: 461.297607, Flags: 0
+Projected: X: -10.282776, Y: -4.548538
+Screen: X: 309, Y: 245
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800001a000000) 025800001a000000
+Queueing arg3: (068004b040000000) 068004b040000000
+Max distance passed: 1200
+V0: World X: -10.370499, Y: -3.952393, Z: 460.110474, Flags: 0
+Projected: X: -10.370499, Y: -3.952393
+Screen: X: 309, Y: 244
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800001c000000) 025800001c000000
+Queueing arg3: (070004b040000000) 070004b040000000
+Max distance passed: 1200
+V0: World X: -10.468765, Y: -3.348206, Z: 459.260559, Flags: 0
+Projected: X: -10.468765, Y: -3.348206
+Screen: X: 309, Y: 244
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800001e000000) 025800001e000000
+Queueing arg3: (078004b040000000) 078004b040000000
+Max distance passed: 1200
+V0: World X: -10.576355, Y: -2.738419, Z: 458.750916, Flags: 0
+Projected: X: -10.576355, Y: -2.738419
+Screen: X: 309, Y: 243
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000020000000) 0258000020000000
+Queueing arg3: (080004b040000000) 080004b040000000
+Max distance passed: 1200
+V0: World X: -10.693558, Y: -2.127029, Z: 458.581543, Flags: 0
+Projected: X: -10.693558, Y: -2.127029
+Screen: X: 309, Y: 243
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000022000000) 0258000022000000
+Queueing arg3: (088004b040000000) 088004b040000000
+Max distance passed: 1200
+V0: World X: -10.819489, Y: -1.517380, Z: 458.750916, Flags: 0
+Projected: X: -10.819489, Y: -1.517380
+Screen: X: 309, Y: 242
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000024000000) 0258000024000000
+Queueing arg3: (090004b040000000) 090004b040000000
+Max distance passed: 1200
+V0: World X: -10.953003, Y: -0.912842, Z: 459.260559, Flags: 0
+Projected: X: -10.953003, Y: -0.912842
+Screen: X: 309, Y: 241
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000026000000) 0258000026000000
+Queueing arg3: (098004b040000000) 098004b040000000
+Max distance passed: 1200
+V0: World X: -11.093781, Y: -0.316864, Z: 460.110474, Flags: 0
+Projected: X: -11.093781, Y: -0.316864
+Screen: X: 308, Y: 241
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000028000000) 0258000028000000
+Queueing arg3: (0a0004b040000000) 0a0004b040000000
+Max distance passed: 1200
+V0: World X: -11.240707, Y: 0.267426, Z: 461.297607, Flags: 0
+Projected: X: -11.240707, Y: 0.267426
+Screen: X: 308, Y: 240
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800002a000000) 025800002a000000
+Queueing arg3: (0a8004b040000000) 0a8004b040000000
+Max distance passed: 1200
+V0: World X: -11.392715, Y: 0.836426, Z: 462.817383, Flags: 0
+Projected: X: -11.392715, Y: 0.836426
+Screen: X: 308, Y: 240
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800002c000000) 025800002c000000
+Queueing arg3: (0b0004b040000000) 0b0004b040000000
+Max distance passed: 1200
+V0: World X: -11.548767, Y: 1.387390, Z: 464.669800, Flags: 0
+Projected: X: -11.548767, Y: 1.387390
+Screen: X: 308, Y: 239
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800002e000000) 025800002e000000
+Queueing arg3: (0b8004b040000000) 0b8004b040000000
+Max distance passed: 1200
+V0: World X: -11.707352, Y: 1.917770, Z: 466.847229, Flags: 0
+Projected: X: -11.707352, Y: 1.917770
+Screen: X: 308, Y: 239
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000030000000) 0258000030000000
+Queueing arg3: (0c0004b040000000) 0c0004b040000000
+Max distance passed: 1200
+V0: World X: -11.867905, Y: 2.424805, Z: 469.345093, Flags: 0
+Projected: X: -11.867905, Y: 2.424805
+Screen: X: 308, Y: 238
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000032000000) 0258000032000000
+Queueing arg3: (0c8004b040000000) 0c8004b040000000
+Max distance passed: 1200
+V0: World X: -12.028931, Y: 2.905960, Z: 472.157288, Flags: 0
+Projected: X: -12.028931, Y: 2.905960
+Screen: X: 307, Y: 238
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000034000000) 0258000034000000
+Queueing arg3: (0d0004b040000000) 0d0004b040000000
+Max distance passed: 1200
+V0: World X: -12.189133, Y: 3.359467, Z: 475.277710, Flags: 0
+Projected: X: -12.189133, Y: 3.359467
+Screen: X: 307, Y: 237
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000036000000) 0258000036000000
+Queueing arg3: (0d8004b040000000) 0d8004b040000000
+Max distance passed: 1200
+V0: World X: -12.347076, Y: 3.783279, Z: 478.701782, Flags: 0
+Projected: X: -12.347076, Y: 3.783279
+Screen: X: 307, Y: 237
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000038000000) 0258000038000000
+Queueing arg3: (0e0004b040000000) 0e0004b040000000
+Max distance passed: 1200
+V0: World X: -12.502090, Y: 4.175629, Z: 482.414246, Flags: 0
+Projected: X: -12.502090, Y: 4.175629
+Screen: X: 307, Y: 236
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800003a000000) 025800003a000000
+Queueing arg3: (0e8004b040000000) 0e8004b040000000
+Max distance passed: 1200
+V0: World X: -12.652374, Y: 4.535812, Z: 486.410522, Flags: 0
+Projected: X: -12.652374, Y: 4.535812
+Screen: X: 307, Y: 236
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800003c000000) 025800003c000000
+Queueing arg3: (0f0004b040000000) 0f0004b040000000
+Max distance passed: 1200
+V0: World X: -12.797241, Y: 4.862183, Z: 490.681458, Flags: 0
+Projected: X: -12.797241, Y: 4.862183
+Screen: X: 307, Y: 236
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800003e000000) 025800003e000000
+Queueing arg3: (0f8004b040000000) 0f8004b040000000
+Max distance passed: 1200
+V0: World X: -12.935211, Y: 5.154602, Z: 495.214844, Flags: 0
+Projected: X: -12.935211, Y: 5.154602
+Screen: X: 307, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000040000000) 0258000040000000
+Queueing arg3: (100004b040000000) 100004b040000000
+Max distance passed: 1200
+V0: World X: -13.065445, Y: 5.411957, Z: 500.001526, Flags: 0
+Projected: X: -13.065445, Y: 5.411957
+Screen: X: 306, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000042000000) 0258000042000000
+Queueing arg3: (108004b040000000) 108004b040000000
+Max distance passed: 1200
+V0: World X: -13.186829, Y: 5.634430, Z: 505.026245, Flags: 0
+Projected: X: -13.186829, Y: 5.634430
+Screen: X: 306, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000044000000) 0258000044000000
+Queueing arg3: (110004b040000000) 110004b040000000
+Max distance passed: 1200
+V0: World X: -13.298584, Y: 5.822037, Z: 510.282898, Flags: 0
+Projected: X: -13.298584, Y: 5.822037
+Screen: X: 306, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000046000000) 0258000046000000
+Queueing arg3: (118004b040000000) 118004b040000000
+Max distance passed: 1200
+V0: World X: -13.399460, Y: 5.974594, Z: 515.756226, Flags: 0
+Projected: X: -13.399460, Y: 5.974594
+Screen: X: 306, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000048000000) 0258000048000000
+Queueing arg3: (120004b040000000) 120004b040000000
+Max distance passed: 1200
+V0: World X: -13.488907, Y: 6.092911, Z: 521.430969, Flags: 0
+Projected: X: -13.488907, Y: 6.092911
+Screen: X: 306, Y: 234
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800004a000000) 025800004a000000
+Queueing arg3: (128004b040000000) 128004b040000000
+Max distance passed: 1200
+V0: World X: -13.566345, Y: 6.177505, Z: 527.294922, Flags: 0
+Projected: X: -13.566345, Y: 6.177505
+Screen: X: 306, Y: 234
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800004c000000) 025800004c000000
+Queueing arg3: (130004b040000000) 130004b040000000
+Max distance passed: 1200
+V0: World X: -13.630875, Y: 6.229004, Z: 533.334351, Flags: 0
+Projected: X: -13.630875, Y: 6.229004
+Screen: X: 306, Y: 234
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800004e000000) 025800004e000000
+Queueing arg3: (138004b040000000) 138004b040000000
+Max distance passed: 1200
+V0: World X: -13.681976, Y: 6.248352, Z: 539.533997, Flags: 0
+Projected: X: -13.681976, Y: 6.248352
+Screen: X: 306, Y: 234
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000050000000) 0258000050000000
+Queueing arg3: (140004b040000000) 140004b040000000
+Max distance passed: 1200
+V0: World X: -13.719147, Y: 6.236649, Z: 545.880127, Flags: 0
+Projected: X: -13.719147, Y: 6.236649
+Screen: X: 306, Y: 234
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000052000000) 0258000052000000
+Queueing arg3: (148004b040000000) 148004b040000000
+Max distance passed: 1200
+V0: World X: -13.741974, Y: 6.194580, Z: 552.357483, Flags: 0
+Projected: X: -13.741974, Y: 6.194580
+Screen: X: 306, Y: 234
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000054000000) 0258000054000000
+Queueing arg3: (150004b040000000) 150004b040000000
+Max distance passed: 1200
+V0: World X: -13.750153, Y: 6.123871, Z: 558.947754, Flags: 0
+Projected: X: -13.750153, Y: 6.123871
+Screen: X: 306, Y: 234
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000056000000) 0258000056000000
+Queueing arg3: (158004b040000000) 158004b040000000
+Max distance passed: 1200
+V0: World X: -13.743057, Y: 6.025818, Z: 565.637207, Flags: 0
+Projected: X: -13.743057, Y: 6.025818
+Screen: X: 306, Y: 234
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000058000000) 0258000058000000
+Queueing arg3: (160004b040000000) 160004b040000000
+Max distance passed: 1200
+V0: World X: -13.720963, Y: 5.901215, Z: 572.409058, Flags: 0
+Projected: X: -13.720963, Y: 5.901215
+Screen: X: 306, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800005a000000) 025800005a000000
+Queueing arg3: (168004b040000000) 168004b040000000
+Max distance passed: 1200
+V0: World X: -13.683029, Y: 5.751984, Z: 579.248047, Flags: 0
+Projected: X: -13.683029, Y: 5.751984
+Screen: X: 306, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800005c000000) 025800005c000000
+Queueing arg3: (170004b040000000) 170004b040000000
+Max distance passed: 1200
+V0: World X: -13.629715, Y: 5.579346, Z: 586.137390, Flags: 0
+Projected: X: -13.629715, Y: 5.579346
+Screen: X: 306, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800005e000000) 025800005e000000
+Queueing arg3: (178004b040000000) 178004b040000000
+Max distance passed: 1200
+V0: World X: -13.560760, Y: 5.384521, Z: 593.061829, Flags: 0
+Projected: X: -13.560760, Y: 5.384521
+Screen: X: 306, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000060000000) 0258000060000000
+Queueing arg3: (180004b040000000) 180004b040000000
+Max distance passed: 1200
+V0: World X: -13.476181, Y: 5.169296, Z: 600.000000, Flags: 0
+Projected: X: -13.476181, Y: 5.169296
+Screen: X: 306, Y: 235
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000062000000) 0258000062000000
+Queueing arg3: (188004b040000000) 188004b040000000
+Max distance passed: 1200
+V0: World X: -13.375916, Y: 4.934708, Z: 606.938171, Flags: 0
+Projected: X: -13.375916, Y: 4.934708
+Screen: X: 306, Y: 236
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000064000000) 0258000064000000
+Queueing arg3: (190004b040000000) 190004b040000000
+Max distance passed: 1200
+V0: World X: -13.259964, Y: 4.682190, Z: 613.862610, Flags: 0
+Projected: X: -13.259964, Y: 4.682190
+Screen: X: 306, Y: 236
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000066000000) 0258000066000000
+Queueing arg3: (198004b040000000) 198004b040000000
+Max distance passed: 1200
+V0: World X: -13.128525, Y: 4.413666, Z: 620.751953, Flags: 0
+Projected: X: -13.128525, Y: 4.413666
+Screen: X: 306, Y: 236
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000068000000) 0258000068000000
+Queueing arg3: (1a0004b040000000) 1a0004b040000000
+Max distance passed: 1200
+V0: World X: -12.981827, Y: 4.129852, Z: 627.590942, Flags: 0
+Projected: X: -12.981827, Y: 4.129852
+Screen: X: 307, Y: 236
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800006a000000) 025800006a000000
+Queueing arg3: (1a8004b040000000) 1a8004b040000000
+Max distance passed: 1200
+V0: World X: -12.819794, Y: 3.832474, Z: 634.362793, Flags: 0
+Projected: X: -12.819794, Y: 3.832474
+Screen: X: 307, Y: 237
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800006c000000) 025800006c000000
+Queueing arg3: (1b0004b040000000) 1b0004b040000000
+Max distance passed: 1200
+V0: World X: -12.642685, Y: 3.522675, Z: 641.052246, Flags: 0
+Projected: X: -12.642685, Y: 3.522675
+Screen: X: 307, Y: 237
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800006e000000) 025800006e000000
+Queueing arg3: (1b8004b040000000) 1b8004b040000000
+Max distance passed: 1200
+V0: World X: -12.450897, Y: 3.201752, Z: 647.642517, Flags: 0
+Projected: X: -12.450897, Y: 3.201752
+Screen: X: 307, Y: 237
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000070000000) 0258000070000000
+Queueing arg3: (1c0004b040000000) 1c0004b040000000
+Max distance passed: 1200
+V0: World X: -12.244446, Y: 2.870865, Z: 654.119873, Flags: 0
+Projected: X: -12.244446, Y: 2.870865
+Screen: X: 307, Y: 238
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000072000000) 0258000072000000
+Queueing arg3: (1c8004b040000000) 1c8004b040000000
+Max distance passed: 1200
+V0: World X: -12.023636, Y: 2.531281, Z: 660.466003, Flags: 0
+Projected: X: -12.023636, Y: 2.531281
+Screen: X: 307, Y: 238
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000074000000) 0258000074000000
+Queueing arg3: (1d0004b040000000) 1d0004b040000000
+Max distance passed: 1200
+V0: World X: -11.788910, Y: 2.184219, Z: 666.665649, Flags: 0
+Projected: X: -11.788910, Y: 2.184219
+Screen: X: 308, Y: 238
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000076000000) 0258000076000000
+Queueing arg3: (1d8004b040000000) 1d8004b040000000
+Max distance passed: 1200
+V0: World X: -11.540283, Y: 1.830597, Z: 672.705078, Flags: 0
+Projected: X: -11.540283, Y: 1.830597
+Screen: X: 308, Y: 239
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (0258000078000000) 0258000078000000
+Queueing arg3: (1e0004b040000000) 1e0004b040000000
+Max distance passed: 1200
+V0: World X: -11.278091, Y: 1.471405, Z: 678.569031, Flags: 0
+Projected: X: -11.278091, Y: 1.471405
+Screen: X: 308, Y: 239
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800007a000000) 025800007a000000
+Queueing arg3: (1e8004b040000000) 1e8004b040000000
+Max distance passed: 1200
+V0: World X: -11.002930, Y: 1.107986, Z: 684.243774, Flags: 0
+Projected: X: -11.002930, Y: 1.107986
+Screen: X: 308, Y: 239
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800007c000000) 025800007c000000
+Queueing arg3: (1f0004b040000000) 1f0004b040000000
+Max distance passed: 1200
+V0: World X: -10.714844, Y: 0.740906, Z: 689.717102, Flags: 0
+Projected: X: -10.714844, Y: 0.740906
+Screen: X: 309, Y: 240
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Queueing arg0: (01ffe07e00080032) 01ffe07e00080032
+Queueing arg1: (0000000000000000) 0000000000000000
+Queueing arg2: (025800007e000000) 025800007e000000
+Queueing arg3: (1f8004b040000000) 1f8004b040000000
+Max distance passed: 1200
+V0: World X: -10.414124, Y: 0.371262, Z: 694.973755, Flags: 0
+Projected: X: -10.414124, Y: 0.371262
+Screen: X: 309, Y: 240
+Queueing arg0: (00100000028001e0) 00100000028001e0
+Queueing arg1: (0000000000000000) 0000000000000000
+Pushing video command: 9, argc: 2
+Unknown video command, cmd: -859029248
+Unknown video command, cmd: -858993664
+Unknown video command, cmd: 307200
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 522133279
+Unknown video command, cmd: 1263159624
+Unknown video command, cmd: 2054781047
+Unknown video command, cmd: 522133279
+Unknown video command, cmd: 993671480
+Unknown video command, cmd: 1802135912
+Unknown video command, cmd: -1162233673
+Unknown video command, cmd: 724183336
+Unknown video command, cmd: 1869487981
+Unknown video command, cmd: -1094861637
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 1111572543
+Unknown video command, cmd: 4
+Unknown video command, cmd: 68
+Unknown video command, cmd: 153
+Unknown video command, cmd: 238
+Unknown video command, cmd: 191
+Unknown video command, cmd: 255
+Unknown video command, cmd: 85
+Unknown video command, cmd: 255
+Unknown video command, cmd: 63
+Unknown video command, cmd: 75
+Unknown video command, cmd: 110
+Unknown video command, cmd: 225
+Unknown video command, cmd: 127
+Unknown video command, cmd: 199
+Unknown video command, cmd: 143
+Unknown video command, cmd: 143
+Unknown video command, cmd: 237
+Unknown video command, cmd: 88
+Unknown video command, cmd: 80
+Unknown video command, cmd: 143
+Unknown video command, cmd: 135
+Unknown video command, cmd: 59
+Unknown video command, cmd: 190
+Unknown video command, cmd: 87
+Unknown video command, cmd: 73
+Unknown video command, cmd: 171
+Unknown video command, cmd: 115
+Unknown video command, cmd: 143
+Unknown video command, cmd: 227
+Unknown video command, cmd: 195
+Unknown video command, cmd: 98
+Unknown video command, cmd: 245
+Unknown video command, cmd: 218
+Unknown video command, cmd: 98
+Unknown video command, cmd: 255
+Unknown video command, cmd: 115
+Drawing Rect color: 0, h: 0, w: 12, x: 0, y: 150
+Unknown video command, cmd: 75
+Drawing vline 255 from 0 to 128, color 0
+Unknown video command, cmd: 106
+Video, too many args: 156
+Unknown video command, cmd: 50
+Unknown video command, cmd: 74
+Unknown video command, cmd: 74
+Unknown video command, cmd: 35
+Unknown video command, cmd: 156
+Unknown video command, cmd: 248
+Unknown video command, cmd: 189
+Unknown video command, cmd: 50
+Unknown video command, cmd: 255
+Unknown video command, cmd: 152
+Unknown video command, cmd: 2
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: -117448702
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0
+Unknown video command, cmd: 0

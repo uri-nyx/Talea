@@ -83,6 +83,7 @@ _start:
 
     .extern  bios_start # _noreturn void bios_start(void);
     
+    sti
     call     bios_start
 
 #       6. Trap if somehow execution comes here
@@ -270,7 +271,7 @@ _isr_video_refresh:
     addi    x8,x2,32
     sw      x1,24(x2)
 
-    #call    bios_vblank_handler
+    call    bios_vblank_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -392,7 +393,6 @@ _trace:
     .globl _trace_sreg
 _trace_sreg:
     gsreg   x5
-    trace   x5, x0,x0,x0
     ret
 
     .globl _sbd # extern void _sbd(u16 addr, u8 value)
@@ -407,7 +407,6 @@ _shd:
 
     .globl _swd # extern void _swd(u16 addr, u32 value);
 _swd:
-    trace   x12, x13, x0, x0
     swd     x13, 0(x12)
     ret
 

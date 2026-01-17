@@ -35,10 +35,13 @@ typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef int16_t  i16;
 typedef uint32_t u32;
+typedef int32_t  i32;
 typedef uint64_t u64;
+typedef int64_t  i64;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define ABS(a) ((a) > 0 ? (a) : -(a))
 
 /* PATHS */
 #ifdef _WIN32
@@ -385,6 +388,23 @@ enum VideoSpriteRotation {
     VIDEO_ROT_ANTITRANS,
 };
 
+enum VideoBatchFlags {
+    VIDEO_BATCH_TYPE0 = 1<<0,
+    VIDEO_BATCH_TYPE1 = 1<<1,
+    VIDEO_BATCH_BACKFACE_CULLING = 1<<2,
+    VIDEO_BATCH_ZSHADING = 1<<3,
+    VIDEO_BATCH_DITHER = 1<<4,
+    VIDEO_BATCH_ABSOLUTE = 1<<5,
+    VIDEO_BATCH_PERSPECTIVE = 1<<6,
+    VIDEO_BATCH_DEPTH_SORT = 1<<7,
+};
+
+enum VideoBatchType {
+    VIDEO_BATCH_TYPE_POINT = 0,
+    VIDEO_BATCH_TYPE_LINE = 1,
+    VIDEO_BATCH_TYPE_TRI = 2,
+};
+
 enum VideoFontID {
     VIDEO_FONT_BASE_CP0,
     VIDEO_FONT_BASE_CP1,
@@ -407,6 +427,7 @@ enum VideoError {
     VIDEO_TOO_MANY_ARGS,
     VIDEO_ERROR_QUEUE_FULL,
     VIDEO_ERROR_NO_MODE,
+    VIDEO_ERROR_INVALID_BATCH_TYPE,
 };
 
 enum VideoDrawMode {
@@ -414,6 +435,50 @@ enum VideoDrawMode {
     DRAW_MODE_CIRCLE_FILL    = 0x2,
 };
 
+typedef i32 fx16;
+#define FX16         16
+#define TO_FX16(n)   ((fx16)((n) << FX16))
+#define FROM_FX16(n) ((int)((n) >> FX16))
+
+typedef struct {
+    i16 x, y, z;
+} i16v3;
+
+typedef struct {
+    i16 x, y;
+} i16v2;
+
+typedef struct {
+    fx16 x, y, z;
+} fx16v3;
+
+typedef struct {
+    i16 x, y, z;
+    u8 color;
+    u8 flags;
+} vxi16;
+
+#define VXI16_REPR_SZ 8
+
+typedef struct {
+    fx16 x, y, z;
+    u8 color;
+    u8 flags;
+} vxfx16;
+
+#define MAX_VERTEX_BUFFER_SZ 1<<16
+
+
+enum VertexFlags {
+    VX_END_OF_STRIP = 1<<0,
+    VX_BRIGHT = 1<<1,
+    VX_HIDE = 1<<2,
+    VX_MARK = 1<<3,
+    VX_MARKID0 = 1<<4,
+    VX_MARKID1 = 1<<5,
+    VX_MARKID2 = 1<<6,
+    VX_MARKID3 = 1<<7,
+};
 
 typedef struct Videorenderer {
     u8 font_translation_tables[VIDEO_FONT_IDS][256];
@@ -481,6 +546,9 @@ typedef struct DeviceVideo {
     bool queue_full;
 
     Font fonts[VIDEO_FONT_IDS];
+    u8 color_shades[256][16];
+    
+    i16v3 vertex_markers[16];
 
     struct CommandQueue cmd_queue;
 
