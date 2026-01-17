@@ -284,11 +284,11 @@ static inline void TextMode_Render(TaleaMachine *m)
 
 static struct VideoCmd *Video_PopCommandQueue(TaleaMachine *m)
 {
-    DeviceVideo *v = &m->video;
-    struct VideoCmd * res;
+    DeviceVideo     *v = &m->video;
+    struct VideoCmd *res;
 
     if (v->cmd_queue.head != v->cmd_queue.tail) {
-        res = &v->cmd_queue.cmd[v->cmd_queue.tail];
+        res               = &v->cmd_queue.cmd[v->cmd_queue.tail];
         v->cmd_queue.tail = (v->cmd_queue.tail + 1) % VIDEO_CMD_QUEUE_SIZE;
         return res;
     }
@@ -312,7 +312,8 @@ static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 
             text[i] = be_pattern;
         }
 
-        memset(&m->main_memory[v->framebuffer.addr], color, (size_t)v->framebuffer.w * v->framebuffer.h);
+        memset(&m->main_memory[v->framebuffer.addr], color,
+               (size_t)v->framebuffer.w * v->framebuffer.h);
     }
 }
 
@@ -915,6 +916,50 @@ static void Video_DrawTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, 
     }
 }
 
+static inline bool CohenSutherland(struct Buff2D *dest, i16v2 *p0, i16v2 *p1)
+{
+    enum { Inside = 0, Left = 1 << 0, Right = 1 << 1, Bottom = 1 << 2, Top = 1 << 3 };
+
+    i16 minx = 0, maxx = dest->w - 1;
+    i16 miny = 0, maxy = dest->h - 1;
+
+    while (true) {
+        u8 p0_regions = Inside;
+        p0_regions |= p0->x < minx ? Left : p0->x > maxx ? Right : 0;
+        p0_regions |= p0->y < miny ? Bottom : p0->y > maxy ? Top : 0;
+
+        u8 p1_regions = Inside;
+        p1_regions |= p1->x < minx ? Left : p1->x > maxx ? Right : 0;
+        p1_regions |= p1->y < miny ? Bottom : p1->y > maxy ? Top : 0;
+
+        if (p0_regions == Inside && p1_regions == Inside)
+            return true;
+        else if (p0_regions & p1_regions)
+            return false;
+
+        u8     outside = p0_regions ? p0_regions : p1_regions;
+        i16v2 *p       = outside == p0_regions ? p0 : p1;
+
+        if (outside & Top) {
+            if (p1->y == p0->y) return false; // Paranoia check
+            p->y = maxy;
+            p->x = ((i64)(p1->x - p0->x) * (i64)(maxy - p0->y)) / (p1->y - p0->y) + p0->x;
+        } else if (outside & Bottom) {
+            if (p1->y == p0->y) return false; // Paranoia check
+            p->y = miny;
+            p->x = ((i64)(p1->x - p0->x) * (i64)(miny - p0->y)) / (p1->y - p0->y) + p0->x;
+        } else if (outside & Left) {
+            if (p1->x == p0->x) return false; // Paranoia check
+            p->x = minx;
+            p->y = ((i64)(p1->y - p0->y) * (i64)(minx - p0->x)) / (p1->x - p0->x) + p0->y;
+        } else if (outside & Right) {
+            if (p1->x == p0->x) return false; // Paranoia check
+            p->x = maxx;
+            p->y = ((i64)(p1->y - p0->y) * (i64)(maxx - p0->x)) / (p1->x - p0->x) + p0->y;
+        }
+    }
+}
+
 static vxfx16 vertex_buff[MAX_VERTEX_BUFFER_SZ];
 static vxfx16 v2d[MAX_VERTEX_BUFFER_SZ];
 static i16v2  vscreen[MAX_VERTEX_BUFFER_SZ];
@@ -1005,7 +1050,7 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
 
         // Projection
 
-        if (pvx->z < TO_FX16(1)) { // near z clipping
+        if (pvx->z < TO_FX16(10)) { // near z clipping
             pvx->flags |= VX_HIDE;
             continue;
         } else if (pvx->z > max_distance) {
@@ -1015,8 +1060,9 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
         } else if (flags & VIDEO_BATCH_PERSPECTIVE) {
             pvx->x = ((((i64)pvx->x * (i64)focal) << FX16) / pvx->z);
             pvx->y = ((((i64)pvx->y * (i64)focal) << FX16) / pvx->z);
-            
-            if (ABS(FROM_FX16(pvx->x)) > (i64)dest->w * 2 || ABS(FROM_FX16(pvx->y)) > (i64)dest->h * 2) {
+
+            if (ABS(FROM_FX16(pvx->x)) > (i64)dest->w * 2 ||
+                ABS(FROM_FX16(pvx->y)) > (i64)dest->h * 2) {
                 pvx->flags |= VX_HIDE;
                 continue;
             }
@@ -1092,6 +1138,46 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
         /* calculate Z-shading if enabled */
         /* how to handle dithering? */
         /* raster with Bresehnhan */
+        if (flags & VIDEO_BATCH_ZSHADING)
+            for (size_t i = 0; i < len - 1; i++) {
+                vxfx16 *pvx0   = &v2d[i];     // projected vertex
+                vxfx16 *pvx1   = &v2d[i + 1]; // projected vertex
+                i16v2   svx[2] = { 0 };
+                memcpy(svx, &vscreen[i], sizeof(svx));
+
+                if (pvx0->flags & VX_HIDE) continue;
+                if (pvx1->flags & VX_HIDE) continue;
+                if (pvx0->flags & VX_END_OF_STRIP) continue;
+
+                bool visible = CohenSutherland(dest, &svx[0], &svx[1]);
+                if (!visible) continue;
+
+                u8 final_color = pvx0->color;
+
+                u8 shade = pvx0->z >= max_distance ? 15 :
+                           pvx0->z <= 0            ? 0 :
+                                                     (pvx0->z << 4) / max_distance;
+
+                Video_DrawLine(m, v, dest, v->color_shades[pvx0->color][shade], svx[0].x, svx[0].y,
+                               svx[1].x, svx[1].y);
+            }
+        else
+            for (size_t i = 0; i < len - 1; i++) {
+                vxfx16 *pvx0   = &v2d[i];     // projected vertex
+                vxfx16 *pvx1   = &v2d[i + 1]; // projected vertex
+                i16v2   svx[2] = { 0 };
+                memcpy(svx, &vscreen[i], sizeof(svx));
+
+                if (pvx0->flags & VX_HIDE) continue;
+                if (pvx1->flags & VX_HIDE) continue;
+                if (pvx0->flags & VX_END_OF_STRIP) continue;
+
+                bool visible = CohenSutherland(dest, &svx[0], &svx[1]);
+
+                if (!visible) continue;
+
+                Video_DrawLine(m, v, dest, pvx0->color, svx[0].x, svx[0].y, svx[1].x, svx[1].y);
+            }
         break;
     case VIDEO_BATCH_TYPE_TRI:
         /* tris: clipping, z-near check*/
@@ -1471,12 +1557,12 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         // Arg 2:
         world_offset.z = cmd->args[2] >> 32;
 
-        i16v3 rotation = { 0 } ;
-        rotation.x = cmd->args[2] >> 16;
-        rotation.y = cmd->args[2];
+        i16v3 rotation = { 0 };
+        rotation.x     = cmd->args[2] >> 16;
+        rotation.y     = cmd->args[2];
 
         // Arg 3:
-        rotation.z        = cmd->args[3] >> 48;
+        rotation.z = cmd->args[3] >> 48;
         TALEA_LOG_TRACE("Max distance passed: %d\n", (cmd->args[3] >> 32) & 0xffff);
         fx16 max_distance = TO_FX16((cmd->args[3] >> 32) & 0xffff);
         u8   flags        = cmd->args[3] >> 24;
@@ -1760,9 +1846,10 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
             arg |= ((u64)m->data_memory[P_VIDEO_GPU5]) << 16;
             arg |= ((u64)m->data_memory[P_VIDEO_GPU6]) << 8;
             arg |= value;
-            if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS) v->current_cmd.args[v->current_cmd.argc] = arg;
+            if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS)
+                v->current_cmd.args[v->current_cmd.argc] = arg;
             TALEA_LOG_TRACE("Queueing arg%d: (%016llx) %016llx\n", v->current_cmd.argc, arg,
-                         v->current_cmd.args[v->current_cmd.argc]);
+                            v->current_cmd.args[v->current_cmd.argc]);
             memset(&m->data_memory[P_VIDEO_GPU0], 0, 8);
             if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS) v->current_cmd.argc++;
         }

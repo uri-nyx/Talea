@@ -921,16 +921,35 @@ enum VideoBatchType {
 };
 
 static i16 test_rx = 0, test_ry = 0, test_rz = 0;
+/* We trace the cube in a specific order to minimize vertex count */
+/* Total: 18 entries to draw a full wireframe cube */
+static u8 cube_wireframe[] = {
+    /* Front Face */
+    0xff, 0x9c, 0xff, 0x9c, 0xff, 0x9c, 15, 0,    /* 0: -100, -100, -100 */
+    0x00, 0x64, 0xff, 0x9c, 0xff, 0x9c, 15, 0,    /* 1:  100, -100, -100 */
+    0x00, 0x64, 0x00, 0x64, 0xff, 0x9c, 15, 0,    /* 2:  100,  100, -100 */
+    0xff, 0x9c, 0x00, 0x64, 0xff, 0x9c, 15, 0,    /* 3: -100,  100, -100 */
+    0xff, 0x9c, 0xff, 0x9c, 0xff, 0x9c, 15, 0x01, /* 0: -100, -100, -100 (CLOSE + END STRIP) */
 
-static u8 cube_mesh[] = {
-    0xff, 0x9c, 0xff, 0x9c, 0xff, 0x9c, 15, 0, /* -100, -100, -100 */
-    0x00, 0x64, 0xff, 0x9c, 0xff, 0x9c, 14, 0, /* 100, -100, -100 */
-    0x00, 0x64, 0x00, 0x64, 0xff, 0x9c, 13, 0, /* 100,  100, -100 */
-    0xff, 0x9c, 0x00, 0x64, 0xff, 0x9c, 12, 0, /* -100,  100, -100 */
-    0xff, 0x9c, 0xff, 0x9c, 0x00, 0x64, 11, 0, /* -100, -100,  100 */
-    0x00, 0x64, 0xff, 0x9c, 0x00, 0x64, 10, 0, /* 100, -100,  100 */
-    0x00, 0x64, 0x00, 0x64, 0x00, 0x64, 9,  0, /* 100,  100,  100 */
-    0xff, 0x9c, 0x00, 0x64, 0x00, 0x64, 8,  0  /* -100,  100,  100 */
+    /* Back Face */
+    0xff, 0x9c, 0xff, 0x9c, 0x00, 0x64, 10, 0,    /* 4: -100, -100,  100 */
+    0x00, 0x64, 0xff, 0x9c, 0x00, 0x64, 10, 0,    /* 5:  100, -100,  100 */
+    0x00, 0x64, 0x00, 0x64, 0x00, 0x64, 10, 0,    /* 6:  100,  100,  100 */
+    0xff, 0x9c, 0x00, 0x64, 0x00, 0x64, 10, 0,    /* 7: -100,  100,  100 */
+    0xff, 0x9c, 0xff, 0x9c, 0x00, 0x64, 10, 0x01, /* 4: -100, -100,  100 (CLOSE + END STRIP) */
+
+    /* Struts (Connecting front to back) */
+    0xff, 0x9c, 0xff, 0x9c, 0xff, 0x9c, 12, 0,    /* 0 to... */
+    0xff, 0x9c, 0xff, 0x9c, 0x00, 0x64, 12, 0x01, /* 4 (END_STRIP) */
+
+    0x00, 0x64, 0xff, 0x9c, 0xff, 0x9c, 12, 0,    /* 1 to... */
+    0x00, 0x64, 0xff, 0x9c, 0x00, 0x64, 12, 0x01, /* 5 (END_STRIP) */
+
+    0x00, 0x64, 0x00, 0x64, 0xff, 0x9c, 12, 0,    /* 2 to... */
+    0x00, 0x64, 0x00, 0x64, 0x00, 0x64, 12, 0x01, /* 6 (END_STRIP) */
+
+    0xff, 0x9c, 0x00, 0x64, 0xff, 0x9c, 12, 0,   /* 3 to... */
+    0xff, 0x9c, 0x00, 0x64, 0x00, 0x64, 12, 0x01 /* 7 (END_STRIP) */
 };
 
 void Test_DrawRotatingCube()
@@ -938,14 +957,14 @@ void Test_DrawRotatingCube()
     /* 8 vertices of a cube: X, Y, Z (i16), Color (u8), Flags (u8) */
     /* Total 8 bytes per vertex. */
 
-    u16 focal    = 50;
+    u16 focal    = 256;
     u16 max_dist = 1200;
-    u8  flags    = VIDEO_BATCH_TYPE_POINT | VIDEO_BATCH_PERSPECTIVE;
+    u8  flags    = VIDEO_BATCH_TYPE_LINE | VIDEO_BATCH_ZSHADING;
 
     /* Arg 0: GPU0(Ctx), GPU1-3(Addr), GPU4-5(Len), GPU6-7(Focal) */
-    _swd(Devices.video + VIDEO_GPU0, (u32)&cube_mesh);
-    _sbd(Devices.video + VIDEO_GPU0, 1); /* Context 1 */
-    _shd(Devices.video + VIDEO_GPU4, 8); /* 8 vertices */
+    _swd(Devices.video + VIDEO_GPU0, (u32)&cube_wireframe);
+    _sbd(Devices.video + VIDEO_GPU0, 1);  /* Context 1 */
+    _shd(Devices.video + VIDEO_GPU4, 18); /* 8 vertices */
     _shd(Devices.video + VIDEO_GPU6, focal);
 
     /* Arg 1: GPU0-3(Offset X), GPU4-7(Offset Y) */
@@ -953,7 +972,7 @@ void Test_DrawRotatingCube()
     _swd(Devices.video + VIDEO_GPU4, 0); /* Y = 0 */
 
     /* Arg 2: GPU0-3(Offset Z), GPU4-5(Rot X), GPU6-7(Rot Y) */
-    _swd(Devices.video + VIDEO_GPU0, 600 << 16); /* Z = 300.0 fx16 */
+    _swd(Devices.video + VIDEO_GPU0, 700 << 16); /* Z = 300.0 fx16 */
     _shd(Devices.video + VIDEO_GPU4, test_rx);
     _shd(Devices.video + VIDEO_GPU6, test_ry);
 
@@ -968,9 +987,9 @@ void Test_DrawRotatingCube()
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_DRAW_BATCH);
 
     /* Update rotations for next call */
-    test_rx += 512;
-    //test_ry += 256;
-    test_rz += 128;
+    test_rx += 128;
+    test_ry += 256;
+    test_rz += 64;
 }
 
 void bios_vblank_handler(void)
@@ -978,8 +997,7 @@ void bios_vblank_handler(void)
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
 
     // clear backbuffer
-    memset(0x100000, 0, 640*480);
-
+    memset(0x100000, 0, 640 * 480);
 
     Test_DrawRotatingCube();
 
@@ -1249,27 +1267,27 @@ void bios_start(void)
     _shd(Devices.video + VIDEO_GPU6, 480);                  // buff h
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BIND_CTX);  // bind ctx
 
-/*
-    _swd(Devices.video + VIDEO_GPU0, 0x200f0004);
-    _sbd(Devices.video + VIDEO_GPU4, 0);
-    _sbd(Devices.video + VIDEO_GPU7, 0);                // Trigger argument queue
-    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_CLEAR); // clear
+    /*
+        _swd(Devices.video + VIDEO_GPU0, 0x200f0004);
+        _sbd(Devices.video + VIDEO_GPU4, 0);
+        _sbd(Devices.video + VIDEO_GPU7, 0);                // Trigger argument queue
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_CLEAR); // clear
 
-    Test_DrawRotatingCube();
+        Test_DrawRotatingCube();
 
-    _swd(Devices.video + VIDEO_GPU0, (0 << 24) | 0x100000);
-    _shd(Devices.video + VIDEO_GPU4, 640); // buff w
-    _shd(Devices.video + VIDEO_GPU6, 480); // buff h
-    _shd(Devices.video + VIDEO_GPU0, 0);   // x
-    _shd(Devices.video + VIDEO_GPU2, 0);   // y
-    _shd(Devices.video + VIDEO_GPU7, 0);   // latch
-    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BLIT);
-*/
+        _swd(Devices.video + VIDEO_GPU0, (0 << 24) | 0x100000);
+        _shd(Devices.video + VIDEO_GPU4, 640); // buff w
+        _shd(Devices.video + VIDEO_GPU6, 480); // buff h
+        _shd(Devices.video + VIDEO_GPU0, 0);   // x
+        _shd(Devices.video + VIDEO_GPU2, 0);   // y
+        _shd(Devices.video + VIDEO_GPU7, 0);   // latch
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BLIT);
+    */
 
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
 
     // eneable vblank
-    
+
     vcsr = _lbud(Devices.video + VIDEO_CSR);
     vcsr |= 1; // vblank enable
     _sbd(Devices.video + VIDEO_CSR, vcsr);

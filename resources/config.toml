@@ -1,7 +1,7 @@
 # Configuration file for the Talea Computer System
 Screen = "windowed" # "windowed", "fullscreen", or "borderless"
 Dynamic_Cycles = false
-CRT_shader = false
+CRT_shader = true
 Keep_TPS_loaded = true
 Sync_TPS_when_ejected = false
 Key_Repeat = true
