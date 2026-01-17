@@ -93,4 +93,5 @@ Bugs:
     ☐ when shutting down with the UI button, the socket cannot reconnect
     ☐ when loading a firmware and closing the emulator, the string on the config file of windows does not escape backlashes properly
     ☐ In init window, we have to hack the hidpi, seems it broke a little bit ago in raylib?
+    ☐ Wireframe 3d rendering works but draws some garbage
 

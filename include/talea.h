@@ -32,6 +32,7 @@ typedef int talea_net_t;
 
 /* TYPE SHORTHANDS */
 typedef uint8_t  u8;
+typedef int8_t  i8;
 typedef uint16_t u16;
 typedef int16_t  i16;
 typedef uint32_t u32;
@@ -393,7 +394,7 @@ enum VideoBatchFlags {
     VIDEO_BATCH_TYPE1 = 1<<1,
     VIDEO_BATCH_BACKFACE_CULLING = 1<<2,
     VIDEO_BATCH_ZSHADING = 1<<3,
-    VIDEO_BATCH_DITHER = 1<<4,
+    VIDEO_BATCH_DITHER = 1<<4, // NOT IMPLEMENTED
     VIDEO_BATCH_ABSOLUTE = 1<<5,
     VIDEO_BATCH_PERSPECTIVE = 1<<6,
     VIDEO_BATCH_DEPTH_SORT = 1<<7,
@@ -466,7 +467,7 @@ typedef struct {
     u8 flags;
 } vxfx16;
 
-#define MAX_VERTEX_BUFFER_SZ 1<<16
+#define MAX_VERTEX_BUFFER_SZ (1<<16)
 
 
 enum VertexFlags {
