@@ -35,7 +35,7 @@
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="src\main.c" />
-    <ClCompile Include="src\devices\video-new.c">
+    <ClCompile Include="src\devices\video.c">
       <Filter>devices</Filter>
     </ClCompile>
   </ItemGroup>

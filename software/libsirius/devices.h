@@ -32,7 +32,7 @@ struct device_map {
     u8 video;
     u8 tps;
     u8 hcs;
-    u8 audio0, audio1, audio2, audio3;
+    u8 audio;
     u8 mouse;
     u8 custom0, custom1, custom2, custom3;
     u8 custom4, custom5, custom6, custom7;
@@ -208,6 +208,59 @@ enum StorageCommand {
 
 /* AUDIO DEVICE PORTS */
 /* TODO: Support not yet documented */
+enum PortsAudio {
+    AUDIO_ADDR           = 0x0,
+    AUDIO_DATA           = 0x1,
+    AUDIO_CSR            = 0x2,
+    AUDIO_FNUMH          = 0x3,
+    AUDIO_FNUML          = 0x4,
+    AUDIO_DURH           = 0x5,
+    AUDIO_DURL           = 0x6,
+    AUDIO_CHANNEL_SELECT = 0x7,
+    AUDIO_GLOBAL_STATUS0 = 0x8,
+    AUDIO_GLOBAL_STATUS1 = 0x9,
+    AUDIO_GLOBAL_STATUS2 = 0xa,
+    AUDIO_GLOBAL_STATUS3 = 0xb,
+    AUDIO_MASTER_VOL     = 0xc,
+    AUDIO_PCM_FIFOH      = 0xd,
+    AUDIO_PCM_FIFOL      = 0xe,
+};
+
+enum AudioGlobalStatus {
+    AUDIO_GLOB_NOTE_ENDED0     = (1U << 0U),
+    AUDIO_GLOB_NOTE_ENDED1     = (1U << 1U),
+    AUDIO_GLOB_NOTE_ENDED2     = (1U << 2U),
+    AUDIO_GLOB_NOTE_ENDED3     = (1U << 3U),
+    AUDIO_GLOB_NOTE_ENDED4     = (1U << 4U),
+    AUDIO_GLOB_NOTE_ENDED5     = (1U << 5U),
+    AUDIO_GLOB_NOTE_ENDED6     = (1U << 6U),
+    AUDIO_GLOB_NOTE_ENDED7     = (1U << 7U),
+    AUDIO_GLOB_NOTE_ENDED8     = (1U << 8U),
+    AUDIO_GLOB_NOTE_ENDED_MASK = 0x1ff,
+    AUDIO_GLOB_BUSY0           = (1U << 9U),
+    AUDIO_GLOB_BUSY1           = (1U << 10U),
+    AUDIO_GLOB_BUSY2           = (1U << 11U),
+    AUDIO_GLOB_BUSY3           = (1U << 12U),
+    AUDIO_GLOB_BUSY4           = (1U << 13U),
+    AUDIO_GLOB_BUSY5           = (1U << 14U),
+    AUDIO_GLOB_BUSY6           = (1U << 15U),
+    AUDIO_GLOB_BUSY7           = (1U << 16U),
+    AUDIO_GLOB_BUSY8           = (1U << 17U),
+    AUDIO_GLOB_BUSY_MASK       = 0x3fE00,
+    AUDIO_GLOB_PCM_FIFO_FULL   = (1U << 20U),
+    AUDIO_GLOB_PCM_LOW_WATERMARK = (1U<<21U),
+};
+
+// TODO: DOCUMENT
+enum AudioCsr {
+    AUDIO_CSR_TRIGGER    = 1 << 0, // Starts the note
+    AUDIO_CSR_IE         = 1 << 1, // interrupt enable
+    AUDIO_CSR_LOOP       = 1 << 2, // loops the note
+    AUDIO_CSR_BUSY       = 1 << 3,
+    AUDIO_CSR_STOP       = 1 << 4,
+    AUDIO_CSR_NOTE_ENDED = 1 << 5,
+    AUDIO_CSR_GATE       = 1 << 6, // changes mode to release note inmediately
+};
 
 enum MouseButtons {
     MOUSE_BUTT_RIGHT = 0x01,

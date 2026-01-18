@@ -32,7 +32,7 @@ typedef int talea_net_t;
 
 /* TYPE SHORTHANDS */
 typedef uint8_t  u8;
-typedef int8_t  i8;
+typedef int8_t   i8;
 typedef uint16_t u16;
 typedef int16_t  i16;
 typedef uint32_t u32;
@@ -42,7 +42,7 @@ typedef int64_t  i64;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define ABS(a) ((a) > 0 ? (a) : -(a))
+#define ABS(a)    ((a) > 0 ? (a) : -(a))
 
 /* PATHS */
 #ifdef _WIN32
@@ -142,6 +142,7 @@ enum TaleaInterrupt {
     EXCEPTION_PRIVILEGE_VIOLATION,
     EXCEPTION_PAGE_FAULT,
     EXCEPTION_ACCESS_VIOLATION_TALEA,
+    EXCEPTION_DEBUG_STEP,
 
     INT_TTY_TRANSMIT = 0xA,
     INT_KBD_CHAR,
@@ -154,10 +155,7 @@ enum TaleaInterrupt {
     INT_MOUSE_PRESSED,
     INT_TPS_EJECTED,
     INT_TPS_INSERTED,
-    INT_AUDIO0_NOTE_END,
-    INT_AUDIO1_NOTE_END,
-    INT_AUDIO2_NOTE_END,
-    INT_AUDIO3_NOTE_END
+    INT_AUDIO_NOTE_END,
 };
 
 /* --- DEVICE STRUCTURES --- */
@@ -293,6 +291,9 @@ typedef struct {
 
     // Networking
     double dial_start;
+    double last_ring_time;
+    bool   is_ringing;
+    u8     ring_count;
 
 } HayesModem;
 
@@ -318,9 +319,10 @@ typedef struct {
     double byte_credit;
 
     // --- Host/Networking Layer ---
-    talea_net_t host_socket;  // The "Active Line" (Could be Telnet or BBS)
-    talea_net_t server_fd;    // The "Wall Jack" (Always listening for incoming)
-    bool        is_listening; // State for AT_LISTEN
+    talea_net_t host_socket;    // The "Active Line" (Could be Telnet or BBS)
+    talea_net_t pending_socket; // an incoming call
+    talea_net_t server_fd;      // The "Wall Jack" (Always listening for incoming)
+    bool        is_listening;   // State for AT_LISTEN
 } TerminalSerial;
 
 void Serial_PushByte(TaleaMachine *m, u8 byte);
@@ -390,20 +392,20 @@ enum VideoSpriteRotation {
 };
 
 enum VideoBatchFlags {
-    VIDEO_BATCH_TYPE0 = 1<<0,
-    VIDEO_BATCH_TYPE1 = 1<<1,
-    VIDEO_BATCH_BACKFACE_CULLING = 1<<2,
-    VIDEO_BATCH_ZSHADING = 1<<3,
-    VIDEO_BATCH_DITHER = 1<<4, // NOT IMPLEMENTED
-    VIDEO_BATCH_ABSOLUTE = 1<<5,
-    VIDEO_BATCH_PERSPECTIVE = 1<<6,
-    VIDEO_BATCH_DEPTH_SORT = 1<<7,
+    VIDEO_BATCH_TYPE0            = 1 << 0,
+    VIDEO_BATCH_TYPE1            = 1 << 1,
+    VIDEO_BATCH_BACKFACE_CULLING = 1 << 2,
+    VIDEO_BATCH_ZSHADING         = 1 << 3,
+    VIDEO_BATCH_DITHER           = 1 << 4, // NOT IMPLEMENTED
+    VIDEO_BATCH_ABSOLUTE         = 1 << 5,
+    VIDEO_BATCH_PERSPECTIVE      = 1 << 6,
+    VIDEO_BATCH_DEPTH_SORT       = 1 << 7,
 };
 
 enum VideoBatchType {
     VIDEO_BATCH_TYPE_POINT = 0,
-    VIDEO_BATCH_TYPE_LINE = 1,
-    VIDEO_BATCH_TYPE_TRI = 2,
+    VIDEO_BATCH_TYPE_LINE  = 1,
+    VIDEO_BATCH_TYPE_TRI   = 2,
 };
 
 enum VideoFontID {
@@ -455,30 +457,29 @@ typedef struct {
 
 typedef struct {
     i16 x, y, z;
-    u8 color;
-    u8 flags;
+    u8  color;
+    u8  flags;
 } vxi16;
 
 #define VXI16_REPR_SZ 8
 
 typedef struct {
     fx16 x, y, z;
-    u8 color;
-    u8 flags;
+    u8   color;
+    u8   flags;
 } vxfx16;
 
-#define MAX_VERTEX_BUFFER_SZ (1<<16)
-
+#define MAX_VERTEX_BUFFER_SZ (1 << 16)
 
 enum VertexFlags {
-    VX_END_OF_STRIP = 1<<0,
-    VX_BRIGHT = 1<<1,
-    VX_HIDE = 1<<2,
-    VX_MARK = 1<<3,
-    VX_MARKID0 = 1<<4,
-    VX_MARKID1 = 1<<5,
-    VX_MARKID2 = 1<<6,
-    VX_MARKID3 = 1<<7,
+    VX_END_OF_STRIP = 1 << 0,
+    VX_BRIGHT       = 1 << 1,
+    VX_HIDE         = 1 << 2,
+    VX_MARK         = 1 << 3,
+    VX_MARKID0      = 1 << 4,
+    VX_MARKID1      = 1 << 5,
+    VX_MARKID2      = 1 << 6,
+    VX_MARKID3      = 1 << 7,
 };
 
 typedef struct Videorenderer {
@@ -547,8 +548,8 @@ typedef struct DeviceVideo {
     bool queue_full;
 
     Font fonts[VIDEO_FONT_IDS];
-    u8 color_shades[256][16];
-    
+    u8   color_shades[256][16];
+
     i16v3 vertex_markers[16];
 
     struct CommandQueue cmd_queue;
@@ -673,8 +674,86 @@ void Storage_Deinit(TaleaMachine *m);
 void Storage_WriteHandler(TaleaMachine *m, u16 addr, u8 value);
 u8   Storage_ReadHandler(TaleaMachine *m, u16 addr);
 
-typedef OPLL *DeviceSynth;
 #define SYNTH_MSX_CLK 3579545
+
+enum AudioCsr {
+    AUDIO_CSR_TRIGGER    = 1 << 0,
+    AUDIO_CSR_IE         = 1 << 1,
+    AUDIO_CSR_LOOP       = 1 << 2,
+    AUDIO_CSR_BUSY       = 1 << 3,
+    AUDIO_CSR_STOP       = 1 << 4,
+    AUDIO_CSR_NOTE_ENDED = 1 << 5,
+    AUDIO_CSR_GATE       = 1 << 6,
+};
+
+typedef struct SynthChannel {
+    u8   csr;
+    u16  fnum;
+    u16  dur;
+    bool sequencer_active;
+    u32  total_samples;
+    i64  samples_left;
+    u8   last_freq_high;
+    u8   last_freq_low;
+} SynthChannel;
+
+enum SynthGlobalStatus {
+    AUDIO_GLOB_NOTE_ENDED0 = (1U<<0U),
+    AUDIO_GLOB_NOTE_ENDED1 = (1U<<1U),
+    AUDIO_GLOB_NOTE_ENDED2 = (1U<<2U),
+    AUDIO_GLOB_NOTE_ENDED3 = (1U<<3U),
+    AUDIO_GLOB_NOTE_ENDED4 = (1U<<4U),
+    AUDIO_GLOB_NOTE_ENDED5 = (1U<<5U),
+    AUDIO_GLOB_NOTE_ENDED6 = (1U<<6U),
+    AUDIO_GLOB_NOTE_ENDED7 = (1U<<7U),
+    AUDIO_GLOB_NOTE_ENDED8 = (1U<<8U),
+    AUDIO_GLOB_NOTE_ENDED_MASK = 0x1ff,
+    AUDIO_GLOB_BUSY0 = (1U<<9U),
+    AUDIO_GLOB_BUSY1 = (1U<<10U),
+    AUDIO_GLOB_BUSY2 = (1U<<11U),
+    AUDIO_GLOB_BUSY3 = (1U<<12U),
+    AUDIO_GLOB_BUSY4 = (1U<<13U),
+    AUDIO_GLOB_BUSY5 = (1U<<14U),
+    AUDIO_GLOB_BUSY6 = (1U<<15U),
+    AUDIO_GLOB_BUSY7 = (1U<<16U),
+    AUDIO_GLOB_BUSY8 = (1U<<17U),
+    AUDIO_GLOB_BUSY_MASK = 0x3fE00,
+    AUDIO_GLOB_PCM_FIFO_FULL = (1U<<20U),
+    AUDIO_GLOB_PCM_LOW_WATERMARK = (1U<<21U),
+};
+
+
+#define PCM_FIFO_SIZE 4096
+typedef struct {
+    i16 buffer[PCM_FIFO_SIZE];
+    size_t head;
+    size_t tail;
+} PCMFifo;
+
+#define SYNTH_NUM_CHANNELS 9
+typedef struct DeviceSynth {
+    OPLL *opll;
+
+    u8 master_volume;
+
+    bool fire_interrupt;
+    u32 global_status;
+
+    u8 selected_channel;
+    SynthChannel channels[SYNTH_NUM_CHANNELS];
+
+    // PCM part
+    PCMFifo pcm_fifo;
+    u16 pcm_sample_latch;
+
+} DeviceSynth;
+
+// NOTE: Call BEFORE  initializing the frontend or null pointer dereference may happen
+void Synth_Init(TaleaMachine *m);
+void Synth_Update(TaleaMachine *m);
+
+void Synth_WriteHandler(TaleaMachine *m, u16 addr, u8 value);
+u8   Synth_ReadHandler(TaleaMachine *m, u16 addr);
 
 #define TALEA_MAGIC_ARM_SEQUENCE     0xA5
 #define TALEA_MAGIC_TRIGGER_SEQUENCE 0x5A

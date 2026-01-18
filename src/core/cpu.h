@@ -42,6 +42,16 @@ enum TaleaRegisters {
 
 typedef u32 TaleaStatusRegister;
 
+enum TaleaStatus {
+    CPU_STATUS_SUPERVISOR = (1U<<31U),
+    CPU_STATUS_INTERRUPT_ENABLE = (1U<<30U),
+    CPU_STATUS_MMU_ENABLE = (1U<<29U),
+    CPU_STATUS_PRIORITY_MASK = 0x1C000000,
+    CPU_STATUS_IVT_ADDR_MASK = 0x03F00000,
+    CPU_STATUS_PDT_ADDR_MASK = 0x000FF000,
+    CPU_STATUS_DEBUG_STEP = (1U<<1U),
+};
+
 // GETTERS
 #define SR_GET_SUPERVISOR(tsr) ((tsr) & 0x80000000)
 #define SR_GET_INTERRUPT(tsr)  ((tsr) & 0x40000000)

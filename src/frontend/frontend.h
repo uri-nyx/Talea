@@ -65,7 +65,8 @@ struct FrontendCRTShaderCtx {
 };
 
 struct FrontendSynthCtx {
-    AudioStream PCMstream;
+    AudioStream SynthStream;
+    AudioStream PCMStream;
 };
 
 struct FrontendState {

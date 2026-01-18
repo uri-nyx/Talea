@@ -1,0 +1,3022 @@
+/*
+
+A simple BIOS, the firmware of your Taleä System (TM).
+
+All fictional rights belong to The Patron of the House of Taleä.
+
+All earthly and real rigths belong to its respective autors, find the licenses
+in LICENSE-THIRD-PARTY. This project is licensed under the MIT License.
+
+*/
+
+// #include "freestanding/ctype.h"
+#include "isr.h"
+#include "libsirius/devices.h"
+#include "libsirius/keys.h"
+#include "libsirius/types.h"
+//#include "ushell.h"
+
+#define TTTY_IMPLEMENTATION
+#define TTTY_USE_PRINTF
+#include "tiolib/ttty.h"
+
+#define TINS_IMPLEMENTATION
+#include "tiolib/tins.h"
+
+/*
+ THIS IS STILL BUGGY
+#define TLINE_IMPLEMENTATION
+#include "tiolib/tline.h"
+*/
+
+/* -------------------CONSTANTS-----------------------------------------------*/
+
+#define BIOS_NAME     "Basic BIOS"
+#define BIOS_VERSION  "0.5 beta"
+#define BIOS_CHR      'T'
+#define GET_SYSTEM(r) _lbud(DEVICE_SYSTEM + (r))
+
+#define STACK_SIZE (64 * 1024)
+
+#define KBD_EVENT_QUEUE_SIZE 32
+
+/* ------------------DECLARATIONS-------------------------------------------- */
+
+/* Defined in entry.s */
+extern u8   _lbud(u16 addr);
+extern u16  _lhud(u16 addr);
+extern u32  _lwd(u16 addr);
+extern void _sbd(u16 addr, u8 value);
+extern void _shd(u16 addr, u16 value);
+extern void _swd(u16 addr, u32 value);
+
+struct KbdEvent {
+    u16  scancode;
+    u8   character;
+    u8   modifiers;
+    bool is_keydown;
+};
+
+typedef struct KbdEventQueue {
+    struct KbdEvent events[KBD_EVENT_QUEUE_SIZE];
+    u8              head, tail;
+} KbdEventQueue;
+
+/* -------------------- GLOBALS ----------------------------------------------*/
+
+struct device_map Devices;
+TttyMux           Con;
+Ttty              Video_tty, Serial_tty;
+
+u32        Memsize;
+enum TpsId CurrentTps;
+
+void *Stack_top;
+void *Stack_base;
+
+u32 Charbuff_size;
+u8 *Charbuff;
+
+KbdEventQueue KeyboardEvents;
+Tins          Keyboard_in;
+static char   command[160];
+/* ---------------------------------------------------------------------------*/
+/* ------------------------KEYBOARD DRIVER------------------------------------*/
+
+/* 1. Queue management */
+
+/* returns true on success, false on queue full */
+static bool kbd_event_push(KbdEventQueue *q, struct KbdEvent *e)
+{
+    u8 next_head = (q->head + 1) % KBD_EVENT_QUEUE_SIZE;
+    /* If the next position is where the tail is, we are full */
+    if (next_head == q->tail) {
+        /* Optional: Signal a beep or flash a debug LED here */
+        return false;
+    }
+
+    q->events[q->head].scancode   = e->scancode;
+    q->events[q->head].character  = e->character;
+    q->events[q->head].modifiers  = e->modifiers;
+    q->events[q->head].is_keydown = e->is_keydown;
+
+    q->head = next_head;
+    return true;
+}
+
+/* Returns NULL on empty queue */
+static struct KbdEvent *kbd_event_peek(KbdEventQueue *q)
+{
+    /* If the head is where the tail is, we are full */
+    if (q->head == q->tail) {
+        return NULL;
+    }
+
+    return &q->events[q->tail];
+}
+
+/* Returns NULL on empty queue */
+static struct KbdEvent *kbd_event_pop(KbdEventQueue *q)
+{
+    struct KbdEvent *k;
+
+    /* If the head is where the tail is, we are full */
+    if (q->head == q->tail) {
+        return NULL;
+    }
+
+    k       = &q->events[q->tail];
+    q->tail = (q->tail + 1) % KBD_EVENT_QUEUE_SIZE;
+    return k;
+}
+
+/* 2. ISR */
+
+/* Interrupt service routine for the keyboard interrupt */
+void bios_kbd_handler(void)
+{
+    static struct KbdEvent e;
+    bool                   success  = false;
+    u32                    keypress = _lwd(Devices.keyboard + KBD_CSR);
+
+    e.modifiers = keypress >> 24;
+    e.character = (keypress >> 16) & 0xff;
+    /* TODO: check that this does not conflict with raylib keymap */
+    e.scancode   = (keypress & (~0x8000U)); /* remove is_down flag */
+    e.is_keydown = (keypress & 0x8000U) >> 15;
+
+    success = kbd_event_push(&KeyboardEvents, &e);
+}
+
+/* 3. ANSI compatibility */
+
+static struct tins_ansi *kbd_event_to_ansi(struct KbdEvent *e)
+{
+    static struct tins_ansi trans;
+    trans.seq            = NULL;
+    trans.printable_char = 0;
+
+    /* clang-format off */
+    switch (e->scancode) {
+    case KEY_UP:              trans.seq = ANSI_UP;        return &trans;
+    case KEY_DOWN:            trans.seq = ANSI_DOWN;      return &trans;
+    case KEY_LEFT:            trans.seq = ANSI_LEFT;      return &trans;
+    case KEY_RIGHT:           trans.seq = ANSI_RIGHT;     return &trans;
+    case KEY_HOME:            trans.seq = ANSI_HOME;      return &trans;
+    case KEY_END:             trans.seq = ANSI_END;       return &trans;
+    case KEY_DELETE:          trans.seq = ANSI_DELETE;    return &trans;
+    case KEY_PAGE_UP:         trans.seq = ANSI_PGUP;      return &trans;
+    case KEY_PAGE_DOWN:       trans.seq = ANSI_PGDOWN;    return &trans;
+    case KEY_F1:              trans.seq = ANSI_F1;        return &trans;
+    case KEY_F2:              trans.seq = ANSI_F2;        return &trans;
+    case KEY_F3:              trans.seq = ANSI_F3;        return &trans;
+    case KEY_F4:              trans.seq = ANSI_F4;        return &trans;
+    }
+    /* clang-format on */
+
+    trans.printable_char = e->character;
+    /* TODO: handle ALT- key sequences (ESC-key)*/
+    return &trans;
+}
+
+int kbd_get_translated(KbdEventQueue *q, bool *peeked)
+{
+    static struct tins_ansi *pending;
+    static bool              has_pending = false;
+    int                      c;
+
+    if (!has_pending) {
+        /* we need an event to translate */
+        struct KbdEvent *e = kbd_event_peek(q);
+        *peeked            = true;
+        if (!e) return TINS_NO_DATA;
+
+        pending = kbd_event_to_ansi(e);
+        if (pending->seq == NULL) {
+            if (pending->printable_char)
+                return pending->printable_char;
+            else
+                return TINS_NO_DATA; /* how to handle this */
+        } else {
+            has_pending = true;
+            c           = *pending->seq++;
+            return c;
+        }
+    } else {
+        *peeked = false;
+        if (c = *pending->seq++)
+            return c;
+        else
+            has_pending = false;
+        return TINS_NO_DATA;
+    }
+}
+
+/* 4. Integration with tins.h */
+
+static int kbd_get_byte(void *priv)
+{
+    int            c;
+    bool           peeked = false;
+    KbdEventQueue *q      = (KbdEventQueue *)priv;
+
+    c = kbd_get_translated(q, &peeked);
+    if (peeked) kbd_event_pop(q);
+
+    return (c == '\r') ? '\n' : c;
+}
+
+/* Creating the actual interface instance */
+void kbd_init_tins(Tins *t)
+{
+    t->priv     = &KeyboardEvents;
+    t->get_byte = kbd_get_byte;
+}
+
+/*----------------------------------------------------------------------------*/
+/*----------------------SERIAL DRIVER-----------------------------------------*/
+
+/* 1. Status */
+
+bool serial_is_connected()
+{
+    u8 status = _lbud(Devices.tty + SER_STATUS);
+    return status & SER_STATUS_CARRIER_DETECT;
+}
+
+bool serial_available()
+{
+    u8 status = _lbud(Devices.tty + SER_STATUS);
+    return status & SER_STATUS_DATA_AVAILABLE;
+}
+
+/* 2. TX/RX */
+
+#define ser_rx(t)    _lbud((t) + SER_RX)
+#define ser_tx(t, v) _sbd((t) + SER_TX)
+
+/* 3. Interface with ttty.h */
+
+void serial_outc(Ttty *tty, char c)
+{
+    u8 dev_tty = *(u8 *)tty->priv;
+    u8 status  = _lbud(dev_tty + SER_STATUS);
+    if (status & SER_STATUS_CARRIER_DETECT) {
+        _sbd(dev_tty + SER_TX, c);
+    };
+}
+
+/*----------------------------------------------------------------------------*/
+/*----------------------VIDEO DRIVER------------------------------------------*/
+#if 0
+/* 1. info */
+
+/* Get the text buffer sizes (cols*rows*bpc) */
+void video_text_screen_size(u8 *out_cols, u8 *out_rows, u8 *out_bpc)
+{
+    u32 info;
+    u16 video_w, video_h;
+    u8  char_w, char_h;
+    _sbd(Devices.video + VIDEO_COMMAND, VIDEO_COMMAND_SCREEN_INFO);
+    info    = _lwd(Devices.video + VIDEO_STATUS);
+    video_w = info >> 16;
+    video_h = info;
+
+    _sbd(Devices.video + VIDEO_COMMAND, VIDEO_COMMAND_FONTINFO);
+    info   = _lwd(Devices.video + VIDEO_STATUS);
+    char_h = info >> 24;
+    char_w = info >> 16;
+
+    *out_rows = video_h / char_h;
+    *out_cols = video_w / char_w;
+
+    _sbd(Devices.video + VIDEO_COMMAND, VIDEO_COMMAND_MODE_INFO);
+    info     = _lwd(Devices.video + VIDEO_STATUS);
+    *out_bpc = info >> 16;
+}
+
+void video_set_cursor(u16 index)
+{
+    _shd(Devices.video + VIDEO_DATA + 1, index);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_CURSOR_SETPOS);
+}
+
+void video_set_cursor_csr(u8 csr)
+{
+    _sbd(Devices.video + VIDEO_DATA + 1, csr);
+    _sbd(Devices.video + VIDEO_DATA + 2, COMMAND_CURSOR_SETMODE);
+}
+
+u16 video_get_cursor(void)
+{
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_CURSOR_GETPOS);
+    return _lhud(Devices.video + VIDEO_DATA + 1);
+}
+
+u8 video_get_csr(void)
+{
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_CURSOR_GETPOS);
+    return _lbud(Devices.video + VIDEO_DATA);
+}
+
+/* 2. Interface with ttty.h */
+
+/* Outputs a character to the screen  */
+/* Checks have already been performed */
+void video_outc(Ttty *tty, char c)
+{
+    static u8 fg  = 15;
+    static u8 bg  = 0;
+    static u8 att = 0;
+
+    u8 *vram  = tty->priv;
+    u16 index = (tty->y * tty->w) + tty->x * 4;
+
+    vram[index]     = c;
+    vram[index + 1] = fg;
+    vram[index + 2] = bg;
+    vram[index + 3] = att;
+}
+
+void video_setpos(Ttty *tty, u8 x, u8 y)
+{
+    video_set_cursor((tty->y * tty->w) + tty->x);
+}
+
+/*----------------------------------------------------------------------------*/
+/*---------------------DISCOVERY AND INITIALIZATION---------------------------*/
+
+static void find_devices(void)
+{
+    u8 i, dev_id, audio_channel = 0, audio_channels[4];
+    u8 tty, video, storage, mouse;
+    for (i = 0; i < 16; i++) {
+        dev_id = _lbud(DEVICE_MAP + i);
+
+        switch (dev_id) {
+        case DEVICE_ID_TTY: tty = i * 0x10; break;
+        case DEVICE_ID_VIDEO: video = i * 0x10; break;
+        case DEVICE_ID_STORAGE: storage = i * 0x10; break;
+        case DEVICE_ID_AUDIO: audio_channels[audio_channel++] = i * 0x10; break;
+        case DEVICE_ID_MOUSE: mouse = i * 0x10; break;
+        default: break;
+        }
+    }
+
+    Devices.tty      = tty;
+    Devices.timer    = tty + 6;
+    Devices.keyboard = tty + 12;
+    Devices.video    = video;
+    Devices.tps      = storage;
+    Devices.hcs      = storage + 6;
+    Devices.audio0   = audio_channels[0];
+    Devices.audio1   = audio_channels[1];
+    Devices.audio2   = audio_channels[2];
+    Devices.audio3   = audio_channels[3];
+    Devices.mouse    = mouse;
+}
+
+static void bios_init(void)
+{
+    usize i;
+    u8    rows, cols, bpc;
+
+    KeyboardEvents.head = 0;
+    KeyboardEvents.tail = 0;
+
+    Memsize    = (u32)_lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MEMSIZE) * 0x100000;
+    Stack_top  = (void *)(Memsize - (32 * 1024));
+    Stack_base = (void *)((u32)Stack_top - STACK_SIZE);
+
+    find_devices();
+
+    _sbd(Devices.video + VIDEO_DATA, 0x5);
+    _sbd(Devices.video + VIDEO_COMMAND, VIDEO_COMMAND_SETMODE);
+
+    video_text_screen_size(&cols, &rows, &bpc);
+    Charbuff_size = rows * cols * bpc;
+    Charbuff      = (u8 *)((u32)Stack_base - 1024 - Charbuff_size);
+
+    _sbd(Devices.video + VIDEO_DATA, (u32)Charbuff >> 16);
+    _sbd(Devices.video + VIDEO_DATA + 1, (u32)Charbuff >> 8);
+    _sbd(Devices.video + VIDEO_DATA + 2, (u32)Charbuff);
+    _sbd(Devices.video + VIDEO_COMMAND, VIDEO_COMMAND_SETCB);
+
+    /* TODO: use a proper driver for the video */
+    ttty_init(&Video_tty, "System Console", TTTY_XYLF | TTTY_ANSI, cols, rows, bpc,
+              (void *)Charbuff, video_outc, video_setpos);
+    ttty_init(&Serial_tty, "Dumb Terminal", TTTY_STREAM, 0xff, 0xff, 1, (void *)&Devices.tty,
+              serial_outc, NULL);
+
+    ttty_mux_subscribe(&Con, &Video_tty, TTTY_INFO);
+    ttty_mux_set_priority(&Con, TTTY_NONE);
+
+    /* Set keyboard to only report keydown */
+    _sbd(Devices.keyboard + KBD_CSR, KB_IE_DOWN | KB_GLOBAL_EN);
+    kbd_init_tins(&Keyboard_in);
+
+    CurrentTps = 0;
+}
+/*----------------------------------------------------------------------------*/
+/* ----------------------------- ushell --------------------------------------*/
+
+void ushell_putchar(char chr)
+{
+    ttty_mux_putc(&Con, chr);
+}
+
+void sysinfo(int argc, char *argv[])
+{
+    /*
+                SYSTEM INFORMATION
+    The Talea Computer System. v0.5-beta
+
+    [ CORE ]
+    Processor:   Sirius-24 @ 10MHz
+    Memory:      16384KiB
+    Firmware:    Basic BIOS v0.5 beta
+    Uptime:      100 seconds
+
+    [ DEVICES ]
+    ADDR  ID    TYPE             STATUS
+    ----  ----  ---------------  -------
+    0x20  0x05  Storage Ctl      [ONLINE]
+    0x23  0x02  Serial Modem     [CARRIER OK]
+    */
+    u32 mhz, uptime, khz;
+
+    if (argc != 1) {
+        ttty_mux_puts(&Con, "Usage: sysinfo\n");
+        return;
+    }
+
+    ttty_mux_puts(&Con, "\t\t\tSYSTEM INFORMATION\n");
+    ttty_mux_puts(&Con, "The Talea Computer System. v0.5-beta\n\n");
+    ttty_mux_puts(&Con, "[ CORE ]\n");
+
+    /* Processor */
+    /* TODO: Do a bit of fixed point */
+    khz = 10000 + (GET_SYSTEM(PORTS_SYSTEM_CLOCK) * 353);
+    ttty_mux_printf(&Con, "Processor:\t\t%s (%s) @ %dKhz\n",
+                    (GET_SYSTEM(PORTS_SYSTEM_ARCHID) == ARCH_ID) ? "Sirius" : "unknown",
+                    (GET_SYSTEM(PORTS_SYSTEM_VENDOR) == VENDOR_ID) ? "of the House of Talea" :
+                                                                     "of unknown origin",
+                    khz);
+
+    /* Memory */
+    ttty_mux_printf(&Con, "Memory:\t\t%dKiB\n", GET_SYSTEM(PORTS_SYSTEM_MEMSIZE) * 1024);
+
+    /* Firmware */
+    ttty_mux_puts(&Con, "Firmware:\t" BIOS_NAME " v" BIOS_VERSION "\n");
+
+    /* Uptime */
+    _sbd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE, 1); /* Set the COUNTER MODE */
+    uptime = _lwd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+
+    ttty_mux_printf(&Con, "Uptime:\t\t%d seconds\n\n", uptime / 1000); /* to seconds */
+
+    ttty_mux_puts(&Con, "[ DEVICES ]\n");
+    ttty_mux_printf(&Con, "0x%x\t%c\tSerial Modem\t[ %s ]\n", Devices.tty, DEVICE_ID_TTY,
+                    serial_is_connected() ? "CARRIER OK" : "NO CARRIER");
+
+    ttty_mux_printf(&Con, "0x%x\t%c\tDual Timer\n", Devices.timer, DEVICE_ID_TTY);
+    ttty_mux_printf(&Con, "0x%x\t%c\tKeyboard\n", Devices.keyboard, DEVICE_ID_TTY);
+    ttty_mux_printf(&Con, "0x%x\t%c\tGraphics and Video Processor\n", Devices.video,
+                    DEVICE_ID_VIDEO);
+    ttty_mux_printf(&Con, "0x%x\t%c\tTPS Controller\n", Devices.tps, DEVICE_ID_STORAGE);
+    ttty_mux_printf(&Con, "0x%x\t%c\tHCS Controller\n", Devices.hcs, DEVICE_ID_STORAGE);
+    ttty_mux_printf(&Con, "0x%x\t%c\tAudio Channel 0\n", Devices.audio0, DEVICE_ID_AUDIO);
+    ttty_mux_printf(&Con, "0x%x\t%c\tAudio Channel 1\n", Devices.audio1, DEVICE_ID_AUDIO);
+    ttty_mux_printf(&Con, "0x%x\t%c\tAudio Channel 2\n", Devices.audio2, DEVICE_ID_AUDIO);
+    ttty_mux_printf(&Con, "0x%x\t%c\tAudio Channel 3\n", Devices.audio3, DEVICE_ID_AUDIO);
+    ttty_mux_printf(&Con, "0x%x\t%c\tPointer (mouse)\n", Devices.mouse, DEVICE_ID_MOUSE);
+}
+
+void echo(int argc, char *argv[])
+{
+    if (argc >= 2 && argv[1][0] == '-') {
+        char sw = argv[1][1];
+        switch (sw) {
+help:
+        case 'h':
+            ttty_mux_printf(&Con, "Usage: echo -[h|a|e] <args>\n");
+            ttty_mux_printf(&Con, "\t-h\tprint this help\n");
+            ttty_mux_printf(&Con, "\t-a\tprepend \\x1b (ESC) to process ANSI escape code\n");
+            ttty_mux_printf(&Con, "\t-e\techo args without processing\n");
+            return;
+        case 'a': {
+            int i = 0;
+            for (i = 2; i < argc; i++) {
+                ttty_mux_printf(&Con, "\x1b%s", argv[i]);
+                ttty_mux_putc(&Con, ' ');
+            }
+            ttty_mux_putc(&Con, '\n');
+            return;
+        }
+        case 'e':
+        default: {
+            int i = 0;
+            for (i = 2; i < argc; i++) {
+                ttty_mux_puts(&Con, argv[i]);
+                ttty_mux_putc(&Con, ' ');
+            }
+            ttty_mux_putc(&Con, '\n');
+            return;
+        }
+        }
+    } else if (argc > 1) {
+        int i = 0;
+        for (i = 1; i < argc; i++) {
+            ttty_mux_puts(&Con, argv[i]);
+            ttty_mux_putc(&Con, ' ');
+        }
+        ttty_mux_putc(&Con, '\n');
+        return;
+    } else {
+        goto help;
+    }
+}
+
+char *strchr(const char *s, int c)
+{
+    do {
+        if (*s == c) {
+            return (char *)s;
+        }
+    } while (*s++);
+    return (NULL);
+}
+
+u8 to_lower(u8 c)
+{
+    if (c >= 'A' && c <= 'Z') return c + 32;
+}
+
+bool is_space(u8 c)
+{
+    return (c == ' ' || c == '\t' || c == '\n');
+}
+
+long strtol(const char *s, char **endp, int base)
+{
+    long        sign = 1, ok = 0;
+    char       *p, *digits;
+    const char *src;
+    long        v = 0;
+
+    if (base < 0 || base > 36) {
+        // errno = EINVAL;
+        return 0;
+    }
+    src = s;
+    while (is_space(*s)) s++;
+    if ('-' == *s)
+        sign = -1, s++;
+    else if ('+' == *s)
+        s++;
+    if ((0 == base || 16 == base) && '0' == *s && 'x' == s[1]) {
+        base = 16;
+        s += 2;
+    } else if ((0 == base || 8 == base) && '0' == *s) {
+        base = 8;
+        s++;
+    }
+    if (0 == base) base = 10;
+    digits = "0123456789abcdefghijklmnopqrstuvwxyz";
+    for (;;) {
+        p = strchr(digits, to_lower(*s));
+        if (!p || p - digits >= base) break;
+        v = v * base + p - digits;
+        s++;
+        ok = 1;
+    }
+    if (endp) *endp = ok ? (char *)s : (char *)src;
+    return v * sign;
+}
+
+#define ULONG_MAX 0xffffff
+
+bool is_print(u8 c)
+{
+    return (c >= ' ' && c != 127);
+}
+
+bool is_digit(u8 c)
+{
+    return (c >= '0' && c <= '9');
+}
+
+bool is_alpha(u8 c)
+{
+    return (c >= 'A' && c <= 'z');
+}
+
+bool is_upper(u8 c)
+{
+    return (c >= 'A' && c <= 'Z');
+}
+
+unsigned long strtoul(const char *nptr, char **endptr, int base)
+{
+    const char   *s = nptr;
+    unsigned long acc;
+    unsigned char c;
+    unsigned long cutoff;
+    int           neg = 0, any, cutlim;
+
+    /*
+     * See strtol for comments as to the logic used.
+     */
+    do {
+        c = *s++;
+    } while (is_space(c));
+    if (c == '-') {
+        neg = 1;
+        c   = *s++;
+    } else if (c == '+')
+        c = *s++;
+    if ((base == 0 || base == 16) && c == '0' && (*s == 'x' || *s == 'X')) {
+        c = s[1];
+        s += 2;
+        base = 16;
+    }
+    if (base == 0) base = c == '0' ? 8 : 10;
+    cutoff = (unsigned long)ULONG_MAX / (unsigned long)base;
+    cutlim = (unsigned long)ULONG_MAX % (unsigned long)base;
+    for (acc = 0, any = 0;; c = *s++) {
+        if (!is_print(c)) break;
+        if (is_digit(c))
+            c -= '0';
+        else if (is_alpha(c))
+            c -= is_upper(c) ? 'A' - 10 : 'a' - 10;
+        else
+            break;
+        if (c >= base) break;
+        if (any < 0 || acc > cutoff || (acc == cutoff && c > cutlim))
+            any = -1;
+        else {
+            any = 1;
+            acc *= base;
+            acc += c;
+        }
+    }
+    if (any < 0) {
+        acc = ULONG_MAX;
+    } else if (neg)
+        acc = -acc;
+    if (endptr != 0) *((const char **)endptr) = any ? s - 1 : nptr;
+    return (acc);
+}
+
+void peek(int argc, char *argv[])
+{
+    u32 addr = 0, end_addr, i = 0;
+
+    if (argc != 2) {
+        ttty_mux_printf(&Con, "Usage: peek <addr> \n");
+        ttty_mux_printf(&Con, "\t<addr>\taddress in hex to peek (128 bytes)\n");
+        return;
+    }
+
+    addr     = strtoul(argv[1], NULL, 0);
+    end_addr = addr + 128;
+
+    for (i = addr & ~0xf; i < end_addr; i += 16 /* 16 bytes per row*/) {
+        /* TODO: add padding to printf*/
+        u8  j = 0;
+        u8 *m = (u8 *)0;
+        ttty_mux_printf(&Con, "%x -> %x", addr, *(u8 *)addr);
+        ttty_mux_printf(&Con, "%x:", i);
+        ttty_mux_printf(&Con, "\t%x %x %x %x %x %x %x %x", m[i], m[i + 1], m[i + 2], m[i + 3],
+                        m[i + 4], m[i + 5], m[i + 6], m[i + 7]);
+        ttty_mux_printf(&Con, "|%x %x %x %x %x %x %x %x\t", m[i + 8], m[i + 9], m[i + 10],
+                        m[i + 11], m[i + 12], m[i + 13], m[i + 14], m[i + 15]);
+        ttty_mux_putc(&Con, '|');
+        for (j = 0; j < 16; j++) {
+            u8 c = m[j + i] ? m[j + i] : '.';
+            ttty_mux_putc(&Con, c);
+            if (j == 7) ttty_mux_putc(&Con, '|');
+        }
+        ttty_mux_putc(&Con, '|');
+        ttty_mux_putc(&Con, '\n');
+    }
+}
+
+void poke(int argc, char *argv[])
+{
+    u32 addr = 0, value = 0;
+
+    if (argc != 3) {
+        ttty_mux_printf(&Con, "Usage: poke <addr> <value>\n");
+        ttty_mux_printf(&Con, "\t<addr>\taddress in hex to poke\n");
+        ttty_mux_printf(&Con, "\t<value>\tvalue to set (a byte)\n");
+        return;
+    }
+
+    addr        = strtoul(argv[1], NULL, 0);
+    value       = strtoul(argv[2], NULL, 0);
+    *(u8 *)addr = value & 0xff;
+}
+
+void clear(int argc, char *argv[])
+{
+    ttty_mux_puts(&Con, "\x1b[2J\x1b[H"); /*BUG: resets propmtp at last column of first row*/
+}
+
+void send_escape(int argc, char *argv[])
+{
+    int i     = 0;
+    u32 times = 0;
+    for (i = 0; i < 1000000; i++) times += i;
+    _sbd(Devices.tty + SER_TX, '+');
+    for (i = 0; i < 10000; i++) times += i;
+    _sbd(Devices.tty + SER_TX, '+');
+    for (i = 0; i < 10000; i++) times += i;
+    _sbd(Devices.tty + SER_TX, '+');
+    for (i = 0; i < 1000000; i++) times += i;
+}
+
+void ser(int argc, char *argv[])
+{
+    struct KbdEvent *e;
+
+    while (true) {
+        e = kbd_event_pop(&KeyboardEvents);
+        if (e != NULL) {
+            if (e->character != 0) _sbd(Devices.tty + SER_TX, e->character);
+            if (e->scancode == KEY_ESCAPE) break;
+        }
+        if (serial_available()) {
+            u8 i;
+            u8 count = _lbud(Devices.tty + SER_RXCOUNT);
+            for (i = 0; i < count; i++) ttty_mux_putc(&Con, _lbud(Devices.tty + SER_RX));
+        }
+    };
+}
+
+static const ushell_command_t commands[] = {
+    { "sysinfo", "prints system information", &sysinfo },
+    { "echo", "echoes its arguments", &echo },
+    { "peek", "print a memory dump", &peek },
+    { "poke", "set a value in memory", &poke },
+    { "ser", "Drop to a serial terminal to the modem", &ser },
+    { "escape", "test the AT escape secuence", &send_escape },
+    { "clear", "clear the screen", &clear }
+};
+
+/**************************************************************************************************/
+/***************************** BIOS ENTRY POINT AND MAIN LOOP
+ * *************************************/
+/**************************************************************************************************/
+
+static u8 blit_buff[10 * 10] = {
+    0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf,
+    0x0, 0xf, 0x0, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0xf, 0x0, 0xf, 0x0,
+    0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0xf,
+    0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf,
+    0x0, 0xf, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0x0, 0xf, 0x0, 0xf, 0x0,
+    0xf, 0x0, 0xf, 0x0, 0xf, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0, 0xf, 0x0,
+};
+
+// clang-format off
+static u8 test_sprite[10*16] = {
+    0x0,0x0,0x0,0x0,0x0,0x0,0xf,0xf,0xf,0xf,
+    0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,0xf,0xf,
+    0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,0xf,0xf,
+    0x0,0x0,0x0,0x0,0x0,0x0,0xf,0x0,0x0,0xf,
+    0x0,0x0,0x0,0x0,0x0,0xf,0x0,0x0,0x0,0x0,
+    0x0,0x0,0x0,0x0,0xf,0xf,0x0,0x0,0x0,0x0,
+    0x0,0x0,0x0,0xf,0x0,0x0,0xf,0x0,0x0,0x0,
+    0x0,0x0,0xf,0x0,0x0,0x0,0x0,0xf,0x0,0x0,
+    0x0,0xf,0x0,0x0,0x0,0x0,0x0,0x0,0xf,0x0,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf,
+    0xf,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xf
+};
+
+/* Simple 8x8 checkerboard/grid pattern */
+static u8 checker_pat[64] = {
+    15,15, 0, 0,15,15, 0, 0,
+    15,15, 0, 0,15,15, 0, 0,
+     100, 100, 7, 7, 100, 100, 7, 7,
+     0, 0, 7, 7, 0, 0, 7, 7,
+    15,15, 0, 0,15,15, 0, 0,
+    15,15, 0, 0,15,15, 0, 0,
+     0, 0, 7, 7, 0, 0, 7, 7,
+     0, 0, 7, 7, 0, 0, 7, 7
+};
+
+// clang-format on
+
+static u8 another_buff[64 * 64];
+
+void test_polygon_fill()
+{
+    u16 y;
+    u8  color = 0x3A; /* A distinct purple/pink */
+    u8  ctx   = 1;
+
+    /* Phase 1: Top point to middle indent (y 50 to 70) */
+    /* x0 moves 100 -> 95, x1 moves 100 -> 105 */
+    for (y = 0; y < 20; y++) {
+        u16 offset = (y - 50) / 4; /* slow widening */
+        _sbd(Devices.video + VIDEO_GPU0, ctx);
+        _sbd(Devices.video + VIDEO_GPU1, color);
+        _shd(Devices.video + VIDEO_GPU2, 20 - y); /* x0 widening */
+        _shd(Devices.video + VIDEO_GPU4, 20 + y); /* x1 widening */
+        _shd(Devices.video + VIDEO_GPU6, y);      /* y -> Queue Arg 0 */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+    }
+
+    /* Phase 2: Create a 'bite' out of the side (y 70 to 80) */
+    /* We draw two separate spans on the same Y to create a hole or indent */
+    for (y = 20; y < 30; y++) {
+        /* Left part of the 'bite' */
+        _sbd(Devices.video + VIDEO_GPU0, ctx);
+        _sbd(Devices.video + VIDEO_GPU1, color);
+        _shd(Devices.video + VIDEO_GPU2, 0);  /* x0 */
+        _shd(Devices.video + VIDEO_GPU4, 10); /* x1 */
+        _shd(Devices.video + VIDEO_GPU6, y);  /* y */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+
+        /* Right part of the 'bite' */
+        _sbd(Devices.video + VIDEO_GPU0, ctx);
+        _sbd(Devices.video + VIDEO_GPU1, color);
+        _shd(Devices.video + VIDEO_GPU2, 30); /* x0 */
+        _shd(Devices.video + VIDEO_GPU4, 40); /* x1 */
+        _shd(Devices.video + VIDEO_GPU6, y);  /* y */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+    }
+
+    /* Phase 3: Closing the bottom (y 80 to 100) */
+    for (y = 30; y <= 50; y++) {
+        u16 shrink = (y - 30);
+        _sbd(Devices.video + VIDEO_GPU0, ctx);
+        _sbd(Devices.video + VIDEO_GPU1, color);
+        _shd(Devices.video + VIDEO_GPU2, shrink);      /* narrowing x0 */
+        _shd(Devices.video + VIDEO_GPU4, 40 - shrink); /* narrowing x1 */
+        _shd(Devices.video + VIDEO_GPU6, y);           /* y */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+    }
+}
+
+void test_ui_frame()
+{
+    u16 x = 50, y = 50, w = 150, h = 100;
+    u8  light = 0x0F; /* White/Light gray */
+    u8  dark  = 0x08; /* Dark gray */
+
+    /* 1. Top edge (Light) */
+    _sbd(Devices.video + VIDEO_GPU0, 0);
+    _sbd(Devices.video + VIDEO_GPU1, light);
+    _shd(Devices.video + VIDEO_GPU2, x);
+    _shd(Devices.video + VIDEO_GPU4, x + w);
+    _shd(Devices.video + VIDEO_GPU6, y);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+
+    /* 2. Left edge (Light) */
+    _sbd(Devices.video + VIDEO_GPU0, 0);
+    _sbd(Devices.video + VIDEO_GPU1, light);
+    _shd(Devices.video + VIDEO_GPU2, x);
+    _shd(Devices.video + VIDEO_GPU4, y);
+    _shd(Devices.video + VIDEO_GPU6, y + h);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_VSPAN);
+
+    /* 3. Bottom edge (Dark) */
+    _sbd(Devices.video + VIDEO_GPU0, 0);
+    _sbd(Devices.video + VIDEO_GPU1, dark);
+    _shd(Devices.video + VIDEO_GPU2, x);
+    _shd(Devices.video + VIDEO_GPU4, x + w);
+    _shd(Devices.video + VIDEO_GPU6, y + h);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_SPAN);
+
+    /* 4. Right edge (Dark) */
+    _sbd(Devices.video + VIDEO_GPU0, 0);
+    _sbd(Devices.video + VIDEO_GPU1, dark);
+    _shd(Devices.video + VIDEO_GPU2, x + w);
+    _shd(Devices.video + VIDEO_GPU4, y);
+    _shd(Devices.video + VIDEO_GPU6, y + h);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_FILL_VSPAN);
+}
+
+#endif
+enum VideoBatchFlags {
+    VIDEO_BATCH_TYPE0            = 1 << 0,
+    VIDEO_BATCH_TYPE1            = 1 << 1,
+    VIDEO_BATCH_BACKFACE_CULLING = 1 << 2,
+    VIDEO_BATCH_ZSHADING         = 1 << 3,
+    VIDEO_BATCH_DITHER           = 1 << 4,
+    VIDEO_BATCH_ABSOLUTE         = 1 << 5,
+    VIDEO_BATCH_PERSPECTIVE      = 1 << 6,
+    VIDEO_BATCH_DEPTH_SORT       = 1 << 7,
+};
+
+enum VideoBatchType {
+    VIDEO_BATCH_TYPE_POINT = 0,
+    VIDEO_BATCH_TYPE_LINE  = 1,
+    VIDEO_BATCH_TYPE_TRI   = 2,
+};
+
+static i16 test_rx = 0, test_ry = 0, test_rz = 0;
+/* Cube as Triangle Strips (CCW winding) */
+
+#define COLOR_ID 15
+
+static i16 uta_tapot[] = {
+1400, 0, 0, 30 << 8 | 0,
+1373, 273, 0, 30 << 8 | 0,
+1386, 0, 103, 30 << 8 | 0,
+1359, 270, 103, 30 << 8 | 0,
+1346, 0, 199, 30 << 8 | 0,
+1320, 262, 199, 30 << 8 | 0,
+1282, 0, 282, 30 << 8 | 0,
+1258, 250, 282, 30 << 8 | 0,
+1200, 0, 346, 30 << 8 | 0,
+1176, 234, 346, 30 << 8 | 0,
+1103, 0, 386, 30 << 8 | 0,
+1082, 215, 386, 30 << 8 | 0,
+1000, 0, 400, 30 << 8 | 0,
+980, 195, 400, 30 << 8 | 0,
+896, 0, 386, 30 << 8 | 0,
+879, 174, 386, 30 << 8 | 0,
+800, 0, 346, 30 << 8 | 0,
+784, 156, 346, 30 << 8 | 0,
+717, 0, 282, 30 << 8 | 0,
+703, 139, 282, 30 << 8 | 0,
+653, 0, 199, 30 << 8 | 0,
+641, 127, 199, 30 << 8 | 0,
+613, 0, 103, 30 << 8 | 0,
+601, 119, 103, 30 << 8 | 0,
+600, 0, 0, 30 << 8 | 0,
+588, 117, 0, 30 << 8 | 0,
+613, 0, -103, 30 << 8 | 0,
+601, 119, -103, 30 << 8 | 0,
+653, 0, -199, 30 << 8 | 0,
+641, 127, -199, 30 << 8 | 0,
+717, 0, -282, 30 << 8 | 0,
+703, 139, -282, 30 << 8 | 0,
+799, 0, -346, 30 << 8 | 0,
+784, 156, -346, 30 << 8 | 0,
+896, 0, -386, 30 << 8 | 0,
+879, 174, -386, 30 << 8 | 0,
+999, 0, -400, 30 << 8 | 0,
+980, 195, -400, 30 << 8 | 0,
+1103, 0, -386, 30 << 8 | 0,
+1082, 215, -386, 30 << 8 | 0,
+1200, 0, -346, 30 << 8 | 0,
+1176, 234, -346, 30 << 8 | 0,
+1282, 0, -282, 30 << 8 | 0,
+1258, 250, -282, 30 << 8 | 0,
+1346, 0, -200, 30 << 8 | 0,
+1320, 262, -200, 30 << 8 | 0,
+1386, 0, -103, 30 << 8 | 0,
+1359, 270, -103, 30 << 8 | 0,
+1400, 0, 0, 30 << 8 | 0,
+1373, 273, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+1373, 273, 0, 30 << 8 | 0,
+1293, 535, 0, 30 << 8 | 0,
+1359, 270, 103, 30 << 8 | 0,
+1280, 530, 103, 30 << 8 | 0,
+1320, 262, 199, 30 << 8 | 0,
+1243, 515, 199, 30 << 8 | 0,
+1258, 250, 282, 30 << 8 | 0,
+1185, 490, 282, 30 << 8 | 0,
+1176, 234, 346, 30 << 8 | 0,
+1108, 459, 346, 30 << 8 | 0,
+1082, 215, 386, 30 << 8 | 0,
+1019, 422, 386, 30 << 8 | 0,
+980, 195, 400, 30 << 8 | 0,
+923, 382, 400, 30 << 8 | 0,
+879, 174, 386, 30 << 8 | 0,
+828, 343, 386, 30 << 8 | 0,
+784, 156, 346, 30 << 8 | 0,
+739, 306, 346, 30 << 8 | 0,
+703, 139, 282, 30 << 8 | 0,
+662, 274, 282, 30 << 8 | 0,
+641, 127, 199, 30 << 8 | 0,
+603, 250, 199, 30 << 8 | 0,
+601, 119, 103, 30 << 8 | 0,
+566, 234, 103, 30 << 8 | 0,
+588, 117, 0, 30 << 8 | 0,
+554, 229, 0, 30 << 8 | 0,
+601, 119, -103, 30 << 8 | 0,
+566, 234, -103, 30 << 8 | 0,
+641, 127, -199, 30 << 8 | 0,
+603, 250, -199, 30 << 8 | 0,
+703, 139, -282, 30 << 8 | 0,
+662, 274, -282, 30 << 8 | 0,
+784, 156, -346, 30 << 8 | 0,
+739, 306, -346, 30 << 8 | 0,
+879, 174, -386, 30 << 8 | 0,
+828, 343, -386, 30 << 8 | 0,
+980, 195, -400, 30 << 8 | 0,
+923, 382, -400, 30 << 8 | 0,
+1082, 215, -386, 30 << 8 | 0,
+1019, 422, -386, 30 << 8 | 0,
+1176, 234, -346, 30 << 8 | 0,
+1108, 459, -346, 30 << 8 | 0,
+1258, 250, -282, 30 << 8 | 0,
+1185, 490, -282, 30 << 8 | 0,
+1320, 262, -200, 30 << 8 | 0,
+1243, 515, -200, 30 << 8 | 0,
+1359, 270, -103, 30 << 8 | 0,
+1280, 530, -103, 30 << 8 | 0,
+1373, 273, 0, 30 << 8 | 0,
+1293, 535, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+1293, 535, 0, 30 << 8 | 0,
+1164, 777, 0, 30 << 8 | 0,
+1280, 530, 103, 30 << 8 | 0,
+1152, 770, 103, 30 << 8 | 0,
+1243, 515, 199, 30 << 8 | 0,
+1119, 748, 199, 30 << 8 | 0,
+1185, 490, 282, 30 << 8 | 0,
+1066, 712, 282, 30 << 8 | 0,
+1108, 459, 346, 30 << 8 | 0,
+997, 666, 346, 30 << 8 | 0,
+1019, 422, 386, 30 << 8 | 0,
+917, 613, 386, 30 << 8 | 0,
+923, 382, 400, 30 << 8 | 0,
+831, 555, 400, 30 << 8 | 0,
+828, 343, 386, 30 << 8 | 0,
+745, 498, 386, 30 << 8 | 0,
+739, 306, 346, 30 << 8 | 0,
+665, 444, 346, 30 << 8 | 0,
+662, 274, 282, 30 << 8 | 0,
+596, 398, 282, 30 << 8 | 0,
+603, 250, 199, 30 << 8 | 0,
+543, 363, 199, 30 << 8 | 0,
+566, 234, 103, 30 << 8 | 0,
+510, 340, 103, 30 << 8 | 0,
+554, 229, 0, 30 << 8 | 0,
+498, 333, 0, 30 << 8 | 0,
+566, 234, -103, 30 << 8 | 0,
+510, 340, -103, 30 << 8 | 0,
+603, 250, -199, 30 << 8 | 0,
+543, 363, -199, 30 << 8 | 0,
+662, 274, -282, 30 << 8 | 0,
+596, 398, -282, 30 << 8 | 0,
+739, 306, -346, 30 << 8 | 0,
+665, 444, -346, 30 << 8 | 0,
+828, 343, -386, 30 << 8 | 0,
+745, 498, -386, 30 << 8 | 0,
+923, 382, -400, 30 << 8 | 0,
+831, 555, -400, 30 << 8 | 0,
+1019, 422, -386, 30 << 8 | 0,
+917, 613, -386, 30 << 8 | 0,
+1108, 459, -346, 30 << 8 | 0,
+997, 666, -346, 30 << 8 | 0,
+1185, 490, -282, 30 << 8 | 0,
+1066, 712, -282, 30 << 8 | 0,
+1243, 515, -200, 30 << 8 | 0,
+1119, 748, -200, 30 << 8 | 0,
+1280, 530, -103, 30 << 8 | 0,
+1152, 770, -103, 30 << 8 | 0,
+1293, 535, 0, 30 << 8 | 0,
+1164, 777, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+1164, 777, 0, 30 << 8 | 0,
+989, 989, 0, 30 << 8 | 0,
+1152, 770, 103, 30 << 8 | 0,
+980, 980, 103, 30 << 8 | 0,
+1119, 748, 199, 30 << 8 | 0,
+952, 952, 199, 30 << 8 | 0,
+1066, 712, 282, 30 << 8 | 0,
+907, 907, 282, 30 << 8 | 0,
+997, 666, 346, 30 << 8 | 0,
+848, 848, 346, 30 << 8 | 0,
+917, 613, 386, 30 << 8 | 0,
+780, 780, 386, 30 << 8 | 0,
+831, 555, 400, 30 << 8 | 0,
+707, 707, 400, 30 << 8 | 0,
+745, 498, 386, 30 << 8 | 0,
+633, 633, 386, 30 << 8 | 0,
+665, 444, 346, 30 << 8 | 0,
+565, 565, 346, 30 << 8 | 0,
+596, 398, 282, 30 << 8 | 0,
+507, 507, 282, 30 << 8 | 0,
+543, 363, 199, 30 << 8 | 0,
+462, 462, 199, 30 << 8 | 0,
+510, 340, 103, 30 << 8 | 0,
+433, 433, 103, 30 << 8 | 0,
+498, 333, 0, 30 << 8 | 0,
+424, 424, 0, 30 << 8 | 0,
+510, 340, -103, 30 << 8 | 0,
+433, 433, -103, 30 << 8 | 0,
+543, 363, -199, 30 << 8 | 0,
+462, 462, -199, 30 << 8 | 0,
+596, 398, -282, 30 << 8 | 0,
+507, 507, -282, 30 << 8 | 0,
+665, 444, -346, 30 << 8 | 0,
+565, 565, -346, 30 << 8 | 0,
+745, 498, -386, 30 << 8 | 0,
+633, 633, -386, 30 << 8 | 0,
+831, 555, -400, 30 << 8 | 0,
+707, 707, -400, 30 << 8 | 0,
+917, 613, -386, 30 << 8 | 0,
+780, 780, -386, 30 << 8 | 0,
+997, 666, -346, 30 << 8 | 0,
+848, 848, -346, 30 << 8 | 0,
+1066, 712, -282, 30 << 8 | 0,
+907, 907, -282, 30 << 8 | 0,
+1119, 748, -200, 30 << 8 | 0,
+952, 952, -200, 30 << 8 | 0,
+1152, 770, -103, 30 << 8 | 0,
+980, 980, -103, 30 << 8 | 0,
+1164, 777, 0, 30 << 8 | 0,
+989, 989, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+989, 989, 0, 30 << 8 | 0,
+777, 1164, 0, 30 << 8 | 0,
+980, 980, 103, 30 << 8 | 0,
+770, 1152, 103, 30 << 8 | 0,
+952, 952, 199, 30 << 8 | 0,
+748, 1119, 199, 30 << 8 | 0,
+907, 907, 282, 30 << 8 | 0,
+712, 1066, 282, 30 << 8 | 0,
+848, 848, 346, 30 << 8 | 0,
+666, 997, 346, 30 << 8 | 0,
+780, 780, 386, 30 << 8 | 0,
+613, 917, 386, 30 << 8 | 0,
+707, 707, 400, 30 << 8 | 0,
+555, 831, 400, 30 << 8 | 0,
+633, 633, 386, 30 << 8 | 0,
+498, 745, 386, 30 << 8 | 0,
+565, 565, 346, 30 << 8 | 0,
+444, 665, 346, 30 << 8 | 0,
+507, 507, 282, 30 << 8 | 0,
+398, 596, 282, 30 << 8 | 0,
+462, 462, 199, 30 << 8 | 0,
+363, 543, 199, 30 << 8 | 0,
+433, 433, 103, 30 << 8 | 0,
+340, 510, 103, 30 << 8 | 0,
+424, 424, 0, 30 << 8 | 0,
+333, 498, 0, 30 << 8 | 0,
+433, 433, -103, 30 << 8 | 0,
+340, 510, -103, 30 << 8 | 0,
+462, 462, -199, 30 << 8 | 0,
+363, 543, -199, 30 << 8 | 0,
+507, 507, -282, 30 << 8 | 0,
+398, 596, -282, 30 << 8 | 0,
+565, 565, -346, 30 << 8 | 0,
+444, 665, -346, 30 << 8 | 0,
+633, 633, -386, 30 << 8 | 0,
+498, 745, -386, 30 << 8 | 0,
+707, 707, -400, 30 << 8 | 0,
+555, 831, -400, 30 << 8 | 0,
+780, 780, -386, 30 << 8 | 0,
+613, 917, -386, 30 << 8 | 0,
+848, 848, -346, 30 << 8 | 0,
+666, 997, -346, 30 << 8 | 0,
+907, 907, -282, 30 << 8 | 0,
+712, 1066, -282, 30 << 8 | 0,
+952, 952, -200, 30 << 8 | 0,
+748, 1119, -200, 30 << 8 | 0,
+980, 980, -103, 30 << 8 | 0,
+770, 1152, -103, 30 << 8 | 0,
+989, 989, 0, 30 << 8 | 0,
+777, 1164, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+777, 1164, 0, 30 << 8 | 0,
+535, 1293, 0, 30 << 8 | 0,
+770, 1152, 103, 30 << 8 | 0,
+530, 1280, 103, 30 << 8 | 0,
+748, 1119, 199, 30 << 8 | 0,
+515, 1243, 199, 30 << 8 | 0,
+712, 1066, 282, 30 << 8 | 0,
+490, 1185, 282, 30 << 8 | 0,
+666, 997, 346, 30 << 8 | 0,
+459, 1108, 346, 30 << 8 | 0,
+613, 917, 386, 30 << 8 | 0,
+422, 1019, 386, 30 << 8 | 0,
+555, 831, 400, 30 << 8 | 0,
+382, 923, 400, 30 << 8 | 0,
+498, 745, 386, 30 << 8 | 0,
+343, 828, 386, 30 << 8 | 0,
+444, 665, 346, 30 << 8 | 0,
+306, 739, 346, 30 << 8 | 0,
+398, 596, 282, 30 << 8 | 0,
+274, 662, 282, 30 << 8 | 0,
+363, 543, 199, 30 << 8 | 0,
+250, 603, 199, 30 << 8 | 0,
+340, 510, 103, 30 << 8 | 0,
+234, 566, 103, 30 << 8 | 0,
+333, 498, 0, 30 << 8 | 0,
+229, 554, 0, 30 << 8 | 0,
+340, 510, -103, 30 << 8 | 0,
+234, 566, -103, 30 << 8 | 0,
+363, 543, -199, 30 << 8 | 0,
+250, 603, -199, 30 << 8 | 0,
+398, 596, -282, 30 << 8 | 0,
+274, 662, -282, 30 << 8 | 0,
+444, 665, -346, 30 << 8 | 0,
+306, 739, -346, 30 << 8 | 0,
+498, 745, -386, 30 << 8 | 0,
+343, 828, -386, 30 << 8 | 0,
+555, 831, -400, 30 << 8 | 0,
+382, 923, -400, 30 << 8 | 0,
+613, 917, -386, 30 << 8 | 0,
+422, 1019, -386, 30 << 8 | 0,
+666, 997, -346, 30 << 8 | 0,
+459, 1108, -346, 30 << 8 | 0,
+712, 1066, -282, 30 << 8 | 0,
+490, 1185, -282, 30 << 8 | 0,
+748, 1119, -200, 30 << 8 | 0,
+515, 1243, -200, 30 << 8 | 0,
+770, 1152, -103, 30 << 8 | 0,
+530, 1280, -103, 30 << 8 | 0,
+777, 1164, 0, 30 << 8 | 0,
+535, 1293, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+535, 1293, 0, 30 << 8 | 0,
+273, 1373, 0, 30 << 8 | 0,
+530, 1280, 103, 30 << 8 | 0,
+270, 1359, 103, 30 << 8 | 0,
+515, 1243, 199, 30 << 8 | 0,
+262, 1320, 199, 30 << 8 | 0,
+490, 1185, 282, 30 << 8 | 0,
+250, 1258, 282, 30 << 8 | 0,
+459, 1108, 346, 30 << 8 | 0,
+234, 1176, 346, 30 << 8 | 0,
+422, 1019, 386, 30 << 8 | 0,
+215, 1082, 386, 30 << 8 | 0,
+382, 923, 400, 30 << 8 | 0,
+195, 980, 400, 30 << 8 | 0,
+343, 828, 386, 30 << 8 | 0,
+174, 879, 386, 30 << 8 | 0,
+306, 739, 346, 30 << 8 | 0,
+156, 784, 346, 30 << 8 | 0,
+274, 662, 282, 30 << 8 | 0,
+139, 703, 282, 30 << 8 | 0,
+250, 603, 199, 30 << 8 | 0,
+127, 641, 199, 30 << 8 | 0,
+234, 566, 103, 30 << 8 | 0,
+119, 601, 103, 30 << 8 | 0,
+229, 554, 0, 30 << 8 | 0,
+117, 588, 0, 30 << 8 | 0,
+234, 566, -103, 30 << 8 | 0,
+119, 601, -103, 30 << 8 | 0,
+250, 603, -199, 30 << 8 | 0,
+127, 641, -199, 30 << 8 | 0,
+274, 662, -282, 30 << 8 | 0,
+139, 703, -282, 30 << 8 | 0,
+306, 739, -346, 30 << 8 | 0,
+156, 784, -346, 30 << 8 | 0,
+343, 828, -386, 30 << 8 | 0,
+174, 879, -386, 30 << 8 | 0,
+382, 923, -400, 30 << 8 | 0,
+195, 980, -400, 30 << 8 | 0,
+422, 1019, -386, 30 << 8 | 0,
+215, 1082, -386, 30 << 8 | 0,
+459, 1108, -346, 30 << 8 | 0,
+234, 1176, -346, 30 << 8 | 0,
+490, 1185, -282, 30 << 8 | 0,
+250, 1258, -282, 30 << 8 | 0,
+515, 1243, -200, 30 << 8 | 0,
+262, 1320, -200, 30 << 8 | 0,
+530, 1280, -103, 30 << 8 | 0,
+270, 1359, -103, 30 << 8 | 0,
+535, 1293, 0, 30 << 8 | 0,
+273, 1373, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+273, 1373, 0, 30 << 8 | 0,
+0, 1400, 0, 30 << 8 | 0,
+270, 1359, 103, 30 << 8 | 0,
+0, 1386, 103, 30 << 8 | 0,
+262, 1320, 199, 30 << 8 | 0,
+0, 1346, 199, 30 << 8 | 0,
+250, 1258, 282, 30 << 8 | 0,
+0, 1282, 282, 30 << 8 | 0,
+234, 1176, 346, 30 << 8 | 0,
+0, 1200, 346, 30 << 8 | 0,
+215, 1082, 386, 30 << 8 | 0,
+0, 1103, 386, 30 << 8 | 0,
+195, 980, 400, 30 << 8 | 0,
+0, 1000, 400, 30 << 8 | 0,
+174, 879, 386, 30 << 8 | 0,
+0, 896, 386, 30 << 8 | 0,
+156, 784, 346, 30 << 8 | 0,
+0, 800, 346, 30 << 8 | 0,
+139, 703, 282, 30 << 8 | 0,
+0, 717, 282, 30 << 8 | 0,
+127, 641, 199, 30 << 8 | 0,
+0, 653, 199, 30 << 8 | 0,
+119, 601, 103, 30 << 8 | 0,
+0, 613, 103, 30 << 8 | 0,
+117, 588, 0, 30 << 8 | 0,
+0, 600, 0, 30 << 8 | 0,
+119, 601, -103, 30 << 8 | 0,
+0, 613, -103, 30 << 8 | 0,
+127, 641, -199, 30 << 8 | 0,
+0, 653, -199, 30 << 8 | 0,
+139, 703, -282, 30 << 8 | 0,
+0, 717, -282, 30 << 8 | 0,
+156, 784, -346, 30 << 8 | 0,
+0, 799, -346, 30 << 8 | 0,
+174, 879, -386, 30 << 8 | 0,
+0, 896, -386, 30 << 8 | 0,
+195, 980, -400, 30 << 8 | 0,
+0, 999, -400, 30 << 8 | 0,
+215, 1082, -386, 30 << 8 | 0,
+0, 1103, -386, 30 << 8 | 0,
+234, 1176, -346, 30 << 8 | 0,
+0, 1200, -346, 30 << 8 | 0,
+250, 1258, -282, 30 << 8 | 0,
+0, 1282, -282, 30 << 8 | 0,
+262, 1320, -200, 30 << 8 | 0,
+0, 1346, -200, 30 << 8 | 0,
+270, 1359, -103, 30 << 8 | 0,
+0, 1386, -103, 30 << 8 | 0,
+273, 1373, 0, 30 << 8 | 0,
+0, 1400, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+0, 1400, 0, 30 << 8 | 0,
+-273, 1373, 0, 30 << 8 | 0,
+0, 1386, 103, 30 << 8 | 0,
+-270, 1359, 103, 30 << 8 | 0,
+0, 1346, 199, 30 << 8 | 0,
+-262, 1320, 199, 30 << 8 | 0,
+0, 1282, 282, 30 << 8 | 0,
+-250, 1258, 282, 30 << 8 | 0,
+0, 1200, 346, 30 << 8 | 0,
+-234, 1176, 346, 30 << 8 | 0,
+0, 1103, 386, 30 << 8 | 0,
+-215, 1082, 386, 30 << 8 | 0,
+0, 1000, 400, 30 << 8 | 0,
+-195, 980, 400, 30 << 8 | 0,
+0, 896, 386, 30 << 8 | 0,
+-174, 879, 386, 30 << 8 | 0,
+0, 800, 346, 30 << 8 | 0,
+-156, 784, 346, 30 << 8 | 0,
+0, 717, 282, 30 << 8 | 0,
+-139, 703, 282, 30 << 8 | 0,
+0, 653, 199, 30 << 8 | 0,
+-127, 641, 199, 30 << 8 | 0,
+0, 613, 103, 30 << 8 | 0,
+-119, 601, 103, 30 << 8 | 0,
+0, 600, 0, 30 << 8 | 0,
+-117, 588, 0, 30 << 8 | 0,
+0, 613, -103, 30 << 8 | 0,
+-119, 601, -103, 30 << 8 | 0,
+0, 653, -199, 30 << 8 | 0,
+-127, 641, -199, 30 << 8 | 0,
+0, 717, -282, 30 << 8 | 0,
+-139, 703, -282, 30 << 8 | 0,
+0, 799, -346, 30 << 8 | 0,
+-156, 784, -346, 30 << 8 | 0,
+0, 896, -386, 30 << 8 | 0,
+-174, 879, -386, 30 << 8 | 0,
+0, 999, -400, 30 << 8 | 0,
+-195, 980, -400, 30 << 8 | 0,
+0, 1103, -386, 30 << 8 | 0,
+-215, 1082, -386, 30 << 8 | 0,
+0, 1200, -346, 30 << 8 | 0,
+-234, 1176, -346, 30 << 8 | 0,
+0, 1282, -282, 30 << 8 | 0,
+-250, 1258, -282, 30 << 8 | 0,
+0, 1346, -200, 30 << 8 | 0,
+-262, 1320, -200, 30 << 8 | 0,
+0, 1386, -103, 30 << 8 | 0,
+-270, 1359, -103, 30 << 8 | 0,
+0, 1400, 0, 30 << 8 | 0,
+-273, 1373, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-273, 1373, 0, 30 << 8 | 0,
+-535, 1293, 0, 30 << 8 | 0,
+-270, 1359, 103, 30 << 8 | 0,
+-530, 1280, 103, 30 << 8 | 0,
+-262, 1320, 199, 30 << 8 | 0,
+-515, 1243, 199, 30 << 8 | 0,
+-250, 1258, 282, 30 << 8 | 0,
+-490, 1185, 282, 30 << 8 | 0,
+-234, 1176, 346, 30 << 8 | 0,
+-459, 1108, 346, 30 << 8 | 0,
+-215, 1082, 386, 30 << 8 | 0,
+-422, 1019, 386, 30 << 8 | 0,
+-195, 980, 400, 30 << 8 | 0,
+-382, 923, 400, 30 << 8 | 0,
+-174, 879, 386, 30 << 8 | 0,
+-343, 828, 386, 30 << 8 | 0,
+-156, 784, 346, 30 << 8 | 0,
+-306, 739, 346, 30 << 8 | 0,
+-139, 703, 282, 30 << 8 | 0,
+-274, 662, 282, 30 << 8 | 0,
+-127, 641, 199, 30 << 8 | 0,
+-250, 603, 199, 30 << 8 | 0,
+-119, 601, 103, 30 << 8 | 0,
+-234, 566, 103, 30 << 8 | 0,
+-117, 588, 0, 30 << 8 | 0,
+-229, 554, 0, 30 << 8 | 0,
+-119, 601, -103, 30 << 8 | 0,
+-234, 566, -103, 30 << 8 | 0,
+-127, 641, -199, 30 << 8 | 0,
+-250, 603, -199, 30 << 8 | 0,
+-139, 703, -282, 30 << 8 | 0,
+-274, 662, -282, 30 << 8 | 0,
+-156, 784, -346, 30 << 8 | 0,
+-306, 739, -346, 30 << 8 | 0,
+-174, 879, -386, 30 << 8 | 0,
+-343, 828, -386, 30 << 8 | 0,
+-195, 980, -400, 30 << 8 | 0,
+-382, 923, -400, 30 << 8 | 0,
+-215, 1082, -386, 30 << 8 | 0,
+-422, 1019, -386, 30 << 8 | 0,
+-234, 1176, -346, 30 << 8 | 0,
+-459, 1108, -346, 30 << 8 | 0,
+-250, 1258, -282, 30 << 8 | 0,
+-490, 1185, -282, 30 << 8 | 0,
+-262, 1320, -200, 30 << 8 | 0,
+-515, 1243, -200, 30 << 8 | 0,
+-270, 1359, -103, 30 << 8 | 0,
+-530, 1280, -103, 30 << 8 | 0,
+-273, 1373, 0, 30 << 8 | 0,
+-535, 1293, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-535, 1293, 0, 30 << 8 | 0,
+-777, 1164, 0, 30 << 8 | 0,
+-530, 1280, 103, 30 << 8 | 0,
+-770, 1152, 103, 30 << 8 | 0,
+-515, 1243, 199, 30 << 8 | 0,
+-748, 1119, 199, 30 << 8 | 0,
+-490, 1185, 282, 30 << 8 | 0,
+-712, 1066, 282, 30 << 8 | 0,
+-459, 1108, 346, 30 << 8 | 0,
+-666, 997, 346, 30 << 8 | 0,
+-422, 1019, 386, 30 << 8 | 0,
+-613, 917, 386, 30 << 8 | 0,
+-382, 923, 400, 30 << 8 | 0,
+-555, 831, 400, 30 << 8 | 0,
+-343, 828, 386, 30 << 8 | 0,
+-498, 745, 386, 30 << 8 | 0,
+-306, 739, 346, 30 << 8 | 0,
+-444, 665, 346, 30 << 8 | 0,
+-274, 662, 282, 30 << 8 | 0,
+-398, 596, 282, 30 << 8 | 0,
+-250, 603, 199, 30 << 8 | 0,
+-363, 543, 199, 30 << 8 | 0,
+-234, 566, 103, 30 << 8 | 0,
+-340, 510, 103, 30 << 8 | 0,
+-229, 554, 0, 30 << 8 | 0,
+-333, 498, 0, 30 << 8 | 0,
+-234, 566, -103, 30 << 8 | 0,
+-340, 510, -103, 30 << 8 | 0,
+-250, 603, -199, 30 << 8 | 0,
+-363, 543, -199, 30 << 8 | 0,
+-274, 662, -282, 30 << 8 | 0,
+-398, 596, -282, 30 << 8 | 0,
+-306, 739, -346, 30 << 8 | 0,
+-444, 665, -346, 30 << 8 | 0,
+-343, 828, -386, 30 << 8 | 0,
+-498, 745, -386, 30 << 8 | 0,
+-382, 923, -400, 30 << 8 | 0,
+-555, 831, -400, 30 << 8 | 0,
+-422, 1019, -386, 30 << 8 | 0,
+-613, 917, -386, 30 << 8 | 0,
+-459, 1108, -346, 30 << 8 | 0,
+-666, 997, -346, 30 << 8 | 0,
+-490, 1185, -282, 30 << 8 | 0,
+-712, 1066, -282, 30 << 8 | 0,
+-515, 1243, -200, 30 << 8 | 0,
+-748, 1119, -200, 30 << 8 | 0,
+-530, 1280, -103, 30 << 8 | 0,
+-770, 1152, -103, 30 << 8 | 0,
+-535, 1293, 0, 30 << 8 | 0,
+-777, 1164, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-777, 1164, 0, 30 << 8 | 0,
+-989, 989, 0, 30 << 8 | 0,
+-770, 1152, 103, 30 << 8 | 0,
+-980, 980, 103, 30 << 8 | 0,
+-748, 1119, 199, 30 << 8 | 0,
+-952, 952, 199, 30 << 8 | 0,
+-712, 1066, 282, 30 << 8 | 0,
+-907, 907, 282, 30 << 8 | 0,
+-666, 997, 346, 30 << 8 | 0,
+-848, 848, 346, 30 << 8 | 0,
+-613, 917, 386, 30 << 8 | 0,
+-780, 780, 386, 30 << 8 | 0,
+-555, 831, 400, 30 << 8 | 0,
+-707, 707, 400, 30 << 8 | 0,
+-498, 745, 386, 30 << 8 | 0,
+-633, 633, 386, 30 << 8 | 0,
+-444, 665, 346, 30 << 8 | 0,
+-565, 565, 346, 30 << 8 | 0,
+-398, 596, 282, 30 << 8 | 0,
+-507, 507, 282, 30 << 8 | 0,
+-363, 543, 199, 30 << 8 | 0,
+-462, 462, 199, 30 << 8 | 0,
+-340, 510, 103, 30 << 8 | 0,
+-433, 433, 103, 30 << 8 | 0,
+-333, 498, 0, 30 << 8 | 0,
+-424, 424, 0, 30 << 8 | 0,
+-340, 510, -103, 30 << 8 | 0,
+-433, 433, -103, 30 << 8 | 0,
+-363, 543, -199, 30 << 8 | 0,
+-462, 462, -199, 30 << 8 | 0,
+-398, 596, -282, 30 << 8 | 0,
+-507, 507, -282, 30 << 8 | 0,
+-444, 665, -346, 30 << 8 | 0,
+-565, 565, -346, 30 << 8 | 0,
+-498, 745, -386, 30 << 8 | 0,
+-633, 633, -386, 30 << 8 | 0,
+-555, 831, -400, 30 << 8 | 0,
+-707, 707, -400, 30 << 8 | 0,
+-613, 917, -386, 30 << 8 | 0,
+-780, 780, -386, 30 << 8 | 0,
+-666, 997, -346, 30 << 8 | 0,
+-848, 848, -346, 30 << 8 | 0,
+-712, 1066, -282, 30 << 8 | 0,
+-907, 907, -282, 30 << 8 | 0,
+-748, 1119, -200, 30 << 8 | 0,
+-952, 952, -200, 30 << 8 | 0,
+-770, 1152, -103, 30 << 8 | 0,
+-980, 980, -103, 30 << 8 | 0,
+-777, 1164, 0, 30 << 8 | 0,
+-989, 989, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-989, 989, 0, 30 << 8 | 0,
+-1164, 777, 0, 30 << 8 | 0,
+-980, 980, 103, 30 << 8 | 0,
+-1152, 770, 103, 30 << 8 | 0,
+-952, 952, 199, 30 << 8 | 0,
+-1119, 748, 199, 30 << 8 | 0,
+-907, 907, 282, 30 << 8 | 0,
+-1066, 712, 282, 30 << 8 | 0,
+-848, 848, 346, 30 << 8 | 0,
+-997, 666, 346, 30 << 8 | 0,
+-780, 780, 386, 30 << 8 | 0,
+-917, 613, 386, 30 << 8 | 0,
+-707, 707, 400, 30 << 8 | 0,
+-831, 555, 400, 30 << 8 | 0,
+-633, 633, 386, 30 << 8 | 0,
+-745, 498, 386, 30 << 8 | 0,
+-565, 565, 346, 30 << 8 | 0,
+-665, 444, 346, 30 << 8 | 0,
+-507, 507, 282, 30 << 8 | 0,
+-596, 398, 282, 30 << 8 | 0,
+-462, 462, 199, 30 << 8 | 0,
+-543, 363, 199, 30 << 8 | 0,
+-433, 433, 103, 30 << 8 | 0,
+-510, 340, 103, 30 << 8 | 0,
+-424, 424, 0, 30 << 8 | 0,
+-498, 333, 0, 30 << 8 | 0,
+-433, 433, -103, 30 << 8 | 0,
+-510, 340, -103, 30 << 8 | 0,
+-462, 462, -199, 30 << 8 | 0,
+-543, 363, -199, 30 << 8 | 0,
+-507, 507, -282, 30 << 8 | 0,
+-596, 398, -282, 30 << 8 | 0,
+-565, 565, -346, 30 << 8 | 0,
+-665, 444, -346, 30 << 8 | 0,
+-633, 633, -386, 30 << 8 | 0,
+-745, 498, -386, 30 << 8 | 0,
+-707, 707, -400, 30 << 8 | 0,
+-831, 555, -400, 30 << 8 | 0,
+-780, 780, -386, 30 << 8 | 0,
+-917, 613, -386, 30 << 8 | 0,
+-848, 848, -346, 30 << 8 | 0,
+-997, 666, -346, 30 << 8 | 0,
+-907, 907, -282, 30 << 8 | 0,
+-1066, 712, -282, 30 << 8 | 0,
+-952, 952, -200, 30 << 8 | 0,
+-1119, 748, -200, 30 << 8 | 0,
+-980, 980, -103, 30 << 8 | 0,
+-1152, 770, -103, 30 << 8 | 0,
+-989, 989, 0, 30 << 8 | 0,
+-1164, 777, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-1164, 777, 0, 30 << 8 | 0,
+-1293, 535, 0, 30 << 8 | 0,
+-1152, 770, 103, 30 << 8 | 0,
+-1280, 530, 103, 30 << 8 | 0,
+-1119, 748, 199, 30 << 8 | 0,
+-1243, 515, 199, 30 << 8 | 0,
+-1066, 712, 282, 30 << 8 | 0,
+-1185, 490, 282, 30 << 8 | 0,
+-997, 666, 346, 30 << 8 | 0,
+-1108, 459, 346, 30 << 8 | 0,
+-917, 613, 386, 30 << 8 | 0,
+-1019, 422, 386, 30 << 8 | 0,
+-831, 555, 400, 30 << 8 | 0,
+-923, 382, 400, 30 << 8 | 0,
+-745, 498, 386, 30 << 8 | 0,
+-828, 343, 386, 30 << 8 | 0,
+-665, 444, 346, 30 << 8 | 0,
+-739, 306, 346, 30 << 8 | 0,
+-596, 398, 282, 30 << 8 | 0,
+-662, 274, 282, 30 << 8 | 0,
+-543, 363, 199, 30 << 8 | 0,
+-603, 250, 199, 30 << 8 | 0,
+-510, 340, 103, 30 << 8 | 0,
+-566, 234, 103, 30 << 8 | 0,
+-498, 333, 0, 30 << 8 | 0,
+-554, 229, 0, 30 << 8 | 0,
+-510, 340, -103, 30 << 8 | 0,
+-566, 234, -103, 30 << 8 | 0,
+-543, 363, -199, 30 << 8 | 0,
+-603, 250, -199, 30 << 8 | 0,
+-596, 398, -282, 30 << 8 | 0,
+-662, 274, -282, 30 << 8 | 0,
+-665, 444, -346, 30 << 8 | 0,
+-739, 306, -346, 30 << 8 | 0,
+-745, 498, -386, 30 << 8 | 0,
+-828, 343, -386, 30 << 8 | 0,
+-831, 555, -400, 30 << 8 | 0,
+-923, 382, -400, 30 << 8 | 0,
+-917, 613, -386, 30 << 8 | 0,
+-1019, 422, -386, 30 << 8 | 0,
+-997, 666, -346, 30 << 8 | 0,
+-1108, 459, -346, 30 << 8 | 0,
+-1066, 712, -282, 30 << 8 | 0,
+-1185, 490, -282, 30 << 8 | 0,
+-1119, 748, -200, 30 << 8 | 0,
+-1243, 515, -200, 30 << 8 | 0,
+-1152, 770, -103, 30 << 8 | 0,
+-1280, 530, -103, 30 << 8 | 0,
+-1164, 777, 0, 30 << 8 | 0,
+-1293, 535, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-1293, 535, 0, 30 << 8 | 0,
+-1373, 273, 0, 30 << 8 | 0,
+-1280, 530, 103, 30 << 8 | 0,
+-1359, 270, 103, 30 << 8 | 0,
+-1243, 515, 199, 30 << 8 | 0,
+-1320, 262, 199, 30 << 8 | 0,
+-1185, 490, 282, 30 << 8 | 0,
+-1258, 250, 282, 30 << 8 | 0,
+-1108, 459, 346, 30 << 8 | 0,
+-1176, 234, 346, 30 << 8 | 0,
+-1019, 422, 386, 30 << 8 | 0,
+-1082, 215, 386, 30 << 8 | 0,
+-923, 382, 400, 30 << 8 | 0,
+-980, 195, 400, 30 << 8 | 0,
+-828, 343, 386, 30 << 8 | 0,
+-879, 174, 386, 30 << 8 | 0,
+-739, 306, 346, 30 << 8 | 0,
+-784, 156, 346, 30 << 8 | 0,
+-662, 274, 282, 30 << 8 | 0,
+-703, 139, 282, 30 << 8 | 0,
+-603, 250, 199, 30 << 8 | 0,
+-641, 127, 199, 30 << 8 | 0,
+-566, 234, 103, 30 << 8 | 0,
+-601, 119, 103, 30 << 8 | 0,
+-554, 229, 0, 30 << 8 | 0,
+-588, 117, 0, 30 << 8 | 0,
+-566, 234, -103, 30 << 8 | 0,
+-601, 119, -103, 30 << 8 | 0,
+-603, 250, -199, 30 << 8 | 0,
+-641, 127, -199, 30 << 8 | 0,
+-662, 274, -282, 30 << 8 | 0,
+-703, 139, -282, 30 << 8 | 0,
+-739, 306, -346, 30 << 8 | 0,
+-784, 156, -346, 30 << 8 | 0,
+-828, 343, -386, 30 << 8 | 0,
+-879, 174, -386, 30 << 8 | 0,
+-923, 382, -400, 30 << 8 | 0,
+-980, 195, -400, 30 << 8 | 0,
+-1019, 422, -386, 30 << 8 | 0,
+-1082, 215, -386, 30 << 8 | 0,
+-1108, 459, -346, 30 << 8 | 0,
+-1176, 234, -346, 30 << 8 | 0,
+-1185, 490, -282, 30 << 8 | 0,
+-1258, 250, -282, 30 << 8 | 0,
+-1243, 515, -200, 30 << 8 | 0,
+-1320, 262, -200, 30 << 8 | 0,
+-1280, 530, -103, 30 << 8 | 0,
+-1359, 270, -103, 30 << 8 | 0,
+-1293, 535, 0, 30 << 8 | 0,
+-1373, 273, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-1373, 273, 0, 30 << 8 | 0,
+-1400, 0, 0, 30 << 8 | 0,
+-1359, 270, 103, 30 << 8 | 0,
+-1386, 0, 103, 30 << 8 | 0,
+-1320, 262, 199, 30 << 8 | 0,
+-1346, 0, 199, 30 << 8 | 0,
+-1258, 250, 282, 30 << 8 | 0,
+-1282, 0, 282, 30 << 8 | 0,
+-1176, 234, 346, 30 << 8 | 0,
+-1200, 0, 346, 30 << 8 | 0,
+-1082, 215, 386, 30 << 8 | 0,
+-1103, 0, 386, 30 << 8 | 0,
+-980, 195, 400, 30 << 8 | 0,
+-1000, 0, 400, 30 << 8 | 0,
+-879, 174, 386, 30 << 8 | 0,
+-896, 0, 386, 30 << 8 | 0,
+-784, 156, 346, 30 << 8 | 0,
+-800, 0, 346, 30 << 8 | 0,
+-703, 139, 282, 30 << 8 | 0,
+-717, 0, 282, 30 << 8 | 0,
+-641, 127, 199, 30 << 8 | 0,
+-653, 0, 199, 30 << 8 | 0,
+-601, 119, 103, 30 << 8 | 0,
+-613, 0, 103, 30 << 8 | 0,
+-588, 117, 0, 30 << 8 | 0,
+-600, 0, 0, 30 << 8 | 0,
+-601, 119, -103, 30 << 8 | 0,
+-613, 0, -103, 30 << 8 | 0,
+-641, 127, -199, 30 << 8 | 0,
+-653, 0, -199, 30 << 8 | 0,
+-703, 139, -282, 30 << 8 | 0,
+-717, 0, -282, 30 << 8 | 0,
+-784, 156, -346, 30 << 8 | 0,
+-799, 0, -346, 30 << 8 | 0,
+-879, 174, -386, 30 << 8 | 0,
+-896, 0, -386, 30 << 8 | 0,
+-980, 195, -400, 30 << 8 | 0,
+-999, 0, -400, 30 << 8 | 0,
+-1082, 215, -386, 30 << 8 | 0,
+-1103, 0, -386, 30 << 8 | 0,
+-1176, 234, -346, 30 << 8 | 0,
+-1200, 0, -346, 30 << 8 | 0,
+-1258, 250, -282, 30 << 8 | 0,
+-1282, 0, -282, 30 << 8 | 0,
+-1320, 262, -200, 30 << 8 | 0,
+-1346, 0, -200, 30 << 8 | 0,
+-1359, 270, -103, 30 << 8 | 0,
+-1386, 0, -103, 30 << 8 | 0,
+-1373, 273, 0, 30 << 8 | 0,
+-1400, 0, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-1400, 0, 0, 30 << 8 | 0,
+-1373, -273, 0, 30 << 8 | 0,
+-1386, 0, 103, 30 << 8 | 0,
+-1359, -270, 103, 30 << 8 | 0,
+-1346, 0, 199, 30 << 8 | 0,
+-1320, -262, 199, 30 << 8 | 0,
+-1282, 0, 282, 30 << 8 | 0,
+-1258, -250, 282, 30 << 8 | 0,
+-1200, 0, 346, 30 << 8 | 0,
+-1176, -234, 346, 30 << 8 | 0,
+-1103, 0, 386, 30 << 8 | 0,
+-1082, -215, 386, 30 << 8 | 0,
+-1000, 0, 400, 30 << 8 | 0,
+-980, -195, 400, 30 << 8 | 0,
+-896, 0, 386, 30 << 8 | 0,
+-879, -174, 386, 30 << 8 | 0,
+-800, 0, 346, 30 << 8 | 0,
+-784, -156, 346, 30 << 8 | 0,
+-717, 0, 282, 30 << 8 | 0,
+-703, -139, 282, 30 << 8 | 0,
+-653, 0, 199, 30 << 8 | 0,
+-641, -127, 199, 30 << 8 | 0,
+-613, 0, 103, 30 << 8 | 0,
+-601, -119, 103, 30 << 8 | 0,
+-600, 0, 0, 30 << 8 | 0,
+-588, -117, 0, 30 << 8 | 0,
+-613, 0, -103, 30 << 8 | 0,
+-601, -119, -103, 30 << 8 | 0,
+-653, 0, -199, 30 << 8 | 0,
+-641, -127, -199, 30 << 8 | 0,
+-717, 0, -282, 30 << 8 | 0,
+-703, -139, -282, 30 << 8 | 0,
+-799, 0, -346, 30 << 8 | 0,
+-784, -156, -346, 30 << 8 | 0,
+-896, 0, -386, 30 << 8 | 0,
+-879, -174, -386, 30 << 8 | 0,
+-999, 0, -400, 30 << 8 | 0,
+-980, -195, -400, 30 << 8 | 0,
+-1103, 0, -386, 30 << 8 | 0,
+-1082, -215, -386, 30 << 8 | 0,
+-1200, 0, -346, 30 << 8 | 0,
+-1176, -234, -346, 30 << 8 | 0,
+-1282, 0, -282, 30 << 8 | 0,
+-1258, -250, -282, 30 << 8 | 0,
+-1346, 0, -200, 30 << 8 | 0,
+-1320, -262, -200, 30 << 8 | 0,
+-1386, 0, -103, 30 << 8 | 0,
+-1359, -270, -103, 30 << 8 | 0,
+-1400, 0, 0, 30 << 8 | 0,
+-1373, -273, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-1373, -273, 0, 30 << 8 | 0,
+-1293, -535, 0, 30 << 8 | 0,
+-1359, -270, 103, 30 << 8 | 0,
+-1280, -530, 103, 30 << 8 | 0,
+-1320, -262, 199, 30 << 8 | 0,
+-1243, -515, 199, 30 << 8 | 0,
+-1258, -250, 282, 30 << 8 | 0,
+-1185, -490, 282, 30 << 8 | 0,
+-1176, -234, 346, 30 << 8 | 0,
+-1108, -459, 346, 30 << 8 | 0,
+-1082, -215, 386, 30 << 8 | 0,
+-1019, -422, 386, 30 << 8 | 0,
+-980, -195, 400, 30 << 8 | 0,
+-923, -382, 400, 30 << 8 | 0,
+-879, -174, 386, 30 << 8 | 0,
+-828, -343, 386, 30 << 8 | 0,
+-784, -156, 346, 30 << 8 | 0,
+-739, -306, 346, 30 << 8 | 0,
+-703, -139, 282, 30 << 8 | 0,
+-662, -274, 282, 30 << 8 | 0,
+-641, -127, 199, 30 << 8 | 0,
+-603, -250, 199, 30 << 8 | 0,
+-601, -119, 103, 30 << 8 | 0,
+-566, -234, 103, 30 << 8 | 0,
+-588, -117, 0, 30 << 8 | 0,
+-554, -229, 0, 30 << 8 | 0,
+-601, -119, -103, 30 << 8 | 0,
+-566, -234, -103, 30 << 8 | 0,
+-641, -127, -199, 30 << 8 | 0,
+-603, -250, -199, 30 << 8 | 0,
+-703, -139, -282, 30 << 8 | 0,
+-662, -274, -282, 30 << 8 | 0,
+-784, -156, -346, 30 << 8 | 0,
+-739, -306, -346, 30 << 8 | 0,
+-879, -174, -386, 30 << 8 | 0,
+-828, -343, -386, 30 << 8 | 0,
+-980, -195, -400, 30 << 8 | 0,
+-923, -382, -400, 30 << 8 | 0,
+-1082, -215, -386, 30 << 8 | 0,
+-1019, -422, -386, 30 << 8 | 0,
+-1176, -234, -346, 30 << 8 | 0,
+-1108, -459, -346, 30 << 8 | 0,
+-1258, -250, -282, 30 << 8 | 0,
+-1185, -490, -282, 30 << 8 | 0,
+-1320, -262, -200, 30 << 8 | 0,
+-1243, -515, -200, 30 << 8 | 0,
+-1359, -270, -103, 30 << 8 | 0,
+-1280, -530, -103, 30 << 8 | 0,
+-1373, -273, 0, 30 << 8 | 0,
+-1293, -535, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-1293, -535, 0, 30 << 8 | 0,
+-1164, -777, 0, 30 << 8 | 0,
+-1280, -530, 103, 30 << 8 | 0,
+-1152, -770, 103, 30 << 8 | 0,
+-1243, -515, 199, 30 << 8 | 0,
+-1119, -748, 199, 30 << 8 | 0,
+-1185, -490, 282, 30 << 8 | 0,
+-1066, -712, 282, 30 << 8 | 0,
+-1108, -459, 346, 30 << 8 | 0,
+-997, -666, 346, 30 << 8 | 0,
+-1019, -422, 386, 30 << 8 | 0,
+-917, -613, 386, 30 << 8 | 0,
+-923, -382, 400, 30 << 8 | 0,
+-831, -555, 400, 30 << 8 | 0,
+-828, -343, 386, 30 << 8 | 0,
+-745, -498, 386, 30 << 8 | 0,
+-739, -306, 346, 30 << 8 | 0,
+-665, -444, 346, 30 << 8 | 0,
+-662, -274, 282, 30 << 8 | 0,
+-596, -398, 282, 30 << 8 | 0,
+-603, -250, 199, 30 << 8 | 0,
+-543, -363, 199, 30 << 8 | 0,
+-566, -234, 103, 30 << 8 | 0,
+-510, -340, 103, 30 << 8 | 0,
+-554, -229, 0, 30 << 8 | 0,
+-498, -333, 0, 30 << 8 | 0,
+-566, -234, -103, 30 << 8 | 0,
+-510, -340, -103, 30 << 8 | 0,
+-603, -250, -199, 30 << 8 | 0,
+-543, -363, -199, 30 << 8 | 0,
+-662, -274, -282, 30 << 8 | 0,
+-596, -398, -282, 30 << 8 | 0,
+-739, -306, -346, 30 << 8 | 0,
+-665, -444, -346, 30 << 8 | 0,
+-828, -343, -386, 30 << 8 | 0,
+-745, -498, -386, 30 << 8 | 0,
+-923, -382, -400, 30 << 8 | 0,
+-831, -555, -400, 30 << 8 | 0,
+-1019, -422, -386, 30 << 8 | 0,
+-917, -613, -386, 30 << 8 | 0,
+-1108, -459, -346, 30 << 8 | 0,
+-997, -666, -346, 30 << 8 | 0,
+-1185, -490, -282, 30 << 8 | 0,
+-1066, -712, -282, 30 << 8 | 0,
+-1243, -515, -200, 30 << 8 | 0,
+-1119, -748, -200, 30 << 8 | 0,
+-1280, -530, -103, 30 << 8 | 0,
+-1152, -770, -103, 30 << 8 | 0,
+-1293, -535, 0, 30 << 8 | 0,
+-1164, -777, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-1164, -777, 0, 30 << 8 | 0,
+-989, -989, 0, 30 << 8 | 0,
+-1152, -770, 103, 30 << 8 | 0,
+-980, -980, 103, 30 << 8 | 0,
+-1119, -748, 199, 30 << 8 | 0,
+-952, -952, 199, 30 << 8 | 0,
+-1066, -712, 282, 30 << 8 | 0,
+-907, -907, 282, 30 << 8 | 0,
+-997, -666, 346, 30 << 8 | 0,
+-848, -848, 346, 30 << 8 | 0,
+-917, -613, 386, 30 << 8 | 0,
+-780, -780, 386, 30 << 8 | 0,
+-831, -555, 400, 30 << 8 | 0,
+-707, -707, 400, 30 << 8 | 0,
+-745, -498, 386, 30 << 8 | 0,
+-633, -633, 386, 30 << 8 | 0,
+-665, -444, 346, 30 << 8 | 0,
+-565, -565, 346, 30 << 8 | 0,
+-596, -398, 282, 30 << 8 | 0,
+-507, -507, 282, 30 << 8 | 0,
+-543, -363, 199, 30 << 8 | 0,
+-462, -462, 199, 30 << 8 | 0,
+-510, -340, 103, 30 << 8 | 0,
+-433, -433, 103, 30 << 8 | 0,
+-498, -333, 0, 30 << 8 | 0,
+-424, -424, 0, 30 << 8 | 0,
+-510, -340, -103, 30 << 8 | 0,
+-433, -433, -103, 30 << 8 | 0,
+-543, -363, -199, 30 << 8 | 0,
+-462, -462, -199, 30 << 8 | 0,
+-596, -398, -282, 30 << 8 | 0,
+-507, -507, -282, 30 << 8 | 0,
+-665, -444, -346, 30 << 8 | 0,
+-565, -565, -346, 30 << 8 | 0,
+-745, -498, -386, 30 << 8 | 0,
+-633, -633, -386, 30 << 8 | 0,
+-831, -555, -400, 30 << 8 | 0,
+-707, -707, -400, 30 << 8 | 0,
+-917, -613, -386, 30 << 8 | 0,
+-780, -780, -386, 30 << 8 | 0,
+-997, -666, -346, 30 << 8 | 0,
+-848, -848, -346, 30 << 8 | 0,
+-1066, -712, -282, 30 << 8 | 0,
+-907, -907, -282, 30 << 8 | 0,
+-1119, -748, -200, 30 << 8 | 0,
+-952, -952, -200, 30 << 8 | 0,
+-1152, -770, -103, 30 << 8 | 0,
+-980, -980, -103, 30 << 8 | 0,
+-1164, -777, 0, 30 << 8 | 0,
+-989, -989, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-989, -989, 0, 30 << 8 | 0,
+-777, -1164, 0, 30 << 8 | 0,
+-980, -980, 103, 30 << 8 | 0,
+-770, -1152, 103, 30 << 8 | 0,
+-952, -952, 199, 30 << 8 | 0,
+-748, -1119, 199, 30 << 8 | 0,
+-907, -907, 282, 30 << 8 | 0,
+-712, -1066, 282, 30 << 8 | 0,
+-848, -848, 346, 30 << 8 | 0,
+-666, -997, 346, 30 << 8 | 0,
+-780, -780, 386, 30 << 8 | 0,
+-613, -917, 386, 30 << 8 | 0,
+-707, -707, 400, 30 << 8 | 0,
+-555, -831, 400, 30 << 8 | 0,
+-633, -633, 386, 30 << 8 | 0,
+-498, -745, 386, 30 << 8 | 0,
+-565, -565, 346, 30 << 8 | 0,
+-444, -665, 346, 30 << 8 | 0,
+-507, -507, 282, 30 << 8 | 0,
+-398, -596, 282, 30 << 8 | 0,
+-462, -462, 199, 30 << 8 | 0,
+-363, -543, 199, 30 << 8 | 0,
+-433, -433, 103, 30 << 8 | 0,
+-340, -510, 103, 30 << 8 | 0,
+-424, -424, 0, 30 << 8 | 0,
+-333, -498, 0, 30 << 8 | 0,
+-433, -433, -103, 30 << 8 | 0,
+-340, -510, -103, 30 << 8 | 0,
+-462, -462, -199, 30 << 8 | 0,
+-363, -543, -199, 30 << 8 | 0,
+-507, -507, -282, 30 << 8 | 0,
+-398, -596, -282, 30 << 8 | 0,
+-565, -565, -346, 30 << 8 | 0,
+-444, -665, -346, 30 << 8 | 0,
+-633, -633, -386, 30 << 8 | 0,
+-498, -745, -386, 30 << 8 | 0,
+-707, -707, -400, 30 << 8 | 0,
+-555, -831, -400, 30 << 8 | 0,
+-780, -780, -386, 30 << 8 | 0,
+-613, -917, -386, 30 << 8 | 0,
+-848, -848, -346, 30 << 8 | 0,
+-666, -997, -346, 30 << 8 | 0,
+-907, -907, -282, 30 << 8 | 0,
+-712, -1066, -282, 30 << 8 | 0,
+-952, -952, -200, 30 << 8 | 0,
+-748, -1119, -200, 30 << 8 | 0,
+-980, -980, -103, 30 << 8 | 0,
+-770, -1152, -103, 30 << 8 | 0,
+-989, -989, 0, 30 << 8 | 0,
+-777, -1164, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-777, -1164, 0, 30 << 8 | 0,
+-535, -1293, 0, 30 << 8 | 0,
+-770, -1152, 103, 30 << 8 | 0,
+-530, -1280, 103, 30 << 8 | 0,
+-748, -1119, 199, 30 << 8 | 0,
+-515, -1243, 199, 30 << 8 | 0,
+-712, -1066, 282, 30 << 8 | 0,
+-490, -1185, 282, 30 << 8 | 0,
+-666, -997, 346, 30 << 8 | 0,
+-459, -1108, 346, 30 << 8 | 0,
+-613, -917, 386, 30 << 8 | 0,
+-422, -1019, 386, 30 << 8 | 0,
+-555, -831, 400, 30 << 8 | 0,
+-382, -923, 400, 30 << 8 | 0,
+-498, -745, 386, 30 << 8 | 0,
+-343, -828, 386, 30 << 8 | 0,
+-444, -665, 346, 30 << 8 | 0,
+-306, -739, 346, 30 << 8 | 0,
+-398, -596, 282, 30 << 8 | 0,
+-274, -662, 282, 30 << 8 | 0,
+-363, -543, 199, 30 << 8 | 0,
+-250, -603, 199, 30 << 8 | 0,
+-340, -510, 103, 30 << 8 | 0,
+-234, -566, 103, 30 << 8 | 0,
+-333, -498, 0, 30 << 8 | 0,
+-229, -554, 0, 30 << 8 | 0,
+-340, -510, -103, 30 << 8 | 0,
+-234, -566, -103, 30 << 8 | 0,
+-363, -543, -199, 30 << 8 | 0,
+-250, -603, -199, 30 << 8 | 0,
+-398, -596, -282, 30 << 8 | 0,
+-274, -662, -282, 30 << 8 | 0,
+-444, -665, -346, 30 << 8 | 0,
+-306, -739, -346, 30 << 8 | 0,
+-498, -745, -386, 30 << 8 | 0,
+-343, -828, -386, 30 << 8 | 0,
+-555, -831, -400, 30 << 8 | 0,
+-382, -923, -400, 30 << 8 | 0,
+-613, -917, -386, 30 << 8 | 0,
+-422, -1019, -386, 30 << 8 | 0,
+-666, -997, -346, 30 << 8 | 0,
+-459, -1108, -346, 30 << 8 | 0,
+-712, -1066, -282, 30 << 8 | 0,
+-490, -1185, -282, 30 << 8 | 0,
+-748, -1119, -200, 30 << 8 | 0,
+-515, -1243, -200, 30 << 8 | 0,
+-770, -1152, -103, 30 << 8 | 0,
+-530, -1280, -103, 30 << 8 | 0,
+-777, -1164, 0, 30 << 8 | 0,
+-535, -1293, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-535, -1293, 0, 30 << 8 | 0,
+-273, -1373, 0, 30 << 8 | 0,
+-530, -1280, 103, 30 << 8 | 0,
+-270, -1359, 103, 30 << 8 | 0,
+-515, -1243, 199, 30 << 8 | 0,
+-262, -1320, 199, 30 << 8 | 0,
+-490, -1185, 282, 30 << 8 | 0,
+-250, -1258, 282, 30 << 8 | 0,
+-459, -1108, 346, 30 << 8 | 0,
+-234, -1176, 346, 30 << 8 | 0,
+-422, -1019, 386, 30 << 8 | 0,
+-215, -1082, 386, 30 << 8 | 0,
+-382, -923, 400, 30 << 8 | 0,
+-195, -980, 400, 30 << 8 | 0,
+-343, -828, 386, 30 << 8 | 0,
+-174, -879, 386, 30 << 8 | 0,
+-306, -739, 346, 30 << 8 | 0,
+-156, -784, 346, 30 << 8 | 0,
+-274, -662, 282, 30 << 8 | 0,
+-139, -703, 282, 30 << 8 | 0,
+-250, -603, 199, 30 << 8 | 0,
+-127, -641, 199, 30 << 8 | 0,
+-234, -566, 103, 30 << 8 | 0,
+-119, -601, 103, 30 << 8 | 0,
+-229, -554, 0, 30 << 8 | 0,
+-117, -588, 0, 30 << 8 | 0,
+-234, -566, -103, 30 << 8 | 0,
+-119, -601, -103, 30 << 8 | 0,
+-250, -603, -199, 30 << 8 | 0,
+-127, -641, -199, 30 << 8 | 0,
+-274, -662, -282, 30 << 8 | 0,
+-139, -703, -282, 30 << 8 | 0,
+-306, -739, -346, 30 << 8 | 0,
+-156, -784, -346, 30 << 8 | 0,
+-343, -828, -386, 30 << 8 | 0,
+-174, -879, -386, 30 << 8 | 0,
+-382, -923, -400, 30 << 8 | 0,
+-195, -980, -400, 30 << 8 | 0,
+-422, -1019, -386, 30 << 8 | 0,
+-215, -1082, -386, 30 << 8 | 0,
+-459, -1108, -346, 30 << 8 | 0,
+-234, -1176, -346, 30 << 8 | 0,
+-490, -1185, -282, 30 << 8 | 0,
+-250, -1258, -282, 30 << 8 | 0,
+-515, -1243, -200, 30 << 8 | 0,
+-262, -1320, -200, 30 << 8 | 0,
+-530, -1280, -103, 30 << 8 | 0,
+-270, -1359, -103, 30 << 8 | 0,
+-535, -1293, 0, 30 << 8 | 0,
+-273, -1373, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+-273, -1373, 0, 30 << 8 | 0,
+0, -1400, 0, 30 << 8 | 0,
+-270, -1359, 103, 30 << 8 | 0,
+0, -1386, 103, 30 << 8 | 0,
+-262, -1320, 199, 30 << 8 | 0,
+0, -1346, 199, 30 << 8 | 0,
+-250, -1258, 282, 30 << 8 | 0,
+0, -1282, 282, 30 << 8 | 0,
+-234, -1176, 346, 30 << 8 | 0,
+0, -1200, 346, 30 << 8 | 0,
+-215, -1082, 386, 30 << 8 | 0,
+0, -1103, 386, 30 << 8 | 0,
+-195, -980, 400, 30 << 8 | 0,
+0, -1000, 400, 30 << 8 | 0,
+-174, -879, 386, 30 << 8 | 0,
+0, -896, 386, 30 << 8 | 0,
+-156, -784, 346, 30 << 8 | 0,
+0, -800, 346, 30 << 8 | 0,
+-139, -703, 282, 30 << 8 | 0,
+0, -717, 282, 30 << 8 | 0,
+-127, -641, 199, 30 << 8 | 0,
+0, -653, 199, 30 << 8 | 0,
+-119, -601, 103, 30 << 8 | 0,
+0, -613, 103, 30 << 8 | 0,
+-117, -588, 0, 30 << 8 | 0,
+0, -600, 0, 30 << 8 | 0,
+-119, -601, -103, 30 << 8 | 0,
+0, -613, -103, 30 << 8 | 0,
+-127, -641, -199, 30 << 8 | 0,
+0, -653, -199, 30 << 8 | 0,
+-139, -703, -282, 30 << 8 | 0,
+0, -717, -282, 30 << 8 | 0,
+-156, -784, -346, 30 << 8 | 0,
+0, -799, -346, 30 << 8 | 0,
+-174, -879, -386, 30 << 8 | 0,
+0, -896, -386, 30 << 8 | 0,
+-195, -980, -400, 30 << 8 | 0,
+0, -999, -400, 30 << 8 | 0,
+-215, -1082, -386, 30 << 8 | 0,
+0, -1103, -386, 30 << 8 | 0,
+-234, -1176, -346, 30 << 8 | 0,
+0, -1200, -346, 30 << 8 | 0,
+-250, -1258, -282, 30 << 8 | 0,
+0, -1282, -282, 30 << 8 | 0,
+-262, -1320, -200, 30 << 8 | 0,
+0, -1346, -200, 30 << 8 | 0,
+-270, -1359, -103, 30 << 8 | 0,
+0, -1386, -103, 30 << 8 | 0,
+-273, -1373, 0, 30 << 8 | 0,
+0, -1400, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+0, -1400, 0, 30 << 8 | 0,
+273, -1373, 0, 30 << 8 | 0,
+0, -1386, 103, 30 << 8 | 0,
+270, -1359, 103, 30 << 8 | 0,
+0, -1346, 199, 30 << 8 | 0,
+262, -1320, 199, 30 << 8 | 0,
+0, -1282, 282, 30 << 8 | 0,
+250, -1258, 282, 30 << 8 | 0,
+0, -1200, 346, 30 << 8 | 0,
+234, -1176, 346, 30 << 8 | 0,
+0, -1103, 386, 30 << 8 | 0,
+215, -1082, 386, 30 << 8 | 0,
+0, -1000, 400, 30 << 8 | 0,
+195, -980, 400, 30 << 8 | 0,
+0, -896, 386, 30 << 8 | 0,
+174, -879, 386, 30 << 8 | 0,
+0, -800, 346, 30 << 8 | 0,
+156, -784, 346, 30 << 8 | 0,
+0, -717, 282, 30 << 8 | 0,
+139, -703, 282, 30 << 8 | 0,
+0, -653, 199, 30 << 8 | 0,
+127, -641, 199, 30 << 8 | 0,
+0, -613, 103, 30 << 8 | 0,
+119, -601, 103, 30 << 8 | 0,
+0, -600, 0, 30 << 8 | 0,
+117, -588, 0, 30 << 8 | 0,
+0, -613, -103, 30 << 8 | 0,
+119, -601, -103, 30 << 8 | 0,
+0, -653, -199, 30 << 8 | 0,
+127, -641, -199, 30 << 8 | 0,
+0, -717, -282, 30 << 8 | 0,
+139, -703, -282, 30 << 8 | 0,
+0, -799, -346, 30 << 8 | 0,
+156, -784, -346, 30 << 8 | 0,
+0, -896, -386, 30 << 8 | 0,
+174, -879, -386, 30 << 8 | 0,
+0, -999, -400, 30 << 8 | 0,
+195, -980, -400, 30 << 8 | 0,
+0, -1103, -386, 30 << 8 | 0,
+215, -1082, -386, 30 << 8 | 0,
+0, -1200, -346, 30 << 8 | 0,
+234, -1176, -346, 30 << 8 | 0,
+0, -1282, -282, 30 << 8 | 0,
+250, -1258, -282, 30 << 8 | 0,
+0, -1346, -200, 30 << 8 | 0,
+262, -1320, -200, 30 << 8 | 0,
+0, -1386, -103, 30 << 8 | 0,
+270, -1359, -103, 30 << 8 | 0,
+0, -1400, 0, 30 << 8 | 0,
+273, -1373, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+273, -1373, 0, 30 << 8 | 0,
+535, -1293, 0, 30 << 8 | 0,
+270, -1359, 103, 30 << 8 | 0,
+530, -1280, 103, 30 << 8 | 0,
+262, -1320, 199, 30 << 8 | 0,
+515, -1243, 199, 30 << 8 | 0,
+250, -1258, 282, 30 << 8 | 0,
+490, -1185, 282, 30 << 8 | 0,
+234, -1176, 346, 30 << 8 | 0,
+459, -1108, 346, 30 << 8 | 0,
+215, -1082, 386, 30 << 8 | 0,
+422, -1019, 386, 30 << 8 | 0,
+195, -980, 400, 30 << 8 | 0,
+382, -923, 400, 30 << 8 | 0,
+174, -879, 386, 30 << 8 | 0,
+343, -828, 386, 30 << 8 | 0,
+156, -784, 346, 30 << 8 | 0,
+306, -739, 346, 30 << 8 | 0,
+139, -703, 282, 30 << 8 | 0,
+274, -662, 282, 30 << 8 | 0,
+127, -641, 199, 30 << 8 | 0,
+250, -603, 199, 30 << 8 | 0,
+119, -601, 103, 30 << 8 | 0,
+234, -566, 103, 30 << 8 | 0,
+117, -588, 0, 30 << 8 | 0,
+229, -554, 0, 30 << 8 | 0,
+119, -601, -103, 30 << 8 | 0,
+234, -566, -103, 30 << 8 | 0,
+127, -641, -199, 30 << 8 | 0,
+250, -603, -199, 30 << 8 | 0,
+139, -703, -282, 30 << 8 | 0,
+274, -662, -282, 30 << 8 | 0,
+156, -784, -346, 30 << 8 | 0,
+306, -739, -346, 30 << 8 | 0,
+174, -879, -386, 30 << 8 | 0,
+343, -828, -386, 30 << 8 | 0,
+195, -980, -400, 30 << 8 | 0,
+382, -923, -400, 30 << 8 | 0,
+215, -1082, -386, 30 << 8 | 0,
+422, -1019, -386, 30 << 8 | 0,
+234, -1176, -346, 30 << 8 | 0,
+459, -1108, -346, 30 << 8 | 0,
+250, -1258, -282, 30 << 8 | 0,
+490, -1185, -282, 30 << 8 | 0,
+262, -1320, -200, 30 << 8 | 0,
+515, -1243, -200, 30 << 8 | 0,
+270, -1359, -103, 30 << 8 | 0,
+530, -1280, -103, 30 << 8 | 0,
+273, -1373, 0, 30 << 8 | 0,
+535, -1293, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+535, -1293, 0, 30 << 8 | 0,
+777, -1164, 0, 30 << 8 | 0,
+530, -1280, 103, 30 << 8 | 0,
+770, -1152, 103, 30 << 8 | 0,
+515, -1243, 199, 30 << 8 | 0,
+748, -1119, 199, 30 << 8 | 0,
+490, -1185, 282, 30 << 8 | 0,
+712, -1066, 282, 30 << 8 | 0,
+459, -1108, 346, 30 << 8 | 0,
+666, -997, 346, 30 << 8 | 0,
+422, -1019, 386, 30 << 8 | 0,
+613, -917, 386, 30 << 8 | 0,
+382, -923, 400, 30 << 8 | 0,
+555, -831, 400, 30 << 8 | 0,
+343, -828, 386, 30 << 8 | 0,
+498, -745, 386, 30 << 8 | 0,
+306, -739, 346, 30 << 8 | 0,
+444, -665, 346, 30 << 8 | 0,
+274, -662, 282, 30 << 8 | 0,
+398, -596, 282, 30 << 8 | 0,
+250, -603, 199, 30 << 8 | 0,
+363, -543, 199, 30 << 8 | 0,
+234, -566, 103, 30 << 8 | 0,
+340, -510, 103, 30 << 8 | 0,
+229, -554, 0, 30 << 8 | 0,
+333, -498, 0, 30 << 8 | 0,
+234, -566, -103, 30 << 8 | 0,
+340, -510, -103, 30 << 8 | 0,
+250, -603, -199, 30 << 8 | 0,
+363, -543, -199, 30 << 8 | 0,
+274, -662, -282, 30 << 8 | 0,
+398, -596, -282, 30 << 8 | 0,
+306, -739, -346, 30 << 8 | 0,
+444, -665, -346, 30 << 8 | 0,
+343, -828, -386, 30 << 8 | 0,
+498, -745, -386, 30 << 8 | 0,
+382, -923, -400, 30 << 8 | 0,
+555, -831, -400, 30 << 8 | 0,
+422, -1019, -386, 30 << 8 | 0,
+613, -917, -386, 30 << 8 | 0,
+459, -1108, -346, 30 << 8 | 0,
+666, -997, -346, 30 << 8 | 0,
+490, -1185, -282, 30 << 8 | 0,
+712, -1066, -282, 30 << 8 | 0,
+515, -1243, -200, 30 << 8 | 0,
+748, -1119, -200, 30 << 8 | 0,
+530, -1280, -103, 30 << 8 | 0,
+770, -1152, -103, 30 << 8 | 0,
+535, -1293, 0, 30 << 8 | 0,
+777, -1164, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+777, -1164, 0, 30 << 8 | 0,
+989, -989, 0, 30 << 8 | 0,
+770, -1152, 103, 30 << 8 | 0,
+980, -980, 103, 30 << 8 | 0,
+748, -1119, 199, 30 << 8 | 0,
+952, -952, 199, 30 << 8 | 0,
+712, -1066, 282, 30 << 8 | 0,
+907, -907, 282, 30 << 8 | 0,
+666, -997, 346, 30 << 8 | 0,
+848, -848, 346, 30 << 8 | 0,
+613, -917, 386, 30 << 8 | 0,
+780, -780, 386, 30 << 8 | 0,
+555, -831, 400, 30 << 8 | 0,
+707, -707, 400, 30 << 8 | 0,
+498, -745, 386, 30 << 8 | 0,
+633, -633, 386, 30 << 8 | 0,
+444, -665, 346, 30 << 8 | 0,
+565, -565, 346, 30 << 8 | 0,
+398, -596, 282, 30 << 8 | 0,
+507, -507, 282, 30 << 8 | 0,
+363, -543, 199, 30 << 8 | 0,
+462, -462, 199, 30 << 8 | 0,
+340, -510, 103, 30 << 8 | 0,
+433, -433, 103, 30 << 8 | 0,
+333, -498, 0, 30 << 8 | 0,
+424, -424, 0, 30 << 8 | 0,
+340, -510, -103, 30 << 8 | 0,
+433, -433, -103, 30 << 8 | 0,
+363, -543, -199, 30 << 8 | 0,
+462, -462, -199, 30 << 8 | 0,
+398, -596, -282, 30 << 8 | 0,
+507, -507, -282, 30 << 8 | 0,
+444, -665, -346, 30 << 8 | 0,
+565, -565, -346, 30 << 8 | 0,
+498, -745, -386, 30 << 8 | 0,
+633, -633, -386, 30 << 8 | 0,
+555, -831, -400, 30 << 8 | 0,
+707, -707, -400, 30 << 8 | 0,
+613, -917, -386, 30 << 8 | 0,
+780, -780, -386, 30 << 8 | 0,
+666, -997, -346, 30 << 8 | 0,
+848, -848, -346, 30 << 8 | 0,
+712, -1066, -282, 30 << 8 | 0,
+907, -907, -282, 30 << 8 | 0,
+748, -1119, -200, 30 << 8 | 0,
+952, -952, -200, 30 << 8 | 0,
+770, -1152, -103, 30 << 8 | 0,
+980, -980, -103, 30 << 8 | 0,
+777, -1164, 0, 30 << 8 | 0,
+989, -989, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+989, -989, 0, 30 << 8 | 0,
+1164, -777, 0, 30 << 8 | 0,
+980, -980, 103, 30 << 8 | 0,
+1152, -770, 103, 30 << 8 | 0,
+952, -952, 199, 30 << 8 | 0,
+1119, -748, 199, 30 << 8 | 0,
+907, -907, 282, 30 << 8 | 0,
+1066, -712, 282, 30 << 8 | 0,
+848, -848, 346, 30 << 8 | 0,
+997, -666, 346, 30 << 8 | 0,
+780, -780, 386, 30 << 8 | 0,
+917, -613, 386, 30 << 8 | 0,
+707, -707, 400, 30 << 8 | 0,
+831, -555, 400, 30 << 8 | 0,
+633, -633, 386, 30 << 8 | 0,
+745, -498, 386, 30 << 8 | 0,
+565, -565, 346, 30 << 8 | 0,
+665, -444, 346, 30 << 8 | 0,
+507, -507, 282, 30 << 8 | 0,
+596, -398, 282, 30 << 8 | 0,
+462, -462, 199, 30 << 8 | 0,
+543, -363, 199, 30 << 8 | 0,
+433, -433, 103, 30 << 8 | 0,
+510, -340, 103, 30 << 8 | 0,
+424, -424, 0, 30 << 8 | 0,
+498, -333, 0, 30 << 8 | 0,
+433, -433, -103, 30 << 8 | 0,
+510, -340, -103, 30 << 8 | 0,
+462, -462, -199, 30 << 8 | 0,
+543, -363, -199, 30 << 8 | 0,
+507, -507, -282, 30 << 8 | 0,
+596, -398, -282, 30 << 8 | 0,
+565, -565, -346, 30 << 8 | 0,
+665, -444, -346, 30 << 8 | 0,
+633, -633, -386, 30 << 8 | 0,
+745, -498, -386, 30 << 8 | 0,
+707, -707, -400, 30 << 8 | 0,
+831, -555, -400, 30 << 8 | 0,
+780, -780, -386, 30 << 8 | 0,
+917, -613, -386, 30 << 8 | 0,
+848, -848, -346, 30 << 8 | 0,
+997, -666, -346, 30 << 8 | 0,
+907, -907, -282, 30 << 8 | 0,
+1066, -712, -282, 30 << 8 | 0,
+952, -952, -200, 30 << 8 | 0,
+1119, -748, -200, 30 << 8 | 0,
+980, -980, -103, 30 << 8 | 0,
+1152, -770, -103, 30 << 8 | 0,
+989, -989, 0, 30 << 8 | 0,
+1164, -777, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+1164, -777, 0, 30 << 8 | 0,
+1293, -535, 0, 30 << 8 | 0,
+1152, -770, 103, 30 << 8 | 0,
+1280, -530, 103, 30 << 8 | 0,
+1119, -748, 199, 30 << 8 | 0,
+1243, -515, 199, 30 << 8 | 0,
+1066, -712, 282, 30 << 8 | 0,
+1185, -490, 282, 30 << 8 | 0,
+997, -666, 346, 30 << 8 | 0,
+1108, -459, 346, 30 << 8 | 0,
+917, -613, 386, 30 << 8 | 0,
+1019, -422, 386, 30 << 8 | 0,
+831, -555, 400, 30 << 8 | 0,
+923, -382, 400, 30 << 8 | 0,
+745, -498, 386, 30 << 8 | 0,
+828, -343, 386, 30 << 8 | 0,
+665, -444, 346, 30 << 8 | 0,
+739, -306, 346, 30 << 8 | 0,
+596, -398, 282, 30 << 8 | 0,
+662, -274, 282, 30 << 8 | 0,
+543, -363, 199, 30 << 8 | 0,
+603, -250, 199, 30 << 8 | 0,
+510, -340, 103, 30 << 8 | 0,
+566, -234, 103, 30 << 8 | 0,
+498, -333, 0, 30 << 8 | 0,
+554, -229, 0, 30 << 8 | 0,
+510, -340, -103, 30 << 8 | 0,
+566, -234, -103, 30 << 8 | 0,
+543, -363, -199, 30 << 8 | 0,
+603, -250, -199, 30 << 8 | 0,
+596, -398, -282, 30 << 8 | 0,
+662, -274, -282, 30 << 8 | 0,
+665, -444, -346, 30 << 8 | 0,
+739, -306, -346, 30 << 8 | 0,
+745, -498, -386, 30 << 8 | 0,
+828, -343, -386, 30 << 8 | 0,
+831, -555, -400, 30 << 8 | 0,
+923, -382, -400, 30 << 8 | 0,
+917, -613, -386, 30 << 8 | 0,
+1019, -422, -386, 30 << 8 | 0,
+997, -666, -346, 30 << 8 | 0,
+1108, -459, -346, 30 << 8 | 0,
+1066, -712, -282, 30 << 8 | 0,
+1185, -490, -282, 30 << 8 | 0,
+1119, -748, -200, 30 << 8 | 0,
+1243, -515, -200, 30 << 8 | 0,
+1152, -770, -103, 30 << 8 | 0,
+1280, -530, -103, 30 << 8 | 0,
+1164, -777, 0, 30 << 8 | 0,
+1293, -535, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+1293, -535, 0, 30 << 8 | 0,
+1373, -273, 0, 30 << 8 | 0,
+1280, -530, 103, 30 << 8 | 0,
+1359, -270, 103, 30 << 8 | 0,
+1243, -515, 199, 30 << 8 | 0,
+1320, -262, 199, 30 << 8 | 0,
+1185, -490, 282, 30 << 8 | 0,
+1258, -250, 282, 30 << 8 | 0,
+1108, -459, 346, 30 << 8 | 0,
+1176, -234, 346, 30 << 8 | 0,
+1019, -422, 386, 30 << 8 | 0,
+1082, -215, 386, 30 << 8 | 0,
+923, -382, 400, 30 << 8 | 0,
+980, -195, 400, 30 << 8 | 0,
+828, -343, 386, 30 << 8 | 0,
+879, -174, 386, 30 << 8 | 0,
+739, -306, 346, 30 << 8 | 0,
+784, -156, 346, 30 << 8 | 0,
+662, -274, 282, 30 << 8 | 0,
+703, -139, 282, 30 << 8 | 0,
+603, -250, 199, 30 << 8 | 0,
+641, -127, 199, 30 << 8 | 0,
+566, -234, 103, 30 << 8 | 0,
+601, -119, 103, 30 << 8 | 0,
+554, -229, 0, 30 << 8 | 0,
+588, -117, 0, 30 << 8 | 0,
+566, -234, -103, 30 << 8 | 0,
+601, -119, -103, 30 << 8 | 0,
+603, -250, -199, 30 << 8 | 0,
+641, -127, -199, 30 << 8 | 0,
+662, -274, -282, 30 << 8 | 0,
+703, -139, -282, 30 << 8 | 0,
+739, -306, -346, 30 << 8 | 0,
+784, -156, -346, 30 << 8 | 0,
+828, -343, -386, 30 << 8 | 0,
+879, -174, -386, 30 << 8 | 0,
+923, -382, -400, 30 << 8 | 0,
+980, -195, -400, 30 << 8 | 0,
+1019, -422, -386, 30 << 8 | 0,
+1082, -215, -386, 30 << 8 | 0,
+1108, -459, -346, 30 << 8 | 0,
+1176, -234, -346, 30 << 8 | 0,
+1185, -490, -282, 30 << 8 | 0,
+1258, -250, -282, 30 << 8 | 0,
+1243, -515, -200, 30 << 8 | 0,
+1320, -262, -200, 30 << 8 | 0,
+1280, -530, -103, 30 << 8 | 0,
+1359, -270, -103, 30 << 8 | 0,
+1293, -535, 0, 30 << 8 | 0,
+1373, -273, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+1373, -273, 0, 30 << 8 | 0,
+1400, 0, 0, 30 << 8 | 0,
+1359, -270, 103, 30 << 8 | 0,
+1386, 0, 103, 30 << 8 | 0,
+1320, -262, 199, 30 << 8 | 0,
+1346, 0, 199, 30 << 8 | 0,
+1258, -250, 282, 30 << 8 | 0,
+1282, 0, 282, 30 << 8 | 0,
+1176, -234, 346, 30 << 8 | 0,
+1200, 0, 346, 30 << 8 | 0,
+1082, -215, 386, 30 << 8 | 0,
+1103, 0, 386, 30 << 8 | 0,
+980, -195, 400, 30 << 8 | 0,
+1000, 0, 400, 30 << 8 | 0,
+879, -174, 386, 30 << 8 | 0,
+896, 0, 386, 30 << 8 | 0,
+784, -156, 346, 30 << 8 | 0,
+800, 0, 346, 30 << 8 | 0,
+703, -139, 282, 30 << 8 | 0,
+717, 0, 282, 30 << 8 | 0,
+641, -127, 199, 30 << 8 | 0,
+653, 0, 199, 30 << 8 | 0,
+601, -119, 103, 30 << 8 | 0,
+613, 0, 103, 30 << 8 | 0,
+588, -117, 0, 30 << 8 | 0,
+600, 0, 0, 30 << 8 | 0,
+601, -119, -103, 30 << 8 | 0,
+613, 0, -103, 30 << 8 | 0,
+641, -127, -199, 30 << 8 | 0,
+653, 0, -199, 30 << 8 | 0,
+703, -139, -282, 30 << 8 | 0,
+717, 0, -282, 30 << 8 | 0,
+784, -156, -346, 30 << 8 | 0,
+799, 0, -346, 30 << 8 | 0,
+879, -174, -386, 30 << 8 | 0,
+896, 0, -386, 30 << 8 | 0,
+980, -195, -400, 30 << 8 | 0,
+999, 0, -400, 30 << 8 | 0,
+1082, -215, -386, 30 << 8 | 0,
+1103, 0, -386, 30 << 8 | 0,
+1176, -234, -346, 30 << 8 | 0,
+1200, 0, -346, 30 << 8 | 0,
+1258, -250, -282, 30 << 8 | 0,
+1282, 0, -282, 30 << 8 | 0,
+1320, -262, -200, 30 << 8 | 0,
+1346, 0, -200, 30 << 8 | 0,
+1359, -270, -103, 30 << 8 | 0,
+1386, 0, -103, 30 << 8 | 0,
+1373, -273, 0, 30 << 8 | 0,
+1400, 0, 0, 30 << 8 | 0,
+0, 0, 0, 0 << 8 | 5,
+};
+
+void Test_DrawRotatingCube()
+{
+    /* 8 vertices of a cube: X, Y, Z (i16), Color (u8), Flags (u8) */
+    /* Total 8 bytes per vertex. */
+
+    u16 focal    = 50;
+    u16 max_dist = 3000;
+    u8  flags    = VIDEO_BATCH_TYPE_LINE | VIDEO_BATCH_PERSPECTIVE | VIDEO_BATCH_BACKFACE_CULLING | VIDEO_BATCH_DEPTH_SORT;
+
+    /* Arg 0: GPU0(Ctx), GPU1-3(Addr), GPU4-5(Len), GPU6-7(Focal) */
+    _swd(Devices.video + VIDEO_GPU0, (u32)&uta_tapot);
+    _sbd(Devices.video + VIDEO_GPU0, 1);  /* Context 1 */
+    _shd(Devices.video + VIDEO_GPU4, 1632); /* 8 vertices */
+    _shd(Devices.video + VIDEO_GPU6, focal);
+
+    /* Arg 1: GPU0-3(Offset X), GPU4-7(Offset Y) */
+    _swd(Devices.video + VIDEO_GPU0, 0); /* X = 0 */
+    _swd(Devices.video + VIDEO_GPU4, 0); /* Y = 0 */
+
+    /* Arg 2: GPU0-3(Offset Z), GPU4-5(Rot X), GPU6-7(Rot Y) */
+    _swd(Devices.video + VIDEO_GPU0, 1500 << 16); /* Z = 300.0 fx16 */
+    _shd(Devices.video + VIDEO_GPU4, test_rx);
+    _shd(Devices.video + VIDEO_GPU6, test_ry);
+
+    /* Arg 3: GPU0-2(Rot Z), GPU3-4(MaxDist), GPU5(Flags) */
+    /* Note: Rot Z uses 3 bytes here to align with your spec */
+    _shd(Devices.video + VIDEO_GPU0, test_rz);
+    _shd(Devices.video + VIDEO_GPU2, max_dist);
+    _sbd(Devices.video + VIDEO_GPU4, flags);
+    _sbd(Devices.video + VIDEO_GPU7, 0); // latch
+
+    /* Execute */
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_DRAW_BATCH);
+
+    /* Update rotations for next call */
+    test_rx += 128;
+    test_ry += 256;
+    test_rz += 64;
+}
+
+void bios_vblank_handler(void)
+{
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
+
+    // clear backbuffer
+    memset(0x100000, 0, 640 * 480);
+
+    Test_DrawRotatingCube();
+
+    _swd(Devices.video + VIDEO_GPU0, (0 << 24) | 0x100000);
+    _shd(Devices.video + VIDEO_GPU4, 640); // buff w
+    _shd(Devices.video + VIDEO_GPU6, 480); // buff h
+    _shd(Devices.video + VIDEO_GPU0, 0);   // x
+    _shd(Devices.video + VIDEO_GPU2, 0);   // y
+    _shd(Devices.video + VIDEO_GPU7, 0);   // latch
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BLIT);
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
+}
+
+#if 0
+void test_pattern_fills()
+{
+    u32 p_addr = (u32)checker_pat;
+    u8  rotation, ctx, u_off, v_off;
+    u16 x, y, dw, dh, pw, ph;
+
+    /* --- TEST 1: ALIGNED BOXES (Rotation 0, Context 0) --- */
+    ctx      = 0;
+    rotation = 0;
+    pw       = 8;
+    ph       = 8;
+
+    /* Box 1 at (10, 10) */
+    x     = 10;
+    y     = 10;
+    dw    = 60;
+    dh    = 60;
+    u_off = (u8)x;
+    v_off = (u8)y; /* Pin pattern to screen */
+
+    /* Arg 0: GPU0(Rot|Ctx), GPU1-3(Addr), GPU4(W), GPU5(H), GPU6(U), GPU7(V) */
+    _swd(Devices.video + VIDEO_GPU0, p_addr);
+    _sbd(Devices.video + VIDEO_GPU0, (u8)(ctx | (rotation << 5)));
+    _sbd(Devices.video + VIDEO_GPU4, (u8)pw);
+    _sbd(Devices.video + VIDEO_GPU5, (u8)ph);
+    _sbd(Devices.video + VIDEO_GPU6, u_off);
+    _sbd(Devices.video + VIDEO_GPU7, v_off);
+
+    /* Arg 1: GPU0-1(X), GPU2-3(Y), GPU4-5(DW), GPU6-7(DH) */
+    _shd(Devices.video + VIDEO_GPU0, x);
+    _shd(Devices.video + VIDEO_GPU2, y);
+    _shd(Devices.video + VIDEO_GPU4, dw);
+    _shd(Devices.video + VIDEO_GPU6, dh);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_PATTERN_FILL);
+    _trace(0x1, 0xb00b);
+
+    /* --- TEST 2: ROTATED 90 DEGREES (Rotation 4) --- */
+    /* Arg 0 */
+    _swd(Devices.video + VIDEO_GPU0, p_addr);
+    _sbd(Devices.video + VIDEO_GPU0, (u8)(ctx | (4 << 5))); /* Rot 4 */
+    _sbd(Devices.video + VIDEO_GPU4, (u8)pw);
+    _sbd(Devices.video + VIDEO_GPU5, (u8)ph);
+    _sbd(Devices.video + VIDEO_GPU6, 0);
+    _sbd(Devices.video + VIDEO_GPU7, 0); /* QUEUE ARG 0 */
+
+    /* Arg 1 */
+    _shd(Devices.video + VIDEO_GPU0, 80); /* x */
+    _shd(Devices.video + VIDEO_GPU2, 10); /* y */
+    _shd(Devices.video + VIDEO_GPU4, 60);
+    _shd(Devices.video + VIDEO_GPU6, 60); /* QUEUE ARG 1 */
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_PATTERN_FILL);
+    _trace(0x2, 0xb00b);
+
+    /* --- TEST 3: SCROLLED PATTERN (U/V Offsets) --- */
+    /* Arg 0 */
+    _sbd(Devices.video + VIDEO_GPU0, (u8)(ctx | (0 << 5)));
+    _sbd(Devices.video + VIDEO_GPU1, (u8)((p_addr >> 16) & 0xFF));
+    _sbd(Devices.video + VIDEO_GPU2, (u8)((p_addr >> 8) & 0xFF));
+    _sbd(Devices.video + VIDEO_GPU3, (u8)(p_addr & 0xFF));
+    _sbd(Devices.video + VIDEO_GPU4, 8);
+    _sbd(Devices.video + VIDEO_GPU5, 8);
+    _sbd(Devices.video + VIDEO_GPU6, 4); /* u_off = 4 */
+    _sbd(Devices.video + VIDEO_GPU7, 4); /* v_off = 4 -> QUEUE ARG 0 */
+
+    /* Arg 1 */
+    _shd(Devices.video + VIDEO_GPU0, 10);
+    _shd(Devices.video + VIDEO_GPU2, 80);
+    _shd(Devices.video + VIDEO_GPU4, 60);
+    _shd(Devices.video + VIDEO_GPU6, 60); /* QUEUE ARG 1 */
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_PATTERN_FILL);
+    _trace(0x3, 0xb00b);
+}
+
+void test_all_rotations()
+{
+    u16 i;
+    u32 sprite_addr  = (u32)test_sprite;
+    u8  dest_context = 0; /* Default screen context */
+    u16 start_x      = 20;
+    u16 start_y      = 20;
+    u16 spacing      = 80;
+
+    for (i = 0; i < 8; i++) {
+        /* Calculate screen position for this test case */
+        u16 dx = start_x + (i % 4) * spacing;
+        u16 dy = start_y + (i / 4) * spacing;
+
+        /* --- ARGUMENT 0 --- */
+
+        /* GPU1-3: Buffer Address (3 bytes / 24-bit) */
+        _swd(Devices.video + VIDEO_GPU0, sprite_addr);
+
+        /* GPU0: 3 bits rotation (i), 5 bits context */
+        _sbd(Devices.video + VIDEO_GPU0, (u8)((i << 5) | (dest_context & 0x1f)));
+
+        /* GPU4-5: Buffer Width (10) */
+        _shd(Devices.video + VIDEO_GPU4, 10);
+
+        /* GPU6-7: Buffer Height (10) */
+        _shd(Devices.video + VIDEO_GPU6, 16);
+
+        /* --- ARGUMENT 1 --- */
+        /* GPU0-1: Dest X */
+        _shd(Devices.video + VIDEO_GPU0, dx);
+
+        /* GPU2-3: Dest Y */
+        _shd(Devices.video + VIDEO_GPU2, dy);
+
+        /* GPU4-5: Dest W (Stretching to 20 for visibility) */
+        _shd(Devices.video + VIDEO_GPU4, 20);
+
+        /* GPU6-7: Dest H (Stretching to 20 for visibility) */
+        _shd(Devices.video + VIDEO_GPU6, 32);
+
+        /* --- EXECUTE COMMAND --- */
+        /* Command 10: Blit Stretched */
+        _sbd(Devices.video + VIDEO_COMMAND, 10);
+    }
+}
+
+static u32 lcg_seed = 12345;
+static u16 talea_rand()
+{
+    lcg_seed = (lcg_seed * 1103515245 + 12345) & 0x7fffffff;
+    return (u16)(lcg_seed >> 16);
+}
+
+void stress_test_triangles()
+{
+    int i;
+    u16 x0, y0, x1, y1, x2, y2;
+    u8  color;
+    u8  target_ctx = 1; /* Drawing to off-screen buffer */
+    u32 start, end;
+
+    _sbd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE, 1); // enable counter mode
+    start = _lwd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+
+    for (i = 0; i < 10000; i++) {
+        /* Generate coordinates within 640x480 */
+        x0    = talea_rand() % 640;
+        y0    = talea_rand() % 480;
+        x1    = talea_rand() % 640;
+        y1    = talea_rand() % 480;
+        x2    = talea_rand() % 640;
+        y2    = talea_rand() % 480;
+        color = (u8)(talea_rand() % 255) + 1;
+
+        /* Prepare Argument 0 */
+        _sbd(Devices.video + VIDEO_GPU0, target_ctx); /* Dest Context */
+        _sbd(Devices.video + VIDEO_GPU1, color);      /* Triangle Color */
+        /* GPU2-3 skipped based on your spec */
+        _shd(Devices.video + VIDEO_GPU4, x0); /* x0 */
+        _shd(Devices.video + VIDEO_GPU6, y0); /* y0 */
+
+        /* Prepare Argument 1 */
+        _shd(Devices.video + VIDEO_GPU0, x1); /* x1 */
+        _shd(Devices.video + VIDEO_GPU2, y1); /* y1 */
+        _shd(Devices.video + VIDEO_GPU4, x2); /* x2 */
+        _shd(Devices.video + VIDEO_GPU6, y2); /* y2 */
+
+        /* Execute Command */
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_DRAW_TRI);
+    }
+
+    _sbd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE, 1); // enable counter mode
+    end = _lwd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+
+    _trace(0xdeadbeef, end - start);
+
+    _swd(Devices.video + VIDEO_GPU0, (0 << 24) | 0x100000);
+    _shd(Devices.video + VIDEO_GPU4, 640); // buff w
+    _shd(Devices.video + VIDEO_GPU6, 480); // buff h
+    _shd(Devices.video + VIDEO_GPU0, 0);   // x
+    _shd(Devices.video + VIDEO_GPU2, 0);   // y
+    _shd(Devices.video + VIDEO_GPU7, 0);   // latch
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BLIT);
+}
+#endif
+
+void bios_start(void)
+{
+    usize i, a = 0;
+    u8   *text_buffer    = (u8 *)0xE51000;
+    u32  *text_buffer_32 = (u32 *)0xE51000;
+    u8   *framebuffer    = (u8 *)0xE60000;
+    u32   grid_x, grid_y;
+    u32   px, py;
+    u8    vcsr;
+
+    for (i = 0; i < 80 * 30; i++) {
+        text_buffer_32[i] = 0x20000004;
+    }
+#if 0
+    for (a = 0, i = 0; a < 256; i += 4, a++) {
+        text_buffer[i]     = a;
+        text_buffer[i + 1] = 0xf;
+        text_buffer[i + 2] = 0;
+        text_buffer[i + 3] = 0; /* 1 for cp1, 2 for alt-cp0 and 3 for alt-cp1*/
+    }
+
+    for (a = 0; a < 256; i += 4, a++) {
+        text_buffer[i]     = a;
+        text_buffer[i + 1] = 0xf;
+        text_buffer[i + 2] = 11;
+        text_buffer[i + 3] = 1; /* 1 for cp1, 2 for alt-cp0 and 3 for alt-cp1*/
+    }
+
+    for (a = 0; a < 256; i += 4, a++) {
+        text_buffer[i]     = a;
+        text_buffer[i + 1] = 0xf;
+        text_buffer[i + 2] = 22;
+        text_buffer[i + 3] = 2; /* 1 for cp1, 2 for alt-cp0 and 3 for alt-cp1*/
+    }
+
+    for (a = 0; a < 256; i += 4, a++) {
+        text_buffer[i]     = a;
+        text_buffer[i + 1] = 0xf;
+        text_buffer[i + 2] = 33;
+        text_buffer[i + 3] = 3; /* 1 for cp1, 2 for alt-cp0 and 3 for alt-cp1*/
+    }
+#endif
+
+    /* Loop through a 16x16 grid of color cells */
+    for (grid_y = 0; grid_y < 16; grid_y++) {
+        for (grid_x = 0; grid_x < 16; grid_x++) {
+            /* Calculate the palette index for this cell (0-255) */
+            u8 color_index = (u8)((grid_y * 16) + grid_x);
+
+            /* Draw the square (40x30 pixels) */
+            for (py = 0; py < 30; py++) {
+                for (px = 0; px < 40; px++) {
+                    /* Calculate absolute pixel coordinates */
+                    u32 x = (grid_x * 40) + px;
+                    u32 y = (grid_y * 30) + py;
+
+                    /* Calculate memory offset: y * width + x */
+                    u32 offset = (y * 640) + x;
+
+                    framebuffer[offset] = color_index;
+                }
+            }
+        }
+    }
+
+    Devices.video = 0x10;
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
+
+    _swd(Devices.video + VIDEO_GPU0, (1 << 24) | 0x100000); // slot |buff addr
+    _shd(Devices.video + VIDEO_GPU4, 640);                  // buff w
+    _shd(Devices.video + VIDEO_GPU6, 480);                  // buff h
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BIND_CTX);  // bind ctx
+
+    /*
+        _swd(Devices.video + VIDEO_GPU0, 0x200f0004);
+        _sbd(Devices.video + VIDEO_GPU4, 0);
+        _sbd(Devices.video + VIDEO_GPU7, 0);                // Trigger argument queue
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_CLEAR); // clear
+
+        Test_DrawRotatingCube();
+
+        _swd(Devices.video + VIDEO_GPU0, (0 << 24) | 0x100000);
+        _shd(Devices.video + VIDEO_GPU4, 640); // buff w
+        _shd(Devices.video + VIDEO_GPU6, 480); // buff h
+        _shd(Devices.video + VIDEO_GPU0, 0);   // x
+        _shd(Devices.video + VIDEO_GPU2, 0);   // y
+        _shd(Devices.video + VIDEO_GPU7, 0);   // latch
+        _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BLIT);
+    */
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
+
+    // eneable vblank
+
+    vcsr = _lbud(Devices.video + VIDEO_CSR);
+    vcsr |= 1; // vblank enable
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    /*
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 40);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _sbd(Devices.video + VIDEO_GPU7, 0);              // Trigger argument queue
+        _sbd(Devices.video + VIDEO_COMMAND, 9);           // blit
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 60);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 50);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 50);        // dw
+        _sbd(Devices.video + VIDEO_COMMAND, 10);           // blit streched
+
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 130);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 50);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 100);        // dy
+        _sbd(Devices.video + VIDEO_COMMAND, 10);           // blit streched
+
+
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 200);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 20);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 20);        // dw
+        _sbd(Devices.video + VIDEO_COMMAND, 10);           // blit streched
+
+        vcsr = _lbud(Devices.video + VIDEO_CSR);
+        vcsr &= ~112; // Clear rop
+        vcsr |= 5<<4; // ROP TRANS
+        _sbd(Devices.video + VIDEO_GPU0, vcsr);
+        _sbd(Devices.video + VIDEO_GPU7, 0);
+        _sbd(Devices.video + VIDEO_COMMAND, 18); // defer set csr
+
+        _swd(Devices.video + VIDEO_GPU0, (1<<24) | (u32)another_buff); // slot |buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 20);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 20);         // buff h
+        _sbd(Devices.video + VIDEO_COMMAND, 19);           // bind ctx
+
+        _swd(Devices.video + VIDEO_GPU0, (1<<24) | (u32)blit_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 10);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 10);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 0);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 0);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 20);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 20);        // dw
+        _sbd(Devices.video + VIDEO_COMMAND, 10);
+
+        _swd(Devices.video + VIDEO_GPU0, (u32)another_buff); // buff addr
+        _shd(Devices.video + VIDEO_GPU3 + 1, 20);         // buff w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 20);         // buff h
+        _shd(Devices.video + VIDEO_GPU0, 275);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _shd(Devices.video + VIDEO_GPU3+1, 20);        // dw
+        _shd(Devices.video + VIDEO_GPU3+3, 20);        // dw
+        _sbd(Devices.video + VIDEO_COMMAND, 10);
+
+        _shd(Devices.video + VIDEO_GPU0, 200); // rect color
+        _shd(Devices.video + VIDEO_GPU3 + 1, 70);         // rect w
+        _shd(Devices.video + VIDEO_GPU3 + 3, 20);         // rect h
+        _shd(Devices.video + VIDEO_GPU0, 320);             // x
+        _shd(Devices.video + VIDEO_GPU0 + 2, 100);        // y
+        _sbd(Devices.video + VIDEO_GPU7, 0);        // latch
+        _sbd(Devices.video + VIDEO_COMMAND, 12); // draw rect
+
+        _shd(Devices.video + VIDEO_GPU0, 100); // line color
+        _shd(Devices.video + VIDEO_GPU3 + 1, 100);         // line x0
+        _shd(Devices.video + VIDEO_GPU3 + 3, 200);         // line y0
+        _shd(Devices.video + VIDEO_GPU0, 0);             // x1
+        _shd(Devices.video + VIDEO_GPU0 + 2, 500);        // y1
+        _sbd(Devices.video + VIDEO_GPU7, 0);        // latch
+        _sbd(Devices.video + VIDEO_COMMAND, 13); // draw line
+
+        _shd(Devices.video + VIDEO_GPU0, 120); // outiline color
+        _sbd(Devices.video + VIDEO_GPU0+2, 100);         // fill x0
+        _sbd(Devices.video + VIDEO_GPU3, 0x2);         // mode
+        _shd(Devices.video + VIDEO_GPU3+1, 300);             // xm
+        _shd(Devices.video + VIDEO_GPU3+3, 300);        // ym
+        _shd(Devices.video + VIDEO_GPU0, 40);        // radius
+        _sbd(Devices.video + VIDEO_GPU7, 0);        // latch
+        _sbd(Devices.video + VIDEO_COMMAND, 14); // draw circle
+
+    */
+
+loop:
+    goto loop;
+
+    /*_sbd(0x10 + VIDEO_DATA, 0x5);
+    _sbd(0x10 + VIDEO_COMMAND, VIDEO_COMMAND_SETMODE);*/
+
+    /*bios_init();
+
+    ttty_mux_clear(&Con);
+
+    ttty_mux_printf(&Con, "%s %s %c\n", BIOS_NAME, BIOS_VERSION, BIOS_CHR);
+
+    ushell_init(commands, sizeof(commands) / sizeof(commands[0]));
+
+    while (true) {
+        u8 chr = tins_getc(&Keyboard_in);
+        ushell_process(chr);
+    }
+    */
+}

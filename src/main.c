@@ -40,10 +40,12 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
     m->cpu.poweroff = false;
 
     if (is_restart) {
-        OPLL_delete(m->synth);
+        OPLL_delete(m->synth.opll);
     }
 
-    m->synth = OPLL_new(SYNTH_MSX_CLK, 44100);
+    m->synth.opll = OPLL_new(SYNTH_MSX_CLK, 44100);
+
+    m->synth.master_volume = 100;
 
     m->sys = (DeviceSystem){
         .frequency     = 0,
@@ -54,8 +56,7 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
 
     // Register devices
     const int device_registry[] = {
-        ID_TERMINAL, ID_VIDEO, ID_STORAGE, ID_AUDIO,
-        ID_AUDIO,    ID_AUDIO, ID_AUDIO,   ID_MOUSE,
+        ID_TERMINAL, ID_VIDEO, ID_STORAGE, ID_AUDIO, ID_MOUSE,
     };
 
     Bus_RegisterDevices(m, device_registry, 0, 7);
@@ -72,7 +73,8 @@ void Machine_LoadFirmware(TaleaMachine *m, const char *path)
     firmware      = LoadFileData(path, &firmware_size);
 
     if (firmware == NULL || firmware_size < 1 || firmware_size > TALEA_MAX_FIRMWARE_SIZE) {
-        TALEA_LOG_ERROR("Error, firmware file is too big or not valid (size: %d, max: %d)", firmware_size, TALEA_MAX_FIRMWARE_SIZE);
+        TALEA_LOG_ERROR("Error, firmware file is too big or not valid (size: %d, max: %d)",
+                        firmware_size, TALEA_MAX_FIRMWARE_SIZE);
         exit(1);
     }
 
@@ -82,7 +84,7 @@ void Machine_LoadFirmware(TaleaMachine *m, const char *path)
 
 void Machine_Deinit(TaleaMachine *m, TaleaConfig *config)
 {
-    OPLL_delete(m->synth);
+    OPLL_delete(m->synth.opll);
     // Storage_UnloadResources(m);
 
     m = NULL; // Do we null the pointer or not
@@ -103,18 +105,34 @@ void Machine_RunFrame(TaleaMachine *m, TaleaConfig *config)
     }
 }
 
-static TaleaMachine talea = { 0 };
-Tps *TpsDrives = talea.storage.tps_drives; // To access in other threads
-Hcs *HcsDrive  = &talea.storage.hcs;       // To access in other threads
+static TaleaMachine talea     = { 0 };
+Tps                *TpsDrives = talea.storage.tps_drives; // To access in other threads
+Hcs                *HcsDrive  = &talea.storage.hcs;       // To access in other threads
 
-int main(void)
+int main(int argc, char** argv)
 {
+    if (argc > 2) {
+        TALEA_LOG_ERROR("Usage: %s [optional file to map at 0x1000]\n", argv[0]);
+    }
+
+    if (argc == 2) {
+        int sz = 0;
+        u8 *data =LoadFileData(argv[1], &sz);
+
+        if (data) {
+            sz = MIN(sz, TALEA_MAIN_MEM_SZ);
+            memcpy(&talea.main_memory[0x1000], data, sz);
+        }
+    }
+
     TaleaConfig config = Config_Load(CONFIG_FILE_PATH);
+
 
     // Initialization
     bool success = NetworkInit(); // TODO: check config for serial and modem
                                   // enable, and if it fails, log the error and
                                   // continue offline
+    Synth_Init(&talea);
     Frontend_InitWindow(&config);
     Machine_Init(&talea, &config);
 
@@ -128,7 +146,10 @@ int main(void)
 
         if (!talea.cpu.poweroff) {
             Frontend_PollInput(&talea, &config);
-            if (!Frontend_GuiIsOpen()) Video_Update(&talea);
+            if (!Frontend_GuiIsOpen()) {
+                Video_Update(&talea);
+                Synth_Update(&talea);
+            }
             Serial_Update(&talea);
         }
 

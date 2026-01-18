@@ -22,13 +22,24 @@ Hardware:
             ✔ Move UpdateDrawFrame logic to a dedicated renderer module. @done(25-12-24 15:26)
             ✔ Refactor the GUI to modify the machine state via API functions. @done(25-12-25 19:32)
             ✔ Create a dedicated input handler to map Raylib keys to internal scancodes. @done(25-12-24 15:26)
-            ☐ Isolate Audio (OPLL and PCM stream) into src/devices/audio.c.
+            ✔ Isolate Audio (OPLL and PCM stream) into src/devices/audio.c. @done(26-01-18 23:39)
     ☐ 2. Test for UB and memory leaks
     ☐ 3. Document everyting:
         ☐ Emulator code
         ☐ Talea System Manual
-    ☐ 4. Create a working network stack
-    ☐ finish video device
+    4. Create a working network stack:
+        ✔ Hardware hayes modem @done(26-01-18 12:23)
+        ☐ software
+        ☐ external utilities (like servers, etc) that run on the host
+    finish video device:
+        ✔ blitter @done(26-01-18 12:24)
+        ✔ geometric primitives @done(26-01-18 12:25)
+        ✔ vertex mesh renderer @done(26-01-18 12:25)
+        ✔ text modes @done(26-01-18 12:25)
+        ☐ font loading 
+        ☐ pallete loading
+        ☐ pallete shades calculation
+        ☐ optimize
     5. Polish everithing:
         ☐ Make memory size able to be configurable and not hardcoded
         ☐ Make Rom non writable at 16MB - 32K in the address space
@@ -90,8 +101,9 @@ Misc:
         
 
 Bugs:
-    ☐ when shutting down with the UI button, the socket cannot reconnect
+    ✔ when shutting down with the UI button, the socket cannot reconnect @done(26-01-18 12:35)
     ☐ when loading a firmware and closing the emulator, the string on the config file of windows does not escape backlashes properly
     ☐ In init window, we have to hack the hidpi, seems it broke a little bit ago in raylib?
     ☐ Wireframe 3d rendering works but draws some garbage
+    ☐ Not a bug per se, but if ATE1 (echo) is enabled on the modem, and the CPU dares to echo back what it gets on the serial line, when answering a call and then escaping to command mode, a feedback loop will be triggered and possibly crash the emulator. This to say that if ATE1 is enabled you DONT NEVER EVER echo again.
 

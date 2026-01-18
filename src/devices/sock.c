@@ -13,6 +13,7 @@
 #endif
 
 extern double GetTime(void);
+static inline void Modem_SendStr(TaleaMachine *m, const char *s);
 
 // Initializes the socket API in windows. Returns true on success
 bool NetworkInit()
@@ -95,10 +96,66 @@ void Serial_HostInit(TerminalSerial *dev, int port)
     printf("Serial Host: Virtual COM port listening on localhost:%d\n", port);
 }
 
+void Modem_AnswerCall(TaleaMachine *m)
+{
+    HayesModem *modem   = &m->terminal.serial.modem;
+    talea_net_t *sock    = &m->terminal.serial.host_socket;
+    talea_net_t *pending = &m->terminal.serial.pending_socket;
+
+    if (*pending == T_INVALID_SOCKET) {
+        Modem_SendResponse(m, HAYES_ERROR);
+        return;
+    }
+
+    *sock    = *pending;
+    *pending = T_INVALID_SOCKET;
+
+    net_set_nonblocking(*sock);
+    m->terminal.serial.status |= SER_STATUS_CARRIER_DETECT;
+
+    modem->is_ringing = false;
+    modem->ring_count = 0;
+    modem->state      = MODEM_STATE_DATA;
+
+    modem->cmd_pos = 0;
+    modem->last_was_A = false;
+    memset(modem->cmd_buffer, 0, sizeof(modem->cmd_buffer));
+
+    Modem_SendResponse(m, HAYES_CONNECT);
+    TALEA_LOG_TRACE("Modem call answered, line active\n");
+}
+
 void Modem_Update(TaleaMachine *m)
 {
-    HayesModem *modem = &m->terminal.serial.modem;
-    talea_net_t sock  = m->terminal.serial.host_socket;
+    HayesModem *modem   = &m->terminal.serial.modem;
+    talea_net_t sock    = m->terminal.serial.host_socket;
+    talea_net_t *pending = &m->terminal.serial.pending_socket;
+
+    if (modem->is_ringing) {
+        char buf[1];
+        int  connected = recv(*pending, buf, 1, MSG_PEEK);
+
+        if (!connected) {
+            closesocket(*pending);
+            *pending           = T_INVALID_SOCKET;
+            modem->is_ringing = false;
+            modem->ring_count = 0;
+            goto skip_ring;
+        }
+
+        double now = GetTime();
+
+        if (now - modem->last_ring_time > 2.0) {
+            Modem_SendStr(m, "\r\nRING\r\n");
+            modem->ring_count++;
+            modem->last_ring_time = now;
+
+            if (modem->s_regs[0] > 0 && modem->ring_count >= modem->s_regs[0]) {
+                Modem_AnswerCall(m);
+            }
+        }
+    }
+skip_ring:
 
     switch (modem->state) {
     case MODEM_STATE_COMMAND:
@@ -121,7 +178,7 @@ void Modem_Update(TaleaMachine *m)
         }
 
         fd_set         wfds, efds;
-        struct timeval tv = { 0, 0 }; 
+        struct timeval tv = { 0, 0 };
 
         FD_ZERO(&wfds);
         FD_ZERO(&efds);
@@ -205,10 +262,12 @@ void Serial_Update(TaleaMachine *m)
         talea_net_t new_socket = accept(dev->server_fd, NULL, NULL);
 
         if (new_socket != T_INVALID_SOCKET) {
-            dev->host_socket = new_socket;
-            dev->status |= SER_STATUS_CARRIER_DETECT;
-            printf("Serial Host: Terminal connected!\n");
-            net_set_nonblocking(dev->host_socket);
+            dev->pending_socket = new_socket;
+            net_set_nonblocking(dev->pending_socket);
+            printf("Serial Host: Incoming call!\n");
+            modem->is_ringing     = true;
+            modem->ring_count     = 0;
+            modem->last_ring_time = GetTime();
         } else if (!net_would_block()) {
             TALEA_LOG_ERROR("ERROR connecting to host socket\n");
         }
@@ -347,6 +406,14 @@ static inline bool Modem_ExecuteATCommand(TaleaMachine *m, char cmd, u8 value)
     // TODO: implement some cool easter eggs on ATI
 
     switch (cmd) {
+    case 'A':
+        /* Answer */
+        if (modem->is_ringing) {
+            Modem_AnswerCall(m);
+        } else {
+            Modem_SendResponse(m, HAYES_ERROR);
+        }
+        break;
     case 'E':
         /* Echo enable */
         modem->echo_enabled = (value != 0);
@@ -410,7 +477,7 @@ static int Modem_InitiateConnection(TaleaMachine *m, const char *address, bool n
 
     colon = strchr(addr_copy, ':');
     if (colon) {
-        *colon = '\0';      
+        *colon = '\0';
         port   = colon + 1;
     }
 
@@ -422,8 +489,8 @@ static int Modem_InitiateConnection(TaleaMachine *m, const char *address, bool n
 
     // Resolve address
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family   = AF_INET;     
-    hints.ai_socktype = SOCK_STREAM; 
+    hints.ai_family   = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
 
     if (getaddrinfo(addr_copy, port, &hints, &res) != 0) {
         // Modem_SendResponse(m, HAYES_NO_DIALTONE); // TODO: handle more errors
@@ -459,7 +526,7 @@ static int Modem_InitiateConnection(TaleaMachine *m, const char *address, bool n
             return true;
         }
     }
-    
+
     modem->state = MODEM_STATE_DATA;
     Modem_SendResponse(m, HAYES_CONNECT);
     return true;

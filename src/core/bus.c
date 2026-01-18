@@ -93,11 +93,8 @@ u8 Machine_ReadData8(TaleaMachine *m, u16 addr)
         value = (m->data_memory[addr]);
         break;
     case DEV_AUDIO_BASE:
-    case DEV_AUDIO_BASE + 0x10:
-    case DEV_AUDIO_BASE + 0x20:
-    case DEV_AUDIO_BASE + 0x30:
-        value = 0;
-        break; //(AudioHandlerReadU8(addr));
+        value = Synth_ReadHandler(m, addr);
+        break;
     case DEV_SYSTEM_BASE:
         value = System_ReadHandler(m, addr);
         break;
@@ -129,10 +126,7 @@ void Machine_WriteData8(TaleaMachine *m, u16 addr, u8 value)
         m->data_memory[addr] = value;
         break;
     case DEV_AUDIO_BASE:
-    case DEV_AUDIO_BASE + 0x10:
-    case DEV_AUDIO_BASE + 0x20:
-    case DEV_AUDIO_BASE + 0x30:
-        // AudioHandlerWriteU8(addr, value);
+        Synth_WriteHandler(m, addr, value);
         break;
     case DEV_SYSTEM_BASE:
         System_WriteHandler(m, addr, value);

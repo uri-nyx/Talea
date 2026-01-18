@@ -271,7 +271,7 @@ _isr_video_refresh:
     addi    x8,x2,32
     sw      x1,24(x2)
 
-    call    bios_vblank_handler
+    #call    bios_vblank_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)

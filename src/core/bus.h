@@ -8,8 +8,8 @@
 #define DEV_TPS_BASE      0x0020U
 #define DEV_DISK_BASE     0x0026U
 #define DEV_AUDIO_BASE    0x0030U
-#define DEV_MOUSE_BASE    0x0070U // FIX THIS
-#define DEV_CUSTOM_BASE   0x0080U
+#define DEV_MOUSE_BASE    0x0040U // FIX THIS
+#define DEV_CUSTOM_BASE   0x0050U
 #define DEV_SYSTEM_BASE   0x00F0U
 #define DEV_MAP_BASE      0x0100U
 

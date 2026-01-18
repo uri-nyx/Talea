@@ -13,4 +13,6 @@
 #define SYNTH_DATALENGTH (SAMPLERATE * 8)
 
 void Synth_OPLL(void *, unsigned int);
+void Synth_PCM(void *buffer, unsigned int frames);
+
 #endif

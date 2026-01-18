@@ -13,10 +13,10 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-static inline u32 sext(u32 n, u32 bits)
+static inline u32 sext(u32 n, u8 bits)
 {
-    int mask = 1U << (bits - 1);
-    return (n ^ mask) - mask;
+    i32 shift = 32 - bits;
+    return (i32)(n << shift) >> shift;
 }
 
 static inline Register GPR_GET(TaleaMachine *m, u8 reg)
@@ -42,9 +42,8 @@ static inline u32 GET_PC(TaleaMachine *m)
 
 static inline void trace(TaleaMachine *m, u8 r1, u8 r2, u8 r3, u8 r4)
 {
-    TALEA_LOG_TRACE("[TRACE] R%d: %08x | R%d: %08x | R%d: %08x | R%d: %08x \n",
-                    r1, GPR_GET(m, r1), r2, GPR_GET(m, r2), r3, GPR_GET(m, r3),
-                    r4, GPR_GET(m, r4));
+    TALEA_LOG_TRACE("[TRACE] R%d: %08x | R%d: %08x | R%d: %08x | R%d: %08x \n", r1, GPR_GET(m, r1),
+                    r2, GPR_GET(m, r2), r3, GPR_GET(m, r3), r4, GPR_GET(m, r4));
 }
 
 static inline void SetSupervisor(TaleaMachine *m)
@@ -69,8 +68,8 @@ static inline u32 PopW(TaleaMachine *m)
     return word;
 }
 
-//#define DEBUG_LOG_EXCEPTIONS
-//#define DEBUG_LOG_INTERRUPTS
+// #define DEBUG_LOG_EXCEPTIONS
+// #define DEBUG_LOG_INTERRUPTS
 
 static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 {
@@ -82,6 +81,7 @@ static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 
     const u32 pc   = GET_PC(m);
     const u32 stat = m->cpu.status;
+    m->cpu.status &= ~CPU_STATUS_DEBUG_STEP;
     SetSupervisor(m);
     PushW(m, pc);
     PushW(m, stat);
@@ -101,13 +101,11 @@ static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
     }
 
 #if TALEA_IVT_FIXED
-    const u32 handler_addr =
-        Machine_ReadData32(m, TALEA_IVT_BASE + ((u16)vector << 2));
+    const u32 handler_addr = Machine_ReadData32(m, TALEA_IVT_BASE + ((u16)vector << 2));
     SET_PC(m, handler_addr);
 
 #ifdef DEBUG_LOG_EXCEPTIONS
-    TALEA_LOG_TRACE("Exception 0x%x, jumping to 0x%08x\n", vector,
-                    handler_addr);
+    TALEA_LOG_TRACE("Exception 0x%x, jumping to 0x%08x\n", vector, handler_addr);
 #endif
 
 #else
@@ -122,16 +120,14 @@ void Machine_RaiseInterrupt(TaleaMachine *m, u8 vector, u8 priority)
     m->cpu.pending_interrupts[priority] = vector;
 
 #ifdef DEBUG_LOG_INTERRUPTS
-    TALEA_LOG_TRACE("Interrupt: 0x%x, priority: %u, pending: %u, cpu: %u\n",
-                    vector, priority, m->cpu.highest_pending_interrupt,
-                    SR_GET_PRIORITY(m->cpu.status));
+    TALEA_LOG_TRACE("Interrupt: 0x%x, priority: %u, pending: %u, cpu: %u\n", vector, priority,
+                    m->cpu.highest_pending_interrupt, SR_GET_PRIORITY(m->cpu.status));
 #endif
 
-    if (priority > m->cpu.highest_pending_interrupt)
-        m->cpu.highest_pending_interrupt = priority;
+    if (priority > m->cpu.highest_pending_interrupt) m->cpu.highest_pending_interrupt = priority;
 }
 
-static void CheckInterrupts(TaleaMachine *m)
+static bool CheckInterrupts(TaleaMachine *m)
 {
     // It is ugly, but naive, to check this here in this way
     if (m->storage.current_tps->just_inserted) {
@@ -164,8 +160,7 @@ static void CheckInterrupts(TaleaMachine *m)
     u8 current         = m->cpu.current_ipl;
 
     if ((m->cpu.pending_ipl != 0) &&
-        (pending > SR_GET_PRIORITY(m->cpu.status) ||
-         ((pending == 7) && (pending >= current)))) {
+        (pending > SR_GET_PRIORITY(m->cpu.status) || ((pending == 7) && (pending >= current)))) {
         m->cpu.current_ipl = m->cpu.pending_ipl;
         // acknowledge interrupt, maybe fail here
         u8 vector = m->cpu.pending_interrupts[m->cpu.current_ipl];
@@ -175,16 +170,18 @@ static void CheckInterrupts(TaleaMachine *m)
             m->cpu.highest_pending_interrupt -= 1;
         }
 
-        Exception(m, vector, 1);
+        Exception(m, vector, false);
+        return true;
     }
 
     if (pending < current) m->cpu.current_ipl = m->cpu.pending_ipl;
+    return false;
 }
 
 #ifdef DEBUG_LOG_INSTRUCTION_EXEC
-#define EXEC_LOG(s)                                                \
-    TALEA_LOG_TRACE("[EXEC LOG]: " s "\t\t (0x%8x: %u) at 0x%x\n", \
-                    instruction, group_opcode, cpu.pc - 4)
+#define EXEC_LOG(s)                                                                           \
+    TALEA_LOG_TRACE("[EXEC LOG]: " s "\t\t (0x%8x: %u) at 0x%x\n", instruction, group_opcode, \
+                    cpu.pc - 4)
 #else
 #define EXEC_LOG(s) (void)(s)
 #endif
@@ -219,11 +216,10 @@ static int Execute(TaleaMachine *m)
     }                                                     \
     /*-----------------*/
 
-    int      exception     = 0;
-    u32      instruction   = Fetch(m);
-    const u8 group /*u3*/  = (instruction >> GROUP_SHIFHT) & 0b111;
-    const u8 opcode /*u8*/ = ((instruction & OPCODE_MASK) >> OPCODE_SHIFT) &
-                             0xf;
+    int       exception      = 0;
+    u32       instruction    = Fetch(m);
+    const u8  group /*u3*/   = (instruction >> GROUP_SHIFHT) & 0b111;
+    const u8  opcode /*u8*/  = ((instruction & OPCODE_MASK) >> OPCODE_SHIFT) & 0xf;
     const u8  r1 /*u5*/      = ((instruction & R1_MASK) >> R1_SHIFT) & 0x1f;
     const u8  r2 /*u5*/      = ((instruction & R2_MASK) >> R2_SHIFT) & 0x1f;
     const u8  r3 /*u5*/      = ((instruction & R3_MASK) >> R3_SHIFT) & 0x1f;
@@ -282,22 +278,18 @@ static int Execute(TaleaMachine *m)
                 REQUIRE_SUPERVISOR;
             }
             // src in data or main
-            u8 *src = ((imm_15 & 1) != 0) ?
-                          &m->data_memory[GPR_GET(m, r1) & 0xffff] :
-                          &m->main_memory[GPR_GET(m, r1) & 0xffffff];
+            u8 *src = ((imm_15 & 1) != 0) ? &m->data_memory[GPR_GET(m, r1) & 0xffff] :
+                                            &m->main_memory[GPR_GET(m, r1) & 0xffffff];
 
             size_t srcSize = MIN(GPR_GET(m, r3) & 0xffffff,
-                                 (((imm_15 & 1) != 0) ? TALEA_DATA_MEM_SZ :
-                                                        TALEA_MAIN_MEM_SZ));
+                                 (((imm_15 & 1) != 0) ? TALEA_DATA_MEM_SZ : TALEA_MAIN_MEM_SZ));
 
             // dst in data or main
-            u8 *dst = ((imm_15 & 2) != 0) ?
-                          &m->data_memory[GPR_GET(m, r2) & 0xffff] :
-                          &m->main_memory[GPR_GET(m, r2) & 0xffffff];
-            int dstSize =
-                ((imm_15 & 2) != 0) ?
-                    GPR_GET(m, r3) & 0xffffff + (GPR_GET(m, r2) & 0xffff) :
-                    GPR_GET(m, r3) & 0xffffff + (GPR_GET(m, r2) & 0xffffff);
+            u8 *dst     = ((imm_15 & 2) != 0) ? &m->data_memory[GPR_GET(m, r2) & 0xffff] :
+                                                &m->main_memory[GPR_GET(m, r2) & 0xffffff];
+            int dstSize = ((imm_15 & 2) != 0) ?
+                              GPR_GET(m, r3) & 0xffffff + (GPR_GET(m, r2) & 0xffff) :
+                              GPR_GET(m, r3) & 0xffffff + (GPR_GET(m, r2) & 0xffffff);
 
             if ((imm_15 & 2) != 0 && dstSize > TALEA_DATA_MEM_SZ) break;
             if ((imm_15 & 2) == 0 && dstSize > TALEA_MAIN_MEM_SZ) break;
@@ -307,25 +299,47 @@ static int Execute(TaleaMachine *m)
         }
     case Swap: {
         EXEC_LOG("Swap");
-        u8 *buff = malloc(GPR_GET(m, r3) & 0xffffff);
-        if (buff == NULL) break;
 
         size_t size = GPR_GET(m, r3) & 0xffffff;
 
-        if ((size > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) ||
-            (size > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r2) & 0xffffff))) {
-            free(buff);
-            break;
+        u32 addr_a = GPR_GET(m, r1);
+        u32 addr_b = GPR_GET(m, r2);
+
+        if (SR_GET_MMU(m->cpu.status)) {
+            if (!mmuValidateWriteAccessRange(m, addr_a, size)) {
+                cpu->acces_violation_offender = addr_a;
+                Exception(m, EXCEPTION_ACCESS_VIOLATION_TALEA, false);
+            }
+
+            if (!mmuValidateWriteAccessRange(m, addr_b, size)) {
+                cpu->acces_violation_offender = addr_b;
+                Exception(m, EXCEPTION_ACCESS_VIOLATION_TALEA, false);
+            }
         }
 
-        memcpy(buff, &m->main_memory[GPR_GET(m, r1) & 0xffffff],
-               GPR_GET(m, r3) & 0xffffff);
-        memmove(&m->main_memory[GPR_GET(m, r1) & 0xffffff],
-                &m->main_memory[GPR_GET(m, r2) & 0xffffff],
-                GPR_GET(m, r3) & 0xffffff);
-        memcpy(&m->main_memory[GPR_GET(m, r2) & 0xffffff], buff,
-               GPR_GET(m, r3) & 0xffffff);
-        free(buff);
+        size_t offset = 0;
+        while (size >= 4) {
+            u32 a = Machine_ReadMain32(m, addr_a + offset);
+            u32 b = Machine_ReadMain32(m, addr_b + offset);
+
+            Machine_WriteMain32(m, addr_a + offset, b);
+            Machine_WriteMain32(m, addr_b + offset, a);
+
+            offset += 4;
+            size -= 4;
+        }
+
+        while (size > 0) {
+            u8 a = Machine_ReadMain8(m, addr_a + offset);
+            u8 b = Machine_ReadMain8(m, addr_b + offset);
+
+            Machine_WriteMain8(m, addr_a + offset, b);
+            Machine_WriteMain8(m, addr_b + offset, a);
+
+            offset += 1;
+            size -= 1;
+        }
+
         break;
     }
     case Fill: {
@@ -334,20 +348,17 @@ static int Execute(TaleaMachine *m)
         u32 len  = GPR_GET(m, r2);
 
         if ((imm_15 & 4) != 0) {
-            if (len * 4 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff))
-                break;
+            if (len * 4 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) break;
             for (u32 a = 0; a < len; a++) ((u32 *)dest)[a] = GPR_GET(m, r3);
         } else if ((imm_15 & 2) != 0) {
-            if (len * 3 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff))
-                break;
+            if (len * 3 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) break;
             for (u32 b = 0; b < (len * 3); b += 3) {
                 dest[b]     = GPR_GET(m, r3) >> 16;
                 dest[b + 1] = GPR_GET(m, r3) >> 8;
                 dest[b + 2] = GPR_GET(m, r3);
             }
         } else if ((imm_15 & 1) != 0) {
-            if (len * 2 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff))
-                break;
+            if (len * 2 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) break;
 
             for (u16 c = 0; c < len; c++) ((u16 *)dest)[c] = GPR_GET(m, r3);
         } else {
@@ -359,13 +370,11 @@ static int Execute(TaleaMachine *m)
     }
     case Through:
         EXEC_LOG("Through");
-        Machine_WriteMain32(m, Machine_ReadMain32(m, GPR_GET(m, r2)),
-                            GPR_GET(m, r1));
+        Machine_WriteMain32(m, Machine_ReadMain32(m, GPR_GET(m, r2)), GPR_GET(m, r1));
         break;
     case From:
         EXEC_LOG("From");
-        GPR_SET(m, r1,
-                Machine_ReadMain32(m, Machine_ReadMain32(m, GPR_GET(m, r2))));
+        GPR_SET(m, r1, Machine_ReadMain32(m, Machine_ReadMain32(m, GPR_GET(m, r2))));
         break;
     case Popb:
         EXEC_LOG("Popb");
@@ -493,9 +502,7 @@ static int Execute(TaleaMachine *m)
         break;
     case Lb:
         EXEC_LOG("Lb");
-        GPR_SET(m, r1,
-                sext(Machine_ReadMain8(m, GPR_GET(m, r2) + sext(imm_15, 15)),
-                     8));
+        GPR_SET(m, r1, sext(Machine_ReadMain8(m, GPR_GET(m, r2) + sext(imm_15, 15)), 8));
         break;
     case Lbu:
         EXEC_LOG("Lbu");
@@ -504,9 +511,7 @@ static int Execute(TaleaMachine *m)
     case Lbd:
         EXEC_LOG("Lbd");
         REQUIRE_SUPERVISOR
-        GPR_SET(m, r1,
-                sext(Machine_ReadData8(m, GPR_GET(m, r2) + sext(imm_15, 15)),
-                     8));
+        GPR_SET(m, r1, sext(Machine_ReadData8(m, GPR_GET(m, r2) + sext(imm_15, 15)), 8));
         break;
     case Lbud:
         EXEC_LOG("Lbud");
@@ -515,38 +520,30 @@ static int Execute(TaleaMachine *m)
         break;
     case Lh:
         EXEC_LOG("Lh");
-        GPR_SET(m, r1,
-                sext(Machine_ReadMain16(m, GPR_GET(m, r2) + sext(imm_15, 15)),
-                     16));
+        GPR_SET(m, r1, sext(Machine_ReadMain16(m, GPR_GET(m, r2) + sext(imm_15, 15)), 16));
         break;
     case Lhu:
         EXEC_LOG("Lhu");
-        GPR_SET(m, r1,
-                Machine_ReadMain16(m, GPR_GET(m, r2) + sext(imm_15, 15)));
+        GPR_SET(m, r1, Machine_ReadMain16(m, GPR_GET(m, r2) + sext(imm_15, 15)));
         break;
     case Lhd:
         EXEC_LOG("Lhd");
         REQUIRE_SUPERVISOR
-        GPR_SET(m, r1,
-                sext(Machine_ReadData16(m, GPR_GET(m, r2) + sext(imm_15, 15)),
-                     16));
+        GPR_SET(m, r1, sext(Machine_ReadData16(m, GPR_GET(m, r2) + sext(imm_15, 15)), 16));
         break;
     case Lhud:
         EXEC_LOG("Lhud");
         REQUIRE_SUPERVISOR
-        GPR_SET(m, r1,
-                Machine_ReadData16(m, GPR_GET(m, r2) + sext(imm_15, 15)));
+        GPR_SET(m, r1, Machine_ReadData16(m, GPR_GET(m, r2) + sext(imm_15, 15)));
         break;
     case Lw:
         EXEC_LOG("Lw");
-        GPR_SET(m, r1,
-                Machine_ReadMain32(m, GPR_GET(m, r2) + sext(imm_15, 15)));
+        GPR_SET(m, r1, Machine_ReadMain32(m, GPR_GET(m, r2) + sext(imm_15, 15)));
         break;
     case Lwd:
         EXEC_LOG("Lwd");
         REQUIRE_SUPERVISOR
-        GPR_SET(m, r1,
-                Machine_ReadData32(m, GPR_GET(m, r2) + sext(imm_15, 15)));
+        GPR_SET(m, r1, Machine_ReadData32(m, GPR_GET(m, r2) + sext(imm_15, 15)));
         break;
     case Muli:
         EXEC_LOG("Muli");
@@ -638,8 +635,7 @@ static int Execute(TaleaMachine *m)
             GPR_SET(m, r1, value >> 32);
             GPR_SET(m, r2, value);
         } else {
-            const int64_t value =
-                (int64_t)GPR_GET(m, r3) * (int64_t)GPR_GET(m, r4);
+            const int64_t value = (int64_t)GPR_GET(m, r3) * (int64_t)GPR_GET(m, r4);
             // TODO: Document this implementation
             GPR_SET(m, r1, value >> 32);
             GPR_SET(m, r2, value);
@@ -678,7 +674,7 @@ static int Execute(TaleaMachine *m)
     case Ctz: {
         EXEC_LOG("Ctz");
         u32 v = GPR_GET(m, r2); // 32-bit word input to count zero bits on right
-        u32 c = 32; // c will be the number of zero bits on the right
+        u32 c = 32;             // c will be the number of zero bits on the right
         v &= -(signed)(v);
         if (v) c--;
         if (v & 0x0000FFFF) c -= 16;
@@ -725,69 +721,44 @@ static int Execute(TaleaMachine *m)
         break;
     case Sb:
         EXEC_LOG("Sb");
-        Machine_WriteMain8(m, GPR_GET(m, r2) + sext(imm_15, 15),
-                           GPR_GET(m, r1));
+        Machine_WriteMain8(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
         break;
     case Sbd:
         EXEC_LOG("Sbd");
         REQUIRE_SUPERVISOR;
-        Machine_WriteData8(m, GPR_GET(m, r2) + sext(imm_15, 15),
-                           GPR_GET(m, r1));
+        Machine_WriteData8(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
         break;
     case Sh:
         EXEC_LOG("Sh");
-        Machine_WriteMain16(m, GPR_GET(m, r2) + sext(imm_15, 15),
-                            GPR_GET(m, r1));
+        Machine_WriteMain16(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
         break;
     case Shd:
         EXEC_LOG("Shd");
         REQUIRE_SUPERVISOR;
-        Machine_WriteData16(m, GPR_GET(m, r2) + sext(imm_15, 15),
-                            GPR_GET(m, r1));
+        Machine_WriteData16(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
         break;
     case Sw:
         EXEC_LOG("Sw");
-        Machine_WriteMain32(m, GPR_GET(m, r2) + sext(imm_15, 15),
-                            GPR_GET(m, r1));
+        Machine_WriteMain32(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
         break;
     case Swd:
         EXEC_LOG("Swd");
         REQUIRE_SUPERVISOR;
-        Machine_WriteData32(m, GPR_GET(m, r2) + sext(imm_15, 15),
-                            GPR_GET(m, r1));
+        Machine_WriteData32(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
         break;
-    default:
-        EXEC_LOG("no instruction");
-        break;
+    default: EXEC_LOG("no instruction"); break;
     }
 
     switch (group) {
-    case SYS:
-        m->cpu.cycles += (CYCLES_SYS);
-        break;
-    case MEM:
-        m->cpu.cycles += (CYCLES_MEM);
-        break;
-    case JU:
-        m->cpu.cycles += (CYCLES_JU);
-        break;
-    case BRANCH:
-        m->cpu.cycles += (CYCLES_BRANCH);
-        break;
-    case LOAD:
-        m->cpu.cycles += (CYCLES_LOAD);
-        break;
-    case ALUI:
-        m->cpu.cycles += (CYCLES_ALUI);
-        break;
-    case ALUR:
-        m->cpu.cycles += (CYCLES_ALUR);
-        break;
-    case STORE:
-        m->cpu.cycles += (CYCLES_STORE);
-        break;
-    default:
-        break;
+    case SYS: m->cpu.cycles += (CYCLES_SYS); break;
+    case MEM: m->cpu.cycles += (CYCLES_MEM); break;
+    case JU: m->cpu.cycles += (CYCLES_JU); break;
+    case BRANCH: m->cpu.cycles += (CYCLES_BRANCH); break;
+    case LOAD: m->cpu.cycles += (CYCLES_LOAD); break;
+    case ALUI: m->cpu.cycles += (CYCLES_ALUI); break;
+    case ALUR: m->cpu.cycles += (CYCLES_ALUR); break;
+    case STORE: m->cpu.cycles += (CYCLES_STORE); break;
+    default: break;
     }
 
     return exception;
@@ -825,10 +796,18 @@ void Cpu_RunCycles(TaleaMachine *m, u32 cycles)
     u64 target_cycles = cycles + m->cpu.cycles;
 
     while (m->cpu.cycles < target_cycles) {
-        if (Execute(m)) Exception(m, m->cpu.exception, 0);
-        CheckInterrupts(m);
-        // TimerTick();
-        m->cpu.ticks++;
-        m->cpu.cycles++;
+        bool debug_step    = m->cpu.status & CPU_STATUS_DEBUG_STEP;
+        u64  cycles_before = m->cpu.cycles;
+        bool exception     = Execute(m);
+
+        if (exception) {
+            Exception(m, m->cpu.exception, false);
+            continue;
+        }
+
+        Timer_Update(m, m->cpu.cycles - cycles_before);
+        bool interrupt = CheckInterrupts(m);
+
+        if (debug_step && !interrupt) Exception(m, EXCEPTION_DEBUG_STEP, false);
     }
 }

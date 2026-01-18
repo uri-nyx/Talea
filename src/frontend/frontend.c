@@ -55,7 +55,7 @@ void Frontend_InitWindow(TaleaConfig *config)
 
     InitAudioDevice();
     SetMasterVolume(1.0f); // TODO: Put in the config file AND in the UI
-    SetAudioStreamBufferSizeDefault(4096);
+    //SetAudioStreamBufferSizeDefault(4096);
 
     state = (struct FrontendState){
         .window =
@@ -100,7 +100,8 @@ void Frontend_InitWindow(TaleaConfig *config)
             },
         .synth =
             (struct FrontendSynthCtx){
-                .PCMstream = LoadAudioStream(44100, 16, 1),
+                .SynthStream = LoadAudioStream(44100, 16, 1),
+                .PCMStream = LoadAudioStream(11025, 16, 1),
             },
         .is_restart = false,
     };
@@ -122,8 +123,11 @@ void Frontend_InitWindow(TaleaConfig *config)
     SetSoundVolume(state.sfx.tpsEjectSfx, 0.2f);
     SetMusicVolume(state.sfx.loopSound, 0.5f);
 
-    SetAudioStreamCallback(state.synth.PCMstream, Synth_OPLL);
-    PlayAudioStream(state.synth.PCMstream);
+    SetAudioStreamCallback(state.synth.SynthStream, Synth_OPLL);
+    PlayAudioStream(state.synth.SynthStream);
+
+    SetAudioStreamCallback(state.synth.PCMStream, Synth_PCM);
+    PlayAudioStream(state.synth.PCMStream);
 
     SetTextureFilter(state.window.screenTexture.texture, TEXTURE_FILTER_POINT);
 
@@ -534,7 +538,8 @@ void Frontend_Deinit(TaleaConfig *config)
     UnloadSound(state.sfx.tpsEjectSfx);
     UnloadSound(state.sfx.tpsInsertSfx);
     UnloadMusicStream(state.sfx.loopSound);
-    UnloadAudioStream(state.synth.PCMstream);
+    UnloadAudioStream(state.synth.SynthStream);
+    UnloadAudioStream(state.synth.PCMStream);
     for (size_t i = 0; i < MAX_ACCESS_SFX; i++) {
         UnloadSound(state.sfx.storageAcessSfx[i]);
     }

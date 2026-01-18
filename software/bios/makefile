@@ -10,10 +10,8 @@ LD=$(BINUTILS)/ld
 CC=$(LCCDIR)/lcc
 
 all: ushell.c entry.s bios.c
-	$(CC) $(CPPFLAGS) -c entry.s bios.c 
-# ushell.c
-	$(LD) $(LDFLAGS) -o bios.bin entry.o bios.o 
-# ushell.o 
+	$(CC) $(CPPFLAGS) -c entry.s bios.c ushell.c
+	$(LD) $(LDFLAGS) -o bios.bin entry.o bios.o ushell.o 
 # ld -rc 16760832 -o bios.bin entry.o bios.o ushell.o 
 .PHONY: clean
 clean:

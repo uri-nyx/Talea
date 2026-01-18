@@ -198,30 +198,30 @@ void Modem_CheckEscapeSequence(TaleaMachine *m, u8 byte)
     double      elapsed    = now - modem->last_tx_time;
     double      guard_time = GET_GUARD_TIME(modem);
 
-    TALEA_LOG_TRACE("Checking escape sequence (%c) [%d] %d\n", byte, modem->s_regs[2],
-                    modem->s_regs[2] == '+');
+    //TALEA_LOG_TRACE("Checking escape sequence (%c) [%d] %d\n", byte, modem->s_regs[2],
+    //                modem->s_regs[2] == '+');
 
     if (modem->waiting_after) {
         /* Any character sent during this window invalidates the sequence */
-        TALEA_LOG_TRACE("Invalidadated sequence\n");
+        //TALEA_LOG_TRACE("Invalidadated sequence\n");
         modem->waiting_after = false;
         modem->plus_count    = 0;
     }
 
     if (byte == modem->s_regs[2]) {
-        TALEA_LOG_TRACE("It is the character!\n");
+        //TALEA_LOG_TRACE("It is the character!\n");
         if (modem->plus_count == 0) {
             /* First '+': Must follow a period of silence */
             if (elapsed >= guard_time) {
-                TALEA_LOG_TRACE("Got 1st +\n");
+                //TALEA_LOG_TRACE("Got 1st +\n");
                 modem->plus_count = 1;
             }
         } else if (modem->plus_count < 3) {
             if (elapsed < guard_time) {
-                TALEA_LOG_TRACE("Got another +\n");
+                //TALEA_LOG_TRACE("Got another +\n");
                 modem->plus_count++;
             } else {
-                TALEA_LOG_TRACE("too much time passed\n");
+                //TALEA_LOG_TRACE("too much time passed\n");
                 modem->plus_count = (elapsed >= guard_time) ? 1 : 0;
             }
         }
@@ -232,7 +232,7 @@ void Modem_CheckEscapeSequence(TaleaMachine *m, u8 byte)
     modem->last_tx_time = now;
 
     if (modem->plus_count == 3) {
-        TALEA_LOG_TRACE("Got all 3! waiting\n");
+        //TALEA_LOG_TRACE("Got all 3! waiting\n");
         modem->waiting_after = true;
     }
 }
@@ -303,6 +303,7 @@ void Terminal_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
     case P_SERIAL_DATA: {
         // COMMAND and data modes
         Serial_SendByte(m, value);
+        break;
     }
     case P_SERIAL_STATUS: break; // non writable register
     case P_SERIAL_CTRL: {
@@ -313,8 +314,9 @@ void Terminal_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
             m->terminal.serial.tail = 0;
         }
 
-        m->terminal.serial.control |= value;
+        m->terminal.serial.control = value;
         m->terminal.serial.control &= ~SER_CONTROL_MASTER_RESET;
+        break;
     }
     case P_SERIAL_RXCOUNT: break; // non writable register
     case P_TIMER_TIMEOUT: m->terminal.timer.timeout_counter |= (u16)value << 8; break;
