@@ -40,10 +40,12 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
     m->cpu.poweroff = false;
 
     if (is_restart) {
+        Frontend_StopSynth();
         OPLL_delete(m->synth.opll);
     }
 
     m->synth.opll = OPLL_new(SYNTH_MSX_CLK, 44100);
+    Frontend_StartSynth();
 
     m->synth.master_volume = 100;
 
@@ -55,11 +57,11 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
     };
 
     // Register devices
-    const int device_registry[] = {
+    const int device_registry[5] = {
         ID_TERMINAL, ID_VIDEO, ID_STORAGE, ID_AUDIO, ID_MOUSE,
     };
 
-    Bus_RegisterDevices(m, device_registry, 0, 7);
+    Bus_RegisterDevices(m, device_registry, 0, 4);
 
     Machine_LoadFirmware(m, conf->firmware_path);
 }
@@ -84,6 +86,7 @@ void Machine_LoadFirmware(TaleaMachine *m, const char *path)
 
 void Machine_Deinit(TaleaMachine *m, TaleaConfig *config)
 {
+    Frontend_StopSynth();
     OPLL_delete(m->synth.opll);
     // Storage_UnloadResources(m);
 
@@ -109,15 +112,15 @@ static TaleaMachine talea     = { 0 };
 Tps                *TpsDrives = talea.storage.tps_drives; // To access in other threads
 Hcs                *HcsDrive  = &talea.storage.hcs;       // To access in other threads
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     if (argc > 2) {
         TALEA_LOG_ERROR("Usage: %s [optional file to map at 0x1000]\n", argv[0]);
     }
 
     if (argc == 2) {
-        int sz = 0;
-        u8 *data =LoadFileData(argv[1], &sz);
+        int sz   = 0;
+        u8 *data = LoadFileData(argv[1], &sz);
 
         if (data) {
             sz = MIN(sz, TALEA_MAIN_MEM_SZ);
@@ -126,7 +129,6 @@ int main(int argc, char** argv)
     }
 
     TaleaConfig config = Config_Load(CONFIG_FILE_PATH);
-
 
     // Initialization
     bool success = NetworkInit(); // TODO: check config for serial and modem

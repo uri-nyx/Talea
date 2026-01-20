@@ -33,6 +33,10 @@ typedef i8 bool;
 #define TTTY_TAB_W 8
 #endif
 
+#ifndef TTTY_MAX_BPC
+#define TTTY_MAX_BPC 8
+#endif
+
 #ifdef TTTY_USE_PRINTF
 /* Sorry, we need stdarg.h for printf */
 #include <stdarg.h>
@@ -104,6 +108,9 @@ typedef struct Ttty {
     bool           has_ansi;
     TttyAnsiParser ansi;
 
+    u8 default_att[TTTY_MAX_BPC]; /* up to MAX_BPC attributes */
+    u8 tabsize;
+
     /* Implementation defined function. Outputs a character. */
     void (*outchar)(struct Ttty *tty, char c);
 
@@ -130,8 +137,10 @@ typedef struct {
     u8                   count;
 } TttyMux;
 
-void ttty_init(Ttty *self, const char *name, enum TttyMode mode, u8 w, u8 h, u8 bpc, void *priv,
-               void (*emit)(struct Ttty *, char), void (*setpos)(struct Ttty *, u8, u8));
+/* returns true on success */
+bool ttty_init(Ttty *self, const char *name, enum TttyMode mode, u8 w, u8 h, u8 bpc, void *priv,
+               u8 *default_att, void (*emit)(struct Ttty *, char),
+               void (*setpos)(struct Ttty *, u8, u8));
 void ttty_putc(Ttty *tty, char c);
 void ttty_puts(Ttty *tty, const char *s);
 void ttty_clear(Ttty *tty);
@@ -154,9 +163,13 @@ void ttty_mux_printf(TttyMux *mux, const char *fmt, ...);
 // --------------------------------------------------------------------------
 #ifdef TTTY_IMPLEMENTATION
 
-void ttty_init(Ttty *tty, const char *name, enum TttyMode mode, u8 w, u8 h, u8 bpc, void *priv,
-               void (*emit)(struct Ttty *, char), void (*setpos)(struct Ttty *, u8, u8))
+bool ttty_init(Ttty *tty, const char *name, enum TttyMode mode, u8 w, u8 h, u8 bpc, void *priv,
+               u8 *default_att, void (*emit)(struct Ttty *, char),
+               void (*setpos)(struct Ttty *, u8, u8))
 {
+    u8 i;
+
+    if (bpc > TTTY_MAX_BPC) return false;
     tty->name     = name;
     tty->mode     = mode & (~TTTY_ANSI); /*TODO: very ugly, use another interface*/
     tty->has_ansi = (mode & TTTY_ANSI) ? true : false;
@@ -175,6 +188,11 @@ void ttty_init(Ttty *tty, const char *name, enum TttyMode mode, u8 w, u8 h, u8 b
     tty->outchar   = emit;
     tty->setpos    = setpos;
     tty->backspace = false;
+    tty->tabsize   = TTTY_TAB_W;
+
+    for (i = 0; i < bpc - 1; i++) tty->default_att[i] = default_att[i];
+
+    return true;
 }
 
 bool ttty_mux_subscribe(TttyMux *mux, Ttty *tty, enum TttyMuxPriority p)
@@ -233,10 +251,34 @@ static void ttty_scroll_up(Ttty *tty)
         /* Clear last line */
         for (i = total_size - row_bytes; i < total_size; i += tty->bpc) {
             vram[i] = ' ';
-            for (k = 1; k < tty->bpc; k++) vram[i + k] = 0;
+            for (k = 1; k < tty->bpc; k++) vram[i + k] = tty->default_att[k - 1];
         }
     }
     tty->y = tty->h - 1;
+}
+
+static void ttty_handle_tab(Ttty *tty)
+{
+    int spaces = tty->tabsize - (tty->x % tty->tabsize);
+
+    if (tty->x + spaces >= tty->w) {
+        tty->x = 0;
+        tty->y++;
+    } else {
+        usize i, k;
+        u8   *vram      = tty->priv;
+        u32   start_idx = (tty->y * tty->w + tty->x) * tty->bpc;
+        u32   end_idx   = start_idx + (spaces * tty->bpc);
+
+        for (i = start_idx; i < end_idx; i += tty->bpc) {
+            vram[i] = ' ';
+            for (k = 1; k < tty->bpc; k++) vram[i + k] = tty->default_att[k - 1];
+        }
+
+        tty->x += spaces;
+    }
+
+    if (tty->y >= tty->h) ttty_scroll_up(tty);
 }
 
 void ttty_emit(Ttty *tty, char c)
@@ -253,36 +295,18 @@ void ttty_emit(Ttty *tty, char c)
     case '\n':
         if (tty->mode == TTTY_XYLF) tty->x = 0;
         tty->y++;
-        break;
-    case '\r': tty->x = 0; break;
+        goto check_bounds;
+    case '\r': tty->x = 0; goto sync_hw;
     case '\b':
-        tty->x--;
+        if (tty->x > 0) tty->x--;
         tty->backspace = true;
-        break;
-    case '\t': {
-        int spaces = TTTY_TAB_W - (tty->x % TTTY_TAB_W);
-        int i;
-        for (i = 0; i < spaces; i++) {
-            ttty_emit(tty, ' ');
-            /* recursion may not be the most efficient, but it's naive */
-        }
-        break;
-    }
-    case 0x0c: {
+        goto sync_hw;
+    case '\t': ttty_handle_tab(tty); goto sync_hw;
+    case 0x0c:
         /* formfeed, \f, clear screen */
         ttty_clear(tty);
-        break;
-    }
-
-    default:
-        if (c >= ' ') {
-            /* Trigger output ONLY if within defined bounds */
-            if (tty->outchar && (tty->x < tty->w) && (tty->y < tty->h)) {
-                tty->outchar(tty, c);
-            }
-            tty->x++;
-        }
-        break;
+        goto sync_hw;
+    default: break;
     }
 
     /* Automatic Wrapping */
@@ -291,9 +315,19 @@ void ttty_emit(Ttty *tty, char c)
         tty->y++;
     }
 
+check_bounds:
     /* Automatic Scrolling */
     if (tty->y >= tty->h) ttty_scroll_up(tty);
 
+    if (c >= ' ') {
+        /* Trigger output ONLY if within defined bounds */
+        if (tty->outchar && (tty->x < tty->w) && (tty->y < tty->h)) {
+            tty->outchar(tty, c);
+        }
+        tty->x++;
+    }
+
+sync_hw:
     ttty_update_cursor_pos(tty); /* Sync hardware cursor index */
 }
 
@@ -337,7 +371,7 @@ static void ttty_execute_ansi(Ttty *tty, TttyAnsiToken *cmd)
             int addr   = c * tty->bpc;
             int j      = 0;
             vram[addr] = ' ';
-            for (j = 1; j < tty->bpc; j++) vram[addr + j] = 0;
+            for (j = 1; j < tty->bpc; j++) vram[addr + j] = tty->default_att[j - 1];
         }
         break;
     }
@@ -360,7 +394,7 @@ static void ttty_execute_ansi(Ttty *tty, TttyAnsiToken *cmd)
             int addr   = c * tty->bpc;
             int j      = 0;
             vram[addr] = ' ';
-            for (j = 1; j < tty->bpc; j++) vram[addr + j] = 0;
+            for (j = 1; j < tty->bpc; j++) vram[addr + j] = tty->default_att[j - 1];
         }
 
         break;
@@ -442,8 +476,11 @@ void ttty_clear(Ttty *tty)
     /*TODO: macro to use memset */
     if (tty->mode == TTTY_XY && tty->priv) {
         u8 *vram = (u8 *)tty->priv;
-        int i;
-        for (i = 0; i < (tty->w * tty->h); i++) vram[i] = ' ';
+        int i, j;
+        for (i = 0; i < (tty->w * tty->h) * tty->bpc; i += tty->bpc) {
+            vram[i] = ' ';
+            for (j = 1; j < tty->bpc; j++) vram[i + j] = tty->default_att[j - 1];
+        }
     }
 }
 
@@ -489,10 +526,12 @@ bool ttty_ansi_parse(TttyAnsiParser *p, u8 c, TttyAnsiToken *out)
 
     case ANSI_STATE_ESC:
         if (c == '[') {
+            usize i;
             p->state       = ANSI_STATE_CSI;
             p->p_idx       = 0;
             p->current_num = 0;
             p->is_private  = false;
+            for (i = 0; i < TTTY_MAX_ANSI_PARAMS; i++) out->params[i] = 0;
             return false;
         }
         p->state = ANSI_STATE_GROUND;
@@ -535,7 +574,24 @@ static void ttty_vformat(void (*emit)(void *, char), void *user, const char *fmt
     char         specifier = 0;
     while ((c = *fmt++)) {
         if (c == '%') {
+            u8   width    = 0;
+            bool pad_zero = false;
+
             specifier = *fmt++;
+            if (!specifier) return; /* end printing if no specifier found */
+
+            if (specifier == '0') {
+                pad_zero  = true;
+                specifier = *fmt++;
+            }
+
+            if (!specifier) return; /* end printing if no specifier found */
+
+            if (specifier >= '0' && specifier <= '9') {
+                width     = (width * 10) + (specifier - '0');
+                specifier = *fmt++;
+            }
+
             if (!specifier) return; /* end printing if no specifier found */
 
             switch (specifier) {
@@ -553,15 +609,10 @@ static void ttty_vformat(void (*emit)(void *, char), void *user, const char *fmt
             case 'x': {
                 char hex_chars[] = "0123456789ABCDEF";
                 /* a 32 bit int fits in 8 characters */
-                char buf[8];
+                char buf[16];
                 int  i = 0;
                 u32  x = va_arg(ap, int);
-
-                /* Handle 0 specifically */
-                if (x == 0) {
-                    emit(user, '0');
-                    break;
-                }
+                u8   content_len;
 
                 /* Extract digits from least significant to most significant */
                 while (x > 0) {
@@ -569,26 +620,26 @@ static void ttty_vformat(void (*emit)(void *, char), void *user, const char *fmt
                     x >>= 4;
                 }
 
-                /* Print the buffer in reverse */
-                while (i > 0) {
-                    emit(user, buf[--i]);
+                content_len = i;
+                while (content_len < width) {
+                    emit(user, pad_zero ? '0' : ' ');
+                    content_len++;
                 }
+
+                /* Print the buffer in reverse */
+                while (i > 0) emit(user, buf[--i]);
                 break;
             }
             case 'd': {
-                char buf[12]; /* Enough for -2,147,483,648 plus null (no commas) */
+                char buf[16]; /* Enough for -2,147,483,648 plus null (no commas) */
                 i32  i = 0;
                 u32  num;
-                int  n = va_arg(ap, int);
-
-                if (n == 0) {
-                    emit(user, '0');
-                    break;
-                }
+                int  n           = va_arg(ap, int);
+                int  content_len = 0;
+                bool is_neg      = n < 0;
 
                 /* Handle Negative Numbers */
-                if (n < 0) {
-                    emit(user, '-');
+                if (is_neg) {
                     /* Use unsigned to avoid overflow issues with INT_MIN */
                     num = (u32)(-n);
                 } else {
@@ -601,10 +652,19 @@ static void ttty_vformat(void (*emit)(void *, char), void *user, const char *fmt
                     num /= 10;
                 }
 
-                /* Print buffer in reverse (Left to Right) */
-                while (i > 0) {
-                    emit(user, buf[--i]);
+                if (pad_zero && is_neg) emit(user, '-');
+
+                content_len = i + (is_neg ? 1 : 0);
+
+                while (content_len < width) {
+                    emit(user, pad_zero ? '0' : ' ');
+                    content_len++;
                 }
+
+                if (!pad_zero && is_neg) emit(user, '-');
+
+                /* Print buffer in reverse (Left to Right) */
+                while (i > 0) emit(user, buf[--i]);
                 break;
             }
             case '%': {

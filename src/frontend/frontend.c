@@ -547,6 +547,10 @@ void Frontend_Deinit(TaleaConfig *config)
     CloseWindow();
 }
 
+void Frontend_StopSynth(void) {
+    StopAudioStream(state.synth.SynthStream);
+}
+
 void Frontend_StopMusic(void)
 {
     StopMusicStream(state.sfx.loopSound);
@@ -560,6 +564,10 @@ void Frontend_PlayShutdown(void)
 void Frontend_StartMusic(void)
 {
     PlayMusicStream(state.sfx.loopSound);
+}
+
+void Frontend_StartSynth(void) {
+    PlayAudioStream(state.synth.SynthStream);
 }
 
 void Frontend_PlayStartup(void)

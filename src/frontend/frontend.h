@@ -86,9 +86,11 @@ void Frontend_Deinit(TaleaConfig *config);
 
 void Frontend_SetActiveFont(u8 font);
 
+void Frontend_StartSynth(void);
 void Frontend_StartMusic(void);
 void Frontend_PlayStartup(void);
 
+void Frontend_StopSynth(void);
 void Frontend_StopMusic(void);
 void Frontend_PlayShutdown(void);
 

@@ -55,6 +55,7 @@ static inline void setNoteEnded(DeviceSynth *synth, u8 ch)
 
 void Synth_PCM(void *buffer, unsigned int frames)
 {
+    
     if (!synth) return;
 
     i16 *wave         = (i16 *)buffer;

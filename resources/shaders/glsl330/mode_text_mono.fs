@@ -10,7 +10,7 @@ uniform int       cursorIndex;
 uniform int       csr; // bitmask: 0x1: ENABLE, 0x2: Blink, 0x4: SHAPE
 uniform float     uTime;
 uniform sampler2D texture0;   // screen
-uniform sampler2D font_cp0;       // font
+uniform sampler2D font_cp0;   // font
 uniform sampler2D characters; // characters
 
 out vec4 finalColor;
@@ -49,17 +49,18 @@ void main()
     float alpha    = fontRead.a;
 
     // Cursor Overlay Logic. Maybe pass uniform bools of the csr
-    if (currentIndex == cursorIndex && ((csr& 1) == 1)) {
+    bool cursor_enabled = (csr & 4) != 0;
+    bool cursor_blink   = (csr & 8) != 0;
+    if (currentIndex == cursorIndex && cursor_enabled) {
         float blinkFactor = 1.0;
-        
-        if ((csr& 2) == 2)
-        {
+
+        if (cursor_blink) {
             // Blink
             blinkFactor = (sin(uTime * 3.14159) * 0.5) + 0.5;
         }
 
         float invertedAlpha = 1.0 - alpha;
-        alpha = mix(alpha, invertedAlpha, blinkFactor);
+        alpha               = mix(alpha, invertedAlpha, blinkFactor);
         // TODO: add different shapes
     }
 

@@ -24,9 +24,9 @@
 #define P_TPS_STATUSL (DEV_TPS_BASE + 5)
 
 enum StorageCommand {
-    COMMAND_NOP,   // does nothing
-    COMMAND_STORE, // stores to sector DATA of current bank from POINT_H:POINT_L
-    COMMAND_LOAD,  // loads from sector DATA of current bank in POINT_H:POINT_L
+    COMMAND_NOP,        // does nothing
+    COMMAND_STORE,      // stores to sector DATA of current bank from POINT_H:POINT_L
+    COMMAND_LOAD,       // loads from sector DATA of current bank in POINT_H:POINT_L
     COMMAND_GET_STATUS, // returns the status register on STATUS_L. Should
                         // always be there
     COMMAND_SETCURRENT, // Sets the drive (A or B)
@@ -91,8 +91,8 @@ static int   Tps_WorkerThread(void *req)
     // LBA = (Bank << 8) | Sector
     // Host Offset = (LBA * 512) + 512 (for the TPS Header)
     u32 lba         = (request->bank << 8) | request->sector;
-    u32 host_offset = (lba * TALEA_SECTOR_SIZE) +
-                      STOR_HEADER_SIZE; // TODO: do not harcode the sector size
+    u32 host_offset = (lba * TALEA_SECTOR_SIZE) + STOR_HEADER_SIZE; // TODO: do not harcode the
+                                                                    // sector size
 
     /* CRITICAL SECTION, LOCK MUTEX */
     mtx_lock(&tps_mutex);
@@ -164,8 +164,7 @@ Reserved.
 #define HEAD_FLAG_BOOT  0x1
 #define HEAD_FLAG_WPROT 0x2
 
-static void Storage_ParseHeader(u8 in_buff[STOR_HEADER_SIZE],
-                                struct StorageHeader *out)
+static void Storage_ParseHeader(u8 in_buff[STOR_HEADER_SIZE], struct StorageHeader *out)
 {
     memcpy(out->magic, in_buff, 4);
     out->version         = in_buff[HEAD_VERSION];
@@ -174,20 +173,14 @@ static void Storage_ParseHeader(u8 in_buff[STOR_HEADER_SIZE],
     out->write_protected = flags & HEAD_FLAG_WPROT;
     out->medium_type     = in_buff[HEAD_MEDIUM];
     out->banks           = in_buff[HEAD_BANKS];
-    out->sector_count    = (u32)in_buff[HEAD_SECTORS] << 24 |
-                        (u32)in_buff[HEAD_SECTORS + 1] << 16 |
-                        (u32)in_buff[HEAD_SECTORS + 2] << 8 |
-                        (u32)in_buff[HEAD_SECTORS + 3];
-    out->sector_size = (u16)in_buff[HEAD_SECTORSZ] << 8 |
-                       (u16)in_buff[HEAD_SECTORSZ + 1];
-    out->creation_date = (u64)in_buff[HEAD_DATECREATION] << 56 |
-                         (u64)in_buff[HEAD_DATECREATION + 1] << 48 |
-                         (u64)in_buff[HEAD_DATECREATION + 2] << 40 |
-                         (u64)in_buff[HEAD_DATECREATION + 3] << 32 |
-                         (u64)in_buff[HEAD_DATECREATION + 4] << 24 |
-                         (u64)in_buff[HEAD_DATECREATION + 5] << 16 |
-                         (u64)in_buff[HEAD_DATECREATION + 6] << 8 |
-                         (u64)in_buff[HEAD_DATECREATION + 7];
+    out->sector_count    = (u32)in_buff[HEAD_SECTORS] << 24 | (u32)in_buff[HEAD_SECTORS + 1] << 16 |
+                        (u32)in_buff[HEAD_SECTORS + 2] << 8 | (u32)in_buff[HEAD_SECTORS + 3];
+    out->sector_size = (u16)in_buff[HEAD_SECTORSZ] << 8 | (u16)in_buff[HEAD_SECTORSZ + 1];
+    out->creation_date =
+        (u64)in_buff[HEAD_DATECREATION] << 56 | (u64)in_buff[HEAD_DATECREATION + 1] << 48 |
+        (u64)in_buff[HEAD_DATECREATION + 2] << 40 | (u64)in_buff[HEAD_DATECREATION + 3] << 32 |
+        (u64)in_buff[HEAD_DATECREATION + 4] << 24 | (u64)in_buff[HEAD_DATECREATION + 5] << 16 |
+        (u64)in_buff[HEAD_DATECREATION + 6] << 8 | (u64)in_buff[HEAD_DATECREATION + 7];
     memcpy(out->label, &in_buff[HEAD_LABEL], 16);
 }
 
@@ -298,20 +291,11 @@ static void Tps_ProcessCommand(TaleaMachine *m, u8 command)
     if (t->real_status & STOR_STATUS_BUSY) return;
 
     switch (command) {
-    case COMMAND_NOP:
-        break;
-    case COMMAND_GET_STATUS:
-        t->statusL = t->real_status;
-        break;
-    case COMMAND_MEDIUM:
-        t->statusH = t->header.medium_type;
-        break;
-    case COMMAND_GETBANK:
-        t->statusH = t->bank;
-        break;
-    case COMMAND_GETCURRENT:
-        t->statusH = m->storage.current_tps_id;
-        break;
+    case COMMAND_NOP: break;
+    case COMMAND_GET_STATUS: t->statusL = t->real_status; break;
+    case COMMAND_MEDIUM: t->statusH = t->header.medium_type; break;
+    case COMMAND_GETBANK: t->statusH = t->bank; break;
+    case COMMAND_GETCURRENT: t->statusH = m->storage.current_tps_id; break;
     case COMMAND_BANK:
         if (t->data < t->header.banks) {
             t->bank = t->data;
@@ -351,8 +335,7 @@ static void Tps_ProcessCommand(TaleaMachine *m, u8 command)
         // 1. SANDBOX CHECK: Ensure POINT is within RAM boundaries
         // Prevent Taleä from reading/writing outside its own memory
         u32 addr = t->point << 9; // scale this depending on sector size
-        if (addr > (TALEA_MAIN_MEM_SZ - TALEA_SECTOR_SIZE) ||
-            !(t->bank < t->header.banks)) {
+        if (addr > (TALEA_MAIN_MEM_SZ - TALEA_SECTOR_SIZE) || !(t->bank < t->header.banks)) {
             t->real_status |= STOR_STATUS_ERROR;
             t->statusL = t->real_status; // update the status visible from the
                                          // machine side (TODO: document that
@@ -361,15 +344,24 @@ static void Tps_ProcessCommand(TaleaMachine *m, u8 command)
             return;
         }
 
+        int access = command == COMMAND_LOAD ? 1 : 0;
+
         // 2. Prepare the request object for the thread
         TpsRequest tps_request = (TpsRequest){
             .command         = command,
             .bank            = t->bank,
             .sector          = t->data,
-            .dest_ram_ptr    = &m->main_memory[addr],
+            .dest_ram_ptr    = addr,
             .id              = m->storage.current_tps_id,
             .hardware_status = &t->real_status,
         };
+
+#if TALEA_WITH_MMU
+        if (m->cpu.status & 0x20000000) {
+            tps_request.dest_ram_ptr = MMU_TranslateAddr(m, addr, access);
+            ON_FAULT_RETURN_M
+        }
+#endif
 
         // 3. Set Hardware to BUSY
         t->real_status |= STOR_STATUS_BUSY;
@@ -410,8 +402,9 @@ static int   Hcs_WorkerThread(void *req)
     // 1. Calculate the absolute byte offset
     // LBA = (Bank << 8) | Sector
     // Host Offset = (LBA * 512) + 512 (for the TPS Header)
-    u32 host_offset = (request->sector * TALEA_SECTOR_SIZE) +
-                      STOR_HEADER_SIZE; // TODO: do not harcode the sector size
+    u32 host_offset = (request->sector * TALEA_SECTOR_SIZE) + STOR_HEADER_SIZE; // TODO: do not
+                                                                                // harcode the
+                                                                                // sector size
 
     /* CRITICAL SECTION, LOCK MUTEX */
     mtx_lock(&hcs_mutex);
@@ -462,21 +455,15 @@ static void Hcs_ProcessCommand(TaleaMachine *m, u8 command)
     if (h->real_status & STOR_STATUS_BUSY) return;
 
     switch (command) {
-    case COMMAND_NOP:
-        break;
-    case COMMAND_GET_STATUS:
-        h->statusL = h->real_status;
-        break;
-    case COMMAND_MEDIUM:
-        h->statusH = h->header.medium_type;
-        break;
+    case COMMAND_NOP: break;
+    case COMMAND_GET_STATUS: h->statusL = h->real_status; break;
+    case COMMAND_MEDIUM: h->statusH = h->header.medium_type; break;
     case COMMAND_LOAD:
     case COMMAND_STORE: {
         // 1. SANDBOX CHECK: Ensure POINT is within RAM boundaries
         // Prevent Taleä from reading/writing outside its own memory
         u32 addr = h->point << 9; // scale this depending on sector size
-        if (addr > (TALEA_MAIN_MEM_SZ - TALEA_SECTOR_SIZE) ||
-            !(h->data < h->header.banks)) {
+        if (addr > (TALEA_MAIN_MEM_SZ - TALEA_SECTOR_SIZE) || !(h->data < h->header.banks)) {
             // check also if the hcs has that many banks
             h->real_status |= STOR_STATUS_ERROR;
             h->statusL = h->real_status; // update the status visible from the
@@ -486,13 +473,22 @@ static void Hcs_ProcessCommand(TaleaMachine *m, u8 command)
             return;
         }
 
+        int access = command == COMMAND_LOAD ? 1 : 0; // TODO: use names
+
         // 2. Prepare the request object for the thread
         HcsRequest hcs_request = (HcsRequest){
             .command         = command,
             .sector          = ((u32)h->data << 16) | h->sector,
-            .dest_ram_ptr    = &m->main_memory[addr],
+            .dest_ram_ptr    = addr,
             .hardware_status = &h->real_status,
         };
+
+#if TALEA_WITH_MMU
+        if (m->cpu.status & 0x20000000) {
+            hcs_request.dest_ram_ptr = MMU_TranslateAddr(m, addr, access);
+            ON_FAULT_RETURN_M
+        }
+#endif
 
         // 3. Set Hardware to BUSY
         h->real_status |= STOR_STATUS_BUSY;
@@ -531,8 +527,7 @@ u8 Storage_ReadHandler(TaleaMachine *m, u16 addr)
 
     switch (addr) {
     // TPS
-    case P_TPS_COMMAND:
-        value = 0xff;
+    case P_TPS_COMMAND: value = 0xff;
     case P_TPS_DATA: {
         if (tps_lock_status != thrd_success)
             value = 0xff;
@@ -564,8 +559,7 @@ u8 Storage_ReadHandler(TaleaMachine *m, u16 addr)
             value = m->storage.current_tps->statusL;
     }
     // HCS
-    case P_HCS_COMMAND:
-        value = 0xff;
+    case P_HCS_COMMAND: value = 0xff;
     case P_HCS_DATA: {
         if (hcs_lock_status != thrd_success)
             value = 0xff;
@@ -609,9 +603,7 @@ u8 Storage_ReadHandler(TaleaMachine *m, u16 addr)
             value = m->storage.hcs.statusL;
     }
 
-    default:
-        TALEA_LOG_WARNING("Reading Storage from malformed addr: %x\n", addr);
-        return 0xff;
+    default: TALEA_LOG_WARNING("Reading Storage from malformed addr: %x\n", addr); return 0xff;
     }
 
     if (tps_lock_status == thrd_success) mtx_unlock(&tps_mutex);
@@ -646,8 +638,7 @@ void Storage_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         m->storage.current_tps->point |= value;
         break;
     }
-    case P_TPS_STATUSH:
-        break; // non writable register
+    case P_TPS_STATUSH: break; // non writable register
     case P_TPS_STATUSL:
         break; // non writable register
 
@@ -682,13 +673,10 @@ void Storage_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         m->storage.hcs.point |= value;
         break;
     }
-    case P_HCS_STATUSH:
-        break; // non writable register
-    case P_HCS_STATUSL:
-        break; // non writable register
+    case P_HCS_STATUSH: break; // non writable register
+    case P_HCS_STATUSL: break; // non writable register
 
-    default:
-        TALEA_LOG_WARNING("Wrtiting Storage to malformed addr: %x\n", addr);
+    default: TALEA_LOG_WARNING("Wrtiting Storage to malformed addr: %x\n", addr);
     }
 
     if (tps_lock_status == thrd_success) mtx_unlock(&tps_mutex);
@@ -701,8 +689,7 @@ static bool Hcs_Init(Hcs *hcs, const char *path)
     hcs->file = fopen(path, "rb+");
     if (!hcs->file) {
         // TODO: If file doesn't exist, you could create a blank  one here
-        TALEA_LOG_ERROR(
-            "HCS Error: Could not locate Hyper Crystal Matrix at %s.\n", path);
+        TALEA_LOG_ERROR("HCS Error: Could not locate Hyper Crystal Matrix at %s.\n", path);
         return false;
     }
 

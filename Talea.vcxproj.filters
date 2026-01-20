@@ -16,9 +16,6 @@
     <ClCompile Include="src\core\bus.c">
       <Filter>core</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\cpu.c">
-      <Filter>core</Filter>
-    </ClCompile>
     <ClCompile Include="src\devices\sock.c">
       <Filter>devices</Filter>
     </ClCompile>
@@ -37,6 +34,9 @@
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\devices\video.c">
       <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\cpu-new.c">
+      <Filter>core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -77,10 +77,10 @@
     <ClInclude Include="src\core\bus.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="include\need-from-raylib.h" />
     <ClInclude Include="src\core\cpu.h">
       <Filter>core</Filter>
     </ClInclude>
-    <ClInclude Include="include\need-from-raylib.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="core">

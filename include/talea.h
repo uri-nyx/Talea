@@ -119,7 +119,7 @@ enum DeviceID {
 };
 
 /* Hardware Constraints */
-#define TALEA_WITH_MMU  0       // No MMU
+#define TALEA_WITH_MMU  1       // compile with MMU
 #define TALEA_IVT_FIXED 1       // set to 0 to enable runtime ivt config
 #define TALEA_IVT_BASE  0xF800U // only used with fised ivt
 
@@ -134,6 +134,7 @@ enum DeviceID {
 #define PRIORITY_VBLANK_INTERRUPT   6
 
 enum TaleaInterrupt {
+    EXCEPTION_NONE = -1,
     EXCEPTION_RESET,
     EXCEPTION_BUS_ERROR = 0x2,
     EXCEPTION_ADDRESS_ERROR,
@@ -160,7 +161,32 @@ enum TaleaInterrupt {
 
 /* --- DEVICE STRUCTURES --- */
 
+/* DEVICE MAP FOR THIS CONFIGURATION */
+#define DEV_TTY_BASE      0x0000U
+#define DEV_TIMER_BASE    0x0006U
+#define DEV_KEYBOARD_BASE 0x000CU
+#define DEV_VIDEO_BASE    0x0010U
+#define DEV_TPS_BASE      0x0020U
+#define DEV_DISK_BASE     0x0026U
+#define DEV_AUDIO_BASE    0x0030U
+#define DEV_MOUSE_BASE    0x0040U // FIX THIS
+#define DEV_CUSTOM_BASE   0x0050U
+#define DEV_SYSTEM_BASE   0x00F0U
+#define DEV_MAP_BASE      0x0100U
+
 typedef struct TaleaMachine TaleaMachine; // Forward declaration
+
+typedef struct TLBEntry {
+    u32  phys; // high 12 bits of phisical RAM
+    u16  perm;
+    bool valid;
+} TLBEntry;
+
+enum MemAccessType {
+    ACCESS_READ,
+    ACCESS_WRITE,
+    ACCESS_EXEC,
+};
 
 typedef struct CpuState {
     // Register file
@@ -174,16 +200,26 @@ typedef struct CpuState {
 
     // Interrupts
     enum TaleaInterrupt exception;
+    bool                is_processing_exception;
     u8                  current_ipl, pending_ipl;
     u8                  pending_interrupts[8];
     u8                  highest_pending_interrupt;
 
     // Control lines
     bool poweroff, restart;
+
+    // MMU
+    TLBEntry tlb[4096];
+    u32      fault_addr;
+
 } CpuState;
 
 void Cpu_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart);
 void Cpu_RunCycles(TaleaMachine *m, u32 cycles);
+
+#if TALEA_WITH_MMU
+u32 MMU_TranslateAddr(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type);
+#endif
 
 #define CONTROL    0x01
 #define SHIFT      0x02
@@ -369,6 +405,11 @@ enum VideoCSR {
     VIDEO_QUEUE_FULL   = 0X80,
 };
 
+enum VideoClearFlag {
+        VIDEO_CLEAR_FLAG_TB = 1<<0,
+        VIDEO_CLEAR_FLAG_FB = 1<<1,
+};
+
 enum VideoROP {
     VIDEO_CONFIG_ROP_COPY    = 0,
     VIDEO_CONFIG_ROP_AND     = (VIDEO_ROP0) >> 4,
@@ -520,6 +561,7 @@ struct Buff2D {
 };
 
 #define VIDEO_CMD_MAX_ARGS 8
+
 struct VideoCmd {
     enum VideoCommand op;
 
@@ -698,34 +740,33 @@ typedef struct SynthChannel {
 } SynthChannel;
 
 enum SynthGlobalStatus {
-    AUDIO_GLOB_NOTE_ENDED0 = (1U<<0U),
-    AUDIO_GLOB_NOTE_ENDED1 = (1U<<1U),
-    AUDIO_GLOB_NOTE_ENDED2 = (1U<<2U),
-    AUDIO_GLOB_NOTE_ENDED3 = (1U<<3U),
-    AUDIO_GLOB_NOTE_ENDED4 = (1U<<4U),
-    AUDIO_GLOB_NOTE_ENDED5 = (1U<<5U),
-    AUDIO_GLOB_NOTE_ENDED6 = (1U<<6U),
-    AUDIO_GLOB_NOTE_ENDED7 = (1U<<7U),
-    AUDIO_GLOB_NOTE_ENDED8 = (1U<<8U),
-    AUDIO_GLOB_NOTE_ENDED_MASK = 0x1ff,
-    AUDIO_GLOB_BUSY0 = (1U<<9U),
-    AUDIO_GLOB_BUSY1 = (1U<<10U),
-    AUDIO_GLOB_BUSY2 = (1U<<11U),
-    AUDIO_GLOB_BUSY3 = (1U<<12U),
-    AUDIO_GLOB_BUSY4 = (1U<<13U),
-    AUDIO_GLOB_BUSY5 = (1U<<14U),
-    AUDIO_GLOB_BUSY6 = (1U<<15U),
-    AUDIO_GLOB_BUSY7 = (1U<<16U),
-    AUDIO_GLOB_BUSY8 = (1U<<17U),
-    AUDIO_GLOB_BUSY_MASK = 0x3fE00,
-    AUDIO_GLOB_PCM_FIFO_FULL = (1U<<20U),
-    AUDIO_GLOB_PCM_LOW_WATERMARK = (1U<<21U),
+    AUDIO_GLOB_NOTE_ENDED0       = (1U << 0U),
+    AUDIO_GLOB_NOTE_ENDED1       = (1U << 1U),
+    AUDIO_GLOB_NOTE_ENDED2       = (1U << 2U),
+    AUDIO_GLOB_NOTE_ENDED3       = (1U << 3U),
+    AUDIO_GLOB_NOTE_ENDED4       = (1U << 4U),
+    AUDIO_GLOB_NOTE_ENDED5       = (1U << 5U),
+    AUDIO_GLOB_NOTE_ENDED6       = (1U << 6U),
+    AUDIO_GLOB_NOTE_ENDED7       = (1U << 7U),
+    AUDIO_GLOB_NOTE_ENDED8       = (1U << 8U),
+    AUDIO_GLOB_NOTE_ENDED_MASK   = 0x1ff,
+    AUDIO_GLOB_BUSY0             = (1U << 9U),
+    AUDIO_GLOB_BUSY1             = (1U << 10U),
+    AUDIO_GLOB_BUSY2             = (1U << 11U),
+    AUDIO_GLOB_BUSY3             = (1U << 12U),
+    AUDIO_GLOB_BUSY4             = (1U << 13U),
+    AUDIO_GLOB_BUSY5             = (1U << 14U),
+    AUDIO_GLOB_BUSY6             = (1U << 15U),
+    AUDIO_GLOB_BUSY7             = (1U << 16U),
+    AUDIO_GLOB_BUSY8             = (1U << 17U),
+    AUDIO_GLOB_BUSY_MASK         = 0x3fE00,
+    AUDIO_GLOB_PCM_FIFO_FULL     = (1U << 20U),
+    AUDIO_GLOB_PCM_LOW_WATERMARK = (1U << 21U),
 };
-
 
 #define PCM_FIFO_SIZE 4096
 typedef struct {
-    i16 buffer[PCM_FIFO_SIZE];
+    i16    buffer[PCM_FIFO_SIZE];
     size_t head;
     size_t tail;
 } PCMFifo;
@@ -737,14 +778,14 @@ typedef struct DeviceSynth {
     u8 master_volume;
 
     bool fire_interrupt;
-    u32 global_status;
+    u32  global_status;
 
-    u8 selected_channel;
+    u8           selected_channel;
     SynthChannel channels[SYNTH_NUM_CHANNELS];
 
     // PCM part
     PCMFifo pcm_fifo;
-    u16 pcm_sample_latch;
+    u16     pcm_sample_latch;
 
 } DeviceSynth;
 
@@ -792,24 +833,5 @@ void Machine_RaiseInterrupt(TaleaMachine *m, u8 vector, u8 priority);
 void Machine_Deinit(TaleaMachine *m, TaleaConfig *conf);
 
 void Machine_Poweroff(TaleaMachine *m);
-
-// Unified memory access
-u8   Machine_ReadMain8(TaleaMachine *m, u32 addr);
-void Machine_WriteMain8(TaleaMachine *m, u32 addr, u8 val);
-
-u16  Machine_ReadMain16(TaleaMachine *m, u32 addr);
-void Machine_WriteMain16(TaleaMachine *m, u32 addr, u16 val);
-
-u32  Machine_ReadMain32(TaleaMachine *m, u32 addr);
-void Machine_WriteMain32(TaleaMachine *m, u32 addr, u32 val);
-
-u8   Machine_ReadData8(TaleaMachine *m, u16 addr);
-void Machine_WriteData8(TaleaMachine *m, u16 addr, u8 val);
-
-u16  Machine_ReadData16(TaleaMachine *m, u16 addr);
-void Machine_WriteData16(TaleaMachine *m, u16 addr, u16 val);
-
-u32  Machine_ReadData32(TaleaMachine *m, u16 addr);
-void Machine_WriteData32(TaleaMachine *m, u16 addr, u32 val);
 
 #endif /* TALEA_H */

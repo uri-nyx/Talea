@@ -27,7 +27,8 @@
 #define P_VIDEO_CSR     (DEV_VIDEO_BASE + 14)
 #define P_VIDEO_ERROR   (DEV_VIDEO_BASE + 15)
 
-// COMMANDS
+// clang-format off
+
 
 enum VideoCommand {
     COMMAND_NOP,
@@ -60,8 +61,6 @@ enum VideoCommand {
     COMMAND_BIND_CTX,
     COMMAND_GET_MARKER,
 };
-
-// clang-format off
 
 // The Font type in raylib does not come with a fixed witdh. We are always using monospaced fonts,
 // and are using the with of 'M' as the maximum witdth of a character. This is not fool proof.
@@ -302,17 +301,22 @@ static inline u32 toBe32(u32 u)
     return (u << 24) | ((u & 0x0000FF00) << 8) | ((u & 0x00FF0000) >> 8) | (u >> 24);
 }
 
-static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 color)
+static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 color, u8 flags)
 {
-    if (v->mode == VIDEO_MODE_TEXT_MONO) {
+    if (v->mode == VIDEO_MODE_TEXT_MONO && (flags & VIDEO_CLEAR_FLAG_TB)) {
         memset(&m->main_memory[v->textbuffer.addr], ' ', (size_t)v->textbuffer.h * v->textbuffer.w);
-    } else {
+        return;
+    }
+
+    if (flags & VIDEO_CLEAR_FLAG_TB) {
         u32 *text       = (u32 *)&m->main_memory[v->textbuffer.addr];
         u32  be_pattern = toBe32(pattern);
         for (size_t i = 0; i < (size_t)v->textbuffer.w * v->textbuffer.h; i++) {
             text[i] = be_pattern;
         }
+    }
 
+    if (flags & VIDEO_CLEAR_FLAG_FB) {
         memset(&m->main_memory[v->framebuffer.addr], color,
                (size_t)v->framebuffer.w * v->framebuffer.h);
     }
@@ -332,9 +336,12 @@ static inline void Video_SetMode(DeviceVideo *v, u8 mode)
         Video_RendererInit(v, SHADERS_PATH("mode_text_mono.fs"));
     } else {
         UnloadShader(v->renderer.shader);
-        v->textbuffer.stride = 2;
+        v->textbuffer.stride = 4;
         Video_RendererInit(v, SHADERS_PATH("mode_text_color.fs"));
     }
+
+    v->mode = mode;
+    TALEA_LOG_TRACE("Set video mode to mode %d\n", mode);
 }
 
 static inline void Video_ApplyROP(DeviceVideo *v, u8 *dest, u8 pixel)
@@ -558,7 +565,7 @@ static void Video_DrawHorizontalLine(TaleaMachine *m, DeviceVideo *v, struct Buf
 
     if (start_x > end_x) return;
 
-    u8 *start = &m->main_memory[dest->addr + ((y * dest->w))];
+    u8 *start = &m->main_memory[dest->addr + (y * dest->w) + start_x];
     u16 len   = (end_x - start_x) + 1;
 
     DrawHorizontalLineNoCheck(v, color, start, len);
@@ -596,6 +603,7 @@ static void Video_DrawLine(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest,
 
     if (y0 == y1) {
         Video_DrawHorizontalLine(m, v, dest, color, x0, x1, y0);
+        return;
     }
 
     // from http://members.chello.at/easyfilter/bresenham.html
@@ -1047,12 +1055,16 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
         size_t offset = i * VXI16_REPR_SZ;
 
         // Fetching and coordinate promotion
-        vx->x = TO_FX16(Machine_ReadMain16(m, vxbuff + offset + 0)); // TODO: declare inline in the
-                                                                     // header
-        vx->y     = TO_FX16(Machine_ReadMain16(m, vxbuff + offset + 2));
-        vx->z     = TO_FX16(Machine_ReadMain16(m, vxbuff + offset + 4));
+        // FIXME: these shoud read physical addresses
+        vx->x = TO_FX16(Machine_ReadMain16(m, vxbuff + offset + 0));
+        ON_FAULT_RETURN_M
+        vx->y = TO_FX16(Machine_ReadMain16(m, vxbuff + offset + 2));
+        ON_FAULT_RETURN_M
+        vx->z = TO_FX16(Machine_ReadMain16(m, vxbuff + offset + 4));
+        ON_FAULT_RETURN_M
         vx->color = Machine_ReadMain8(m, vxbuff + offset + 6);
         vx->flags = Machine_ReadMain8(m, vxbuff + offset + 7);
+        ON_FAULT_RETURN_M
 
         pvx->color = vx->color;
         pvx->flags = vx->flags;
@@ -1277,7 +1289,11 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         // TODO: Document
         // Takes 1 word on GPU0-3 for the pattern to clear the textbuffer
         // Takes 1 byte on GPU4 for the color to clear the framebuffer
+        // Takes 1 word on GPU5 for a bitmask on wether to clear the framebuffer ore the textbuffer:
+        //      bit 0 (0<<1) to clear textbuffer
+        //      bit 1 (1<<1) to clear framebuffer
         // If mode is text mono, arguments ignored
+
         if (cmd->argc > 1) {
             goto too_many_args;
             break;
@@ -1288,7 +1304,8 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         u32 pattern = cmd->args[0] >> 32;
         u8  color   = cmd->args[0] >> 24;
-        Video_Clear(m, v, pattern, color);
+        u8  flags   = cmd->args[0] >> 16;
+        Video_Clear(m, v, pattern, color, flags);
     } break;
     case COMMAND_SET_MODE: {
         // TODO: Document
@@ -1326,6 +1343,8 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         if (fb < 0xffffff) v->framebuffer.addr = fb;
         if (tb < 0xffffff) v->textbuffer.addr = tb;
+
+        // TALEA_LOG_TRACE("Set FB at %04x, CB at %04x\n", v->framebuffer.addr, v->textbuffer.addr);
 
         break;
     }
@@ -1499,7 +1518,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
-        //  Takes 1 byte GPU for the color of the line
+        //  Takes 1 byte GPU2 for the color of the line
         //  Takes 1 half word on GPU4-5 for the line x0
         //  Takes 1 half word on GPU6-7 for the line y0
         // Arg 1:
@@ -1909,14 +1928,30 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         break;
     }
     case P_VIDEO_CUR_X: {
-        // We calculate the index
-        u8 y                 = v->cursor_cell_index / v->textbuffer.w;
-        v->cursor_cell_index = (y * v->textbuffer.w) + value;
+        u32 w = v->textbuffer.w;
+        u32 h = v->textbuffer.h;
+        if (w == 0) break; // Prevent div by zero
+
+        // Ensure current index is within total bounds before extracting Y
+        if (v->cursor_cell_index >= w * h) v->cursor_cell_index = 0;
+
+        u32 y = v->cursor_cell_index / w;
+        u32 new_x = value % w; // Clamp input X to width
+        v->cursor_cell_index = (y * w) + new_x;
+        //TALEA_LOG_TRACE("Set cursor X to: %d (Y: %d)\n", value, y);
         break;
     }
     case P_VIDEO_CUR_Y: {
-        u8 x                 = v->cursor_cell_index % v->textbuffer.w;
-        v->cursor_cell_index = (value * v->textbuffer.w) + x;
+        u32 w = v->textbuffer.w;
+        u32 h = v->textbuffer.h;
+        if (w == 0) break;
+
+        if (v->cursor_cell_index >= w * h) v->cursor_cell_index = 0;
+
+        u32 x = v->cursor_cell_index % w;
+        u32 new_y = value % h; // Clamp input Y to height
+        v->cursor_cell_index = (new_y * w) + x;
+        //TALEA_LOG_TRACE("Set cursor Y to: %d (X: %d)\n", value, x);
         break;
     }
     case P_VIDEO_CSR: {
@@ -1948,7 +1983,7 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
             if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS)
                 v->current_cmd.args[v->current_cmd.argc] = arg;
             // TALEA_LOG_TRACE("Queueing arg%d: (%016llx) %016llx\n", v->current_cmd.argc, arg,
-            //                 v->current_cmd.args[v->current_cmd.argc]);
+            //               v->current_cmd.args[v->current_cmd.argc]);
             memset(&m->data_memory[P_VIDEO_GPU0], 0, 8);
             if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS) v->current_cmd.argc++;
         }
@@ -2007,6 +2042,9 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
             },
     };
 
+    DeviceVideo *v = &m->video;
+    v->csr         = ASSEMBLE_CSR(v);
+
     memcpy(&m->video.renderer.shaderPalette, Palette_Default_Aurora, sizeof(u32) * 4 * (256));
     memcpy(&m->video.color_shades, aurora_shading_table, sizeof(u8) * 256 * 16);
 
@@ -2019,7 +2057,7 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
     Video_PrepareFont(&m->video, VIDEO_ALT_FONT_CP1,
                       TextFormat("%s%s%s", FONT_PATH, config->hardware_font, "/alt_cp1.fnt"));
 
-    Video_Clear(m, &m->video, 0x20000004, 0);
+    Video_Clear(m, &m->video, 0x20000004, 0, VIDEO_CLEAR_FLAG_FB | VIDEO_CLEAR_FLAG_TB);
     SetTextureFilter(m->video.renderer.pixels, TEXTURE_FILTER_POINT);
-    Video_RendererInit(&m->video, SHADERS_PATH("mode_text_color.fs"));
+    Video_RendererInit(&m->video, SHADERS_PATH("mode_text_mono.fs"));
 }

@@ -17,7 +17,7 @@ _start:
 #          DEVICE at port MEMSIZE/FLASH. Reading from it gives amount of memory
 #          in MB ( 1024*1024 bytes).
 
-    lbu     x2, 0xF0(x0)
+    lbud    x2, 0xF0(x0)
     muli    x2, x2, 1024
     muli    x2, x2, 1024
     addi    x2, x2, -32768
@@ -47,6 +47,8 @@ _start:
     swd     x10, 44(x11)
     la      x10, _isr_kbd_scancode          # KB SCANCODE
     swd     x10, 48(x11)
+    addi    x12, x11, 48
+    trace   x0, x10, x12, x0
     la      x10, _isr_not_implemented       # TPS FINISH
     swd     x10, 52(x11)
     la      x10, _isr_not_implemented       # HCS FINISH
@@ -271,7 +273,7 @@ _isr_video_refresh:
     addi    x8,x2,32
     sw      x1,24(x2)
 
-    #call    bios_vblank_handler
+    call    bios_vblank_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)

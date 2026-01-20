@@ -48,7 +48,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\core\bus.c" />
-    <ClCompile Include="src\core\cpu.c" />
+    <ClCompile Include="src\core\cpu-new.c" />
     <ClCompile Include="src\core\system.c" />
     <ClCompile Include="src\devices\audio.c" />
     <ClCompile Include="src\devices\emu2413.c" />

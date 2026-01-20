@@ -7,7 +7,7 @@ in vec4 fragColor;
 
 // Input uniform values
 uniform int       cursorIndex;
-uniform int       csr; // bitmask: 0x
+uniform int       csr;      // bitmask: 0x
 uniform sampler2D texture0; // screen
 uniform sampler2D font_cp0;
 uniform sampler2D font_cp1;
@@ -76,6 +76,20 @@ void main()
                             floor(character / floor(atlasCharSize.x)));
 
     charIndexUV /= atlasCharSize;
+    /*
+    ivec2 pixelCoord = ivec2(gl_FragCoord.x, mainTextureSize.y - gl_FragCoord.y);
+
+    // 2. Determine which character cell this pixel belongs to
+    // mainTextureSize / charTextureSize gives you the pixels per character (e.g., 8x8)
+    ivec2 pixelsPerChar = mainTextureSize / charTextureSize;
+    ivec2 currentCell = pixelCoord / pixelsPerChar;
+
+    // 3. Calculate linear index
+    // Use the character grid width (charTextureSize.x)
+    int   currentIndex = currentCell.y * charTextureSize.x + currentCell.x;
+    */
+    ivec2 currentCell  = ivec2(fragTexCoord * charTextureSize);
+    int   currentIndex = currentCell.y * charTextureSize.x + currentCell.x;
 
     vec2 localUV = mod(charsTexCoord, 1.0);
 
@@ -101,16 +115,35 @@ void main()
 
     vec4 outColor;
 
+    bool cursor_enabled = (csr & 4) != 0;
+    bool cursor_blink   = (csr & 8) != 0;
+    bool cursor_here    = currentIndex == cursorIndex;
+
     if (fontRead.a > 0.5 || isUnderlinePixel) {
         outColor = fgColor;
         if (dim) outColor.rgb *= 0.5; // Apply DIM attribute
     } else {
-        if (transparent) discard;
+        if (transparent && !(cursor_enabled && cursor_here)) discard;
         outColor = bgColor;
     }
 
     if (blink) {
         outColor.a = abs(sin(uTime));
+    }
+
+    if (cursor_here && cursor_enabled) {
+        float blinkFactor = 1.0;
+
+        if (cursor_blink) {
+            // Blink
+            blinkFactor = (sin(uTime * 3.14159) * 0.5) + 0.5;
+        }
+
+        float invertedAlpha = 1.0 - outColor.a;
+        outColor.a          = mix(outColor.a, invertedAlpha, blinkFactor);
+        // TODO: add different shapes
+        // always white
+        outColor.rgb = 1.0 - outColor.rgb;
     }
 
     finalColor = outColor;

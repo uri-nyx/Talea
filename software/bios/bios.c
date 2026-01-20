@@ -139,6 +139,8 @@ void bios_kbd_handler(void)
     bool                   success  = false;
     u32                    keypress = _lwd(Devices.keyboard + KBD_CSR);
 
+    _trace(0xdead, keypress, (keypress >> 16) & 0xff, keypress & (~0x8000U));
+
     e.modifiers = keypress >> 24;
     e.character = (keypress >> 16) & 0xff;
     /* TODO: check that this does not conflict with raylib keymap */
@@ -274,21 +276,11 @@ void serial_outc(Ttty *tty, char c)
 /* Get the text buffer sizes (cols*rows*bpc) */
 void video_text_screen_size(u8 *out_cols, u8 *out_rows, u8 *out_bpc)
 {
-    u32 info;
-    u16 video_w, video_h;
-    u8  char_w, char_h;
-
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_SYS_INFO);
-    video_w = _lhud(Devices.video + VIDEO_GPU6);
-    video_h = _lhud(Devices.video + VIDEO_GPU8);
 
-    char_h = _lbud(Devices.video + VIDEO_GPU0);
-    char_w = _lbud(Devices.video + VIDEO_GPU1);
-
-    *out_rows = video_h / char_h;
-    *out_cols = video_w / char_w;
-
-    *out_bpc = _lbud(Devices.video + VIDEO_GPU3);
+    *out_bpc  = _lbud(Devices.video + VIDEO_GPU3);
+    *out_cols = _lbud(Devices.video + VIDEO_GPU4);
+    *out_rows = _lbud(Devices.video + VIDEO_GPU5);
 }
 
 void video_set_cursor(u8 x, u8 y)
@@ -315,13 +307,25 @@ u8 video_get_csr(void)
 
 /* 2. Interface with ttty.h */
 
+static u8 video_text_mode_default_attr[3] = {
+    0xf, // fg white
+    0x0, // bg black
+    0x4, // att transparent
+};
+
 /* Outputs a character to the screen  */
 /* Checks have already been performed */
 void video_outc(Ttty *tty, char c)
 {
-    u8 *vram    = tty->priv;
-    u16 index   = (tty->y * tty->w) + tty->x;
+    u8 *vram  = (u8 *)tty->priv;
+    u16 index = (((u16)tty->y * (u16)tty->w) + (u16)tty->x) * tty->bpc;
+
     vram[index] = c;
+
+    if (tty->bpc > 1) {
+        usize i;
+        for (i = 1; i < tty->bpc; i++) vram[index + i] = tty->default_att[i - 1];
+    }
 }
 
 void video_setpos(Ttty *tty, u8 x, u8 y)
@@ -374,25 +378,50 @@ static void bios_init(void)
     find_devices();
 
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
-
-    _sbd(Devices.video + VIDEO_GPU0, VIDEO_MODE_TEXT_MONO);
+    _sbd(Devices.video + VIDEO_GPU0, VIDEO_MODE_TEXT_AND_GRAPHIC);
     _sbd(Devices.video + VIDEO_GPU7, 0); // latch
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_SET_MODE);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
+
+    // wait for vblank
+    {
+        usize i, wait;
+        for (i = 0; i < 100000; i++) {
+            wait += i;
+        }
+    }
 
     video_text_screen_size(&cols, &rows, &bpc);
     Charbuff_size = rows * cols * bpc;
     Charbuff      = (u8 *)((u32)Stack_base - 1024 - Charbuff_size);
 
+    _trace(0x1, cols, rows, bpc);
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
+
     _swd(Devices.video + VIDEO_GPU0, 0xffffffff);
     _swd(Devices.video + VIDEO_GPU4, (u32)Charbuff);
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_SET_ADDR);
 
+    _swd(Devices.video + VIDEO_GPU0, 0x20000000);
+    _sbd(Devices.video + VIDEO_GPU4, 0x0);
+    _sbd(Devices.video + VIDEO_GPU7, 0); // latch
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_CLEAR);
+
     _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
 
+    // wait for vblank
+    {
+        usize i, wait;
+        for (i = 0; i < 1000090; i++) {
+            wait += i;
+        }
+    }
+
     /* TODO: use a proper driver for the video */
-    ttty_init(&Video_tty, "System Console", TTTY_XYLF | TTTY_ANSI, cols, rows, bpc,
-              (void *)Charbuff, video_outc, video_setpos);
-    ttty_init(&Serial_tty, "Dumb Terminal", TTTY_STREAM, 0xff, 0xff, 1, (void *)&Devices.tty,
+    ttty_init(&Video_tty, "System Console", TTTY_XYLF | TTTY_ANSI, cols, rows, bpc, (void *)Charbuff,
+              video_text_mode_default_attr, video_outc, video_setpos);
+    ttty_init(&Serial_tty, "Dumb Terminal", TTTY_STREAM, 0xff, 0xff, 1, (void *)&Devices.tty, NULL,
               serial_outc, NULL);
 
     ttty_mux_subscribe(&Con, &Video_tty, TTTY_INFO);
@@ -708,6 +737,8 @@ void clear(int argc, char *argv[])
     ttty_mux_puts(&Con, "\x1b[2J\x1b[H"); /*BUG: resets propmtp at last column of first row*/
 }
 
+/* SERIAL MODEM TESTS */
+
 void send_escape(int argc, char *argv[])
 {
     int i     = 0;
@@ -751,6 +782,41 @@ static synth_write(u8 addr, u8 data)
 #define DUR     800
 #define BASE_CH 0
 
+static bool vol_control(void)
+{
+    // controls volume and retruns true on esc pressed
+    struct KbdEvent *e;
+
+    static u8 vol = 5;
+
+    e = kbd_event_pop(&KeyboardEvents);
+    if (e != NULL) {
+        if (e->scancode == KEY_ESCAPE)
+            return true;
+        else if (e->scancode == KEY_UP && vol < 15) {
+            vol += 1;
+            _sbd(Devices.audio + AUDIO_MASTER_VOL, vol);
+        } else if (e->scancode == KEY_DOWN && vol > 0) {
+            vol -= 1;
+            _sbd(Devices.audio + AUDIO_MASTER_VOL, vol);
+        }
+    }
+
+    return false;
+}
+
+/* AUDIO TESTS */
+
+#define F_C 0x110
+#define F_D 0x132
+#define F_E 0x157
+#define F_F 0x16B
+#define F_G 0x197
+#define F_A 0x1C9
+#define F_B 0x1F0
+
+#define NOTE(blk, f) (((blk) << 9) | (f))
+
 void play_chord(u16 f1, u16 f2, u16 f3)
 {
     u32 status;
@@ -769,6 +835,7 @@ void play_chord(u16 f1, u16 f2, u16 f3)
 
     /* Wait for the most significant byte to show the flags (Big Endian) */
     do {
+        if (vol_control()) return;
         status = _lwd(Devices.audio + AUDIO_GLOBAL_STATUS0);
     } while ((status & MASK) != MASK);
 
@@ -776,42 +843,8 @@ void play_chord(u16 f1, u16 f2, u16 f3)
     _sbd(Devices.audio + AUDIO_GLOBAL_STATUS0, MASK);
 }
 
-static bool vol_control(void)
-{
-    // controls volume and retruns true on esc pressed
-    struct KbdEvent *e;
-
-    static u8 vol = 5;
-
-    e = kbd_event_pop(&KeyboardEvents);
-    if (e != NULL) {
-        if (e->scancode == KEY_ESCAPE)
-            return true;
-        else if (e->scancode == KEY_UP && vol < 15) {
-            vol += 1;
-            _trace(vol);
-            _sbd(Devices.audio + AUDIO_MASTER_VOL, vol);
-        } else if (e->scancode == KEY_DOWN && vol > 0) {
-            vol -= 1;
-            _trace(vol);
-            _sbd(Devices.audio + AUDIO_MASTER_VOL, vol);
-        }
-    }
-
-    return false;
-}
-
 void fanfare(int argc, char *argv[])
 {
-    /* Define some F-Numbers for Octave 4 */
-    u16 C = (4 << 9) | 0x12C;
-    u16 E = (4 << 9) | 0x191;
-    u16 G = (4 << 9) | 0x1F9;
-    u16 F = (4 << 9) | 0x165;
-    u16 A = (4 << 9) | 0x1C2;
-    u16 D = (4 << 9) | 0x12C;
-    u16 B = (4 << 9) | 0x1f9;
-
     /* Set Instruments: Brass (7) and Horn (9) */
     synth_write(0x30, 0x70); /* Ch 0: Trumpet */
     synth_write(0x31, 0x72); /* Ch 1: Trumpet (slightly quieter) */
@@ -819,9 +852,12 @@ void fanfare(int argc, char *argv[])
 
     while (1) {
         if (vol_control()) break;
-        play_chord(C, E, G);                       /* C Major */
-        play_chord(F, A, C | (5 << 9));            /* F Major (C an octave up) */
-        play_chord(G | (3 << 9), B | (3 << 9), D); /* G Major lower */
+        // C Major
+        play_chord(NOTE(4, F_C), NOTE(4, F_E), NOTE(4, F_G));
+        // F Major
+        play_chord(NOTE(4, F_F), NOTE(4, F_A), NOTE(5, F_C));
+        // G Major
+        play_chord(NOTE(3, F_G), NOTE(3, F_B), NOTE(4, F_D));
     }
 }
 
@@ -849,11 +885,52 @@ void pcm(int argc, char *argv[])
     }
 }
 
+void pcm_synth(int argc, char *argv[])
+{
+    /* Simple 8-point sine wave table (scaled to i16) */
+    static i16 sine_lut[] = { 0,      8149,   15918,  22958,  28959,  32767,  32767,  32767,
+                              28959,  22958,  15918,  8149,   0,      -8149,  -15918, -22958,
+                              -28959, -32767, -32767, -32767, -28959, -22958, -15918, -8149 };
+
+    u32 status;
+    u8  i = 0;
+
+    synth_write(0x30, 0x90); /* Ch 0: horn */
+
+    _sbd(Devices.audio + AUDIO_CHANNEL_SELECT, BASE_CH);
+    _shd(Devices.audio + AUDIO_FNUMH, NOTE(4, F_A));
+    _shd(Devices.audio + AUDIO_DURH, 5000);
+    _sbd(Devices.audio + AUDIO_CSR, AUDIO_CSR_TRIGGER);
+
+    do {
+        /* 1. Check if FIFO is full by reading the 32-bit status */
+        /* (Assuming P_AUDIO_GLOBAL_STATUS0 is the start of the 4-byte block) */
+        status = _lwd(Devices.audio + AUDIO_GLOBAL_STATUS0);
+        if (vol_control()) break;
+
+        if (!(status & AUDIO_GLOB_PCM_FIFO_FULL)) {
+            /* Wait for the most significant byte to show the flags (Big Endian) */
+            /* 2. Push the next sample using a Halfword Store */
+            /* This triggers P_AUDIO_PCM_FIFOH then P_AUDIO_PCM_FIFOL */
+            _shd(Devices.audio + AUDIO_PCM_FIFOH, sine_lut[i]);
+
+            i = (i + 1) % 24;
+        }
+
+    } while ((status & AUDIO_GLOB_NOTE_ENDED0) == 0);
+}
+
 void tamlin(int argc, char *argv[])
 {
     i16  *samples     = (i16 *)0x1000;
     usize len         = 171902 / 2;
     usize curr_sample = 0;
+
+    if (samples[0] != -7484) {
+        ttty_mux_printf(&Con, "Tamlin is not loaded, or data is corrupted\n"
+                              "(you must load the tamlin.raw file with the emulator)");
+        return;
+    }
 
     while (curr_sample < len) {
         u32 status = _lwd(Devices.audio + AUDIO_GLOBAL_STATUS0);
@@ -868,58 +945,152 @@ void tamlin(int argc, char *argv[])
     }
 }
 
-void mel(int argc, char *argv[])
+/* VIDEO TEST */
+#define SCREEN_W  640
+#define SCREEN_H  480
+#define CTR_X     320
+#define CTR_Y     240
+#define NUM_STARS 100
+
+static u8   video_context    = 0;
+static bool video_is_drawing = false;
+
+static void video_begin_drawing(u8 context)
 {
-    static u16 notes[] = { 0x10B, 0x12C, 0x151, 0x165, 0x191, 0x1C2, 0x1F9 };
-    usize      i, j, times;
+    video_context    = context;
+    video_is_drawing = true;
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
+}
 
-    // select instrument
-    synth_write(0x30, 0x40); // flute
-    synth_write(0x31, 0x60); // oboe
-    synth_write(0x32, 0x70); // trumpet
+static void video_end_drawing(void)
+{
+    video_is_drawing = false;
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
+}
 
-    for (i = 0; i < 7; i++) {
-        u16 I   = (OCTAVE << 9) | notes[i];
-        u16 III = (OCTAVE << 9) | notes[(i + 3) % 7];
-        u16 V   = (OCTAVE << 9) | notes[(i + 5) % 7];
-        u32 audio_status;
-        u8  csr;
+static void video_clear(u8 color, u8 flags)
+{
+    if (!video_is_drawing) _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
+    _swd(Devices.video + VIDEO_GPU0, 0x20000004);
+    _sbd(Devices.video + VIDEO_GPU4, color);
+    _sbd(Devices.video + VIDEO_GPU5, flags);
+    _sbd(Devices.video + VIDEO_GPU7, 0);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_CLEAR);
+    if (!video_is_drawing) _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
+}
 
-        _sbd(Devices.audio + AUDIO_CHANNEL_SELECT, 0);
-        csr = _lbud(Devices.audio + AUDIO_CSR);
-        _shd(Devices.audio + AUDIO_FNUMH, I);
-        _shd(Devices.audio + AUDIO_DURH, 1000); // 1s
-        _sbd(Devices.audio + AUDIO_CSR, csr | AUDIO_CSR_TRIGGER);
+static void draw_line(u8 color, i16 x0, i16 y0, i16 x1, i16 y1)
+{
+    _sbd(Devices.video + VIDEO_GPU0, video_context);
+    _sbd(Devices.video + VIDEO_GPU1, color);
+    _shd(Devices.video + VIDEO_GPU4, x0);
+    _shd(Devices.video + VIDEO_GPU6, y0);
+    _shd(Devices.video + VIDEO_GPU0, x1);
+    _shd(Devices.video + VIDEO_GPU2, y1);
+    _sbd(Devices.video + VIDEO_GPU7, 0);
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_DRAW_LINE);
+}
 
-        _sbd(Devices.audio + AUDIO_CHANNEL_SELECT, 1);
-        csr = _lbud(Devices.audio + AUDIO_CSR);
-        _shd(Devices.audio + AUDIO_FNUMH, III);
-        _shd(Devices.audio + AUDIO_DURH, 1000); // 1s
-        _sbd(Devices.audio + AUDIO_CSR, csr | AUDIO_CSR_TRIGGER);
+void bouncing_box(void)
+{
+    static i32 box_x    = 100 << 16;
+    static i32 box_y    = 100 << 16;
+    static u32 dx       = 150000;
+    static u32 dy       = 120000;
+    u16        box_size = 80;
+    i16        current_x, current_y, x1, y1;
 
-        _sbd(Devices.audio + AUDIO_CHANNEL_SELECT, 2);
-        csr = _lbud(Devices.audio + AUDIO_CSR);
-        _shd(Devices.audio + AUDIO_FNUMH, V);
-        _shd(Devices.audio + AUDIO_DURH, 1000); // 1s
-        _sbd(Devices.audio + AUDIO_CSR, csr | AUDIO_CSR_TRIGGER);
+    box_x += dx;
+    box_y += dy;
 
-        do {
-            audio_status = _lwd(Devices.audio + AUDIO_GLOBAL_STATUS0);
-        } while ((audio_status & MASK) != MASK);
-    }
+    current_x = box_x >> 16;
+    current_y = box_y >> 16;
+
+    if (current_x < -40 || current_x > 600) dx = -dx;
+    if (current_y < -40 || current_y > 440) dy = -dy;
+
+
+    video_begin_drawing(0);
+
+    video_clear(0x5, VIDEO_CLEAR_FLAG_FB);
+
+    draw_line(255, 0, 240, 639, 240);
+    draw_line(255, 320, 0, 320, 479);
+
+    x1 = current_x + box_size;
+    y1 = current_y + box_size;
+
+    draw_line(0xb, current_x, current_y, x1, current_y); // Top
+    draw_line(0xb, x1, current_y, x1, y1);               // Right
+    draw_line(0xb, x1, y1, current_x, y1);               // Bottom
+    draw_line(0xb, current_x, y1, current_x, current_y); // Left
+
+    video_end_drawing();
+
+    ttty_printf(&Video_tty, "\x1b[30;61HBox {x: %03d, y: %03d}", current_x + box_size / 2, current_y + box_size / 2);
+}
+
+static void (*on_vblank)(void) = NULL;
+
+void test2d(int argc, char *argv[])
+{
+    bool escape = false;
+    u32  vcsr   = _lbud(Devices.video + VIDEO_CSR);
+
+    video_clear(0, VIDEO_CLEAR_FLAG_TB | VIDEO_CLEAR_FLAG_FB);
+
+    on_vblank = &bouncing_box;
+
+    vcsr |= 1; // vblank enable
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    do {
+        escape = vol_control();
+    } while (!escape);
+
+    vcsr = _lbud(Devices.video + VIDEO_CSR);
+    vcsr &= ~1; // vblank enable
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    video_clear(0, VIDEO_CLEAR_FLAG_TB | VIDEO_CLEAR_FLAG_FB);
+    on_vblank = NULL;
+
+    ttty_clear(&Video_tty);
+}
+
+void bios_vblank_handler(void)
+{
+    if (on_vblank) on_vblank();
 }
 
 static const ushell_command_t commands[] = {
+    /* SYSTEM TEST */
     { "sysinfo", "prints system information", &sysinfo },
     { "echo", "echoes its arguments", &echo },
     { "peek", "print a memory dump", &peek },
     { "poke", "set a value in memory", &poke },
+    /* SERIAL MODEM TEST */
     { "ser", "drop to a serial terminal to the modem", &ser },
-    { "mel", "play a simple melody", &mel },
+    { "escape", "test the AT escape secuence", &send_escape },
+    /* AUDIO TEST */
     { "fanfare", "play a simple fanfare. esc to quit", &fanfare },
     { "pcm", "play a pcm sine wave", &pcm },
+    { "audio", "play a pcm sine wave and A4", &pcm_synth },
     { "tamlin", "play a bit of Tam Lin", &tamlin },
-    { "escape", "test the AT escape secuence", &send_escape },
+    /* VIDEO TEST */
+    { "box", "a very simple 2d demo", &test2d },
+    // TODO: 3d test
+    // TODO: rich text mode test
+    /* UI (KEYBOARD AND MOUSE TEST) */
+    // TODO: mouse test (click & drag & position (hover))
+    // TODO: keyboard tester (scancode & character)
+    /* STORAGE TEST */
+    // TODO: tps test (load sector & store sector)
+    // TODO: hcs test (load sector & store sector)
+    /* TIMER TEST*/
+    // TODO: set interval timer
+    // TODO: set timeout timer
+    /* UTILITIES */
     { "clear", "clear the screen", &clear }
 };
 
@@ -929,11 +1100,20 @@ static const ushell_command_t commands[] = {
 
 void bios_start(void)
 {
+    usize i, wait;
+    u8    x, y;
+
     bios_init();
+
+    for (i = 0; i < 100000; i++) {
+        wait += i;
+    }
 
     ttty_mux_clear(&Con);
 
     ttty_mux_printf(&Con, "%s %s %c\n", BIOS_NAME, BIOS_VERSION, BIOS_CHR);
+    ttty_printf(&Video_tty, "Terminal size: %d cols, %d rows, %d bpc\n", Video_tty.w, Video_tty.h,
+                Video_tty.bpc);
 
     ushell_init(commands, sizeof(commands) / sizeof(commands[0]));
 

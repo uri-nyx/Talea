@@ -96,6 +96,8 @@ Misc:
         ☐ Alantar 'Lanat
         ☐ English
         ☐ Spanish
+    
+    ☐ make a script that outputs a configuration header, a build script and automatically compiles and maps custom devices for different device configurations
             
     ☐ 10. Promotion and maintenance
         
@@ -106,4 +108,4 @@ Bugs:
     ☐ In init window, we have to hack the hidpi, seems it broke a little bit ago in raylib?
     ☐ Wireframe 3d rendering works but draws some garbage
     ☐ Not a bug per se, but if ATE1 (echo) is enabled on the modem, and the CPU dares to echo back what it gets on the serial line, when answering a call and then escaping to command mode, a feedback loop will be triggered and possibly crash the emulator. This to say that if ATE1 is enabled you DONT NEVER EVER echo again.
-
+    ☐ How does the video subsytem do DMA? all pointers passed to it are physical

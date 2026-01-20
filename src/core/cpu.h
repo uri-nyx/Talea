@@ -43,13 +43,13 @@ enum TaleaRegisters {
 typedef u32 TaleaStatusRegister;
 
 enum TaleaStatus {
-    CPU_STATUS_SUPERVISOR = (1U<<31U),
-    CPU_STATUS_INTERRUPT_ENABLE = (1U<<30U),
-    CPU_STATUS_MMU_ENABLE = (1U<<29U),
-    CPU_STATUS_PRIORITY_MASK = 0x1C000000,
-    CPU_STATUS_IVT_ADDR_MASK = 0x03F00000,
-    CPU_STATUS_PDT_ADDR_MASK = 0x000FF000,
-    CPU_STATUS_DEBUG_STEP = (1U<<1U),
+    CPU_STATUS_SUPERVISOR       = (1U << 31U),
+    CPU_STATUS_INTERRUPT_ENABLE = (1U << 30U),
+    CPU_STATUS_MMU_ENABLE       = (1U << 29U),
+    CPU_STATUS_PRIORITY_MASK    = 0x1C000000,
+    CPU_STATUS_IVT_ADDR_MASK    = 0x03F00000,
+    CPU_STATUS_PDT_ADDR_MASK    = 0x000FF000,
+    CPU_STATUS_DEBUG_STEP       = (1U << 1U),
 };
 
 // GETTERS
@@ -73,8 +73,22 @@ enum TaleaStatus {
 #define SR_SET_IVT(tsr, x)        ((tsr) |= ((x) << 20))
 #define SR_SET_PDT(tsr, x)        ((tsr) |= ((x) << 12))
 
+enum PTEFlags {
+    PTE_V = (1 << 0), // Valid
+    PTE_R = (1 << 1), // Read
+    PTE_W = (1 << 2), // Write
+    PTE_X = (1 << 3), // Execute
+    PTE_U = (1 << 4), // User
+    PTE_A = (1 << 6), // Accessed (Hardware sets this)
+    PTE_D = (1 << 7), // Dirty (Hardware sets this on write)
+};
+
+
+typedef void (*InstructionHandler)(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4,
+                                   u8 vector, u16 imm_15, u32 imm_20);
+
 enum InstructionFields {
-    GROUP_SHIFHT = 29,
+    GROUP_SHIFT = 29,
     OPCODE_MASK  = 0x1E000000,
     OPCODE_SHIFT = 25,
     R1_MASK      = 0x01F00000,

@@ -158,6 +158,11 @@ enum VideoCommand {
     COMMAND_GET_MARKER,
 };
 
+enum VideoClearFlag {
+        VIDEO_CLEAR_FLAG_TB = 1<<0,
+        VIDEO_CLEAR_FLAG_FB = 1<<1,
+};
+
 enum StorageMedium { NoMedia, Tps128K, Tps512K, Tps1M, Hcs32M, Hcs64M, Hcs128M };
 
 enum StorageStatus {
