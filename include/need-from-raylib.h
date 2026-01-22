@@ -82,6 +82,14 @@ typedef struct FilePathList {
     char       **paths;    // Filepaths entries
 } FilePathList;
 
+
+// Vector2, 2 components
+typedef struct Vector2 {
+    float x;                // Vector x component
+    float y;                // Vector y component
+} Vector2;
+
+
 RLAPI const char *TextFormat(const char *text, ...);
 
 #endif /* NEED_FROM_RAYLIB_H */

@@ -9,6 +9,8 @@
 
 // clang-format off
 
+// NOTE: because I always forget. This is uint32_t[1024] because its easier to load to the shader as 
+// ivec4[255], but semantically is a Color[255], each element is one byte only
 static uint32_t Palette_Default_Aurora[] = {
     // From Dawbringer AURORA
     // https://lospec.com/palette-list/aurora

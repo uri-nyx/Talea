@@ -41,6 +41,7 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
     Terminal_Reset(m, conf, is_restart);
     Storage_Reset(m, conf, is_restart);
     Video_Reset(m, conf, is_restart);
+    Mouse_Reset(m, is_restart);
 
     m->cpu.poweroff = false;
 

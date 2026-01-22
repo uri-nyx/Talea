@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-//#define HACK_HIDPI 3
+// #define HACK_HIDPI 3
 
 #ifndef DO_NOT_INCLUDE_RAYLIB
 // Due to confilcts with the WinAPI
@@ -613,12 +613,36 @@ void Video_Update(TaleaMachine *m);
 u8   Video_ReadHandler(TaleaMachine *m, u16 addr);
 void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value);
 
+typedef struct DeviceMouse {
+    u8        csr;
+    bool      visible;
+    bool      custom;
+    bool      sprite_loaded;
+    bool      render_custom_cursor;
+    bool      showing_os_cursor;
+    u8        hotspot;
+    u16       x, y;
+    u16       sprite_addr;
+    u8        border_color, fill_color, accent_color;
+    Vector2   render_pos;
+    Color     pixels[256];
+    Texture2D sprite_texture;
+} DeviceMouse;
+
+#define TALEA_MOUSE_SPRITE_ADDR 0x110
+
 enum MouseCsr {
-    MOUSE_BUTT_RIGHT = 1<<0,
-    MOUSE_BUTT_LEFT  = 1<<1,
-    MOUSE_IE  = 1<<7,
+    MOUSE_BUTT_RIGHT = 1 << 0,
+    MOUSE_BUTT_LEFT  = 1 << 1,
+    MOUSE_CUSTOM     = 1 << 5,
+    MOUSE_VISIBLE    = 1 << 6,
+    MOUSE_IE         = 1 << 7,
 };
 
+u8   Mouse_ReadHandler(TaleaMachine *m, u16 addr);
+void Mouse_WriteHandler(TaleaMachine *m, u16 addr, u8 value);
+
+void Mouse_Reset(TaleaMachine *m, bool is_restart);
 void Mouse_ProcessButtonPress(TaleaMachine *m, int buttons, int scaled_x, int scaled_y);
 void Mouse_UpdateCoordinates(TaleaMachine *m, int buttons, int scaled_x, int scaled_y);
 
@@ -821,6 +845,7 @@ typedef struct TaleaMachine {
     DeviceTerminal terminal;
     DeviceSystem   sys;
     DeviceSynth    synth;
+    DeviceMouse    mouse;
     u8             main_memory[TALEA_MAIN_MEM_SZ];
     u8             data_memory[TALEA_DATA_MEM_SZ];
 } TaleaMachine;

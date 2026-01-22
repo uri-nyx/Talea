@@ -100,14 +100,23 @@ enum PortsKeyboard {
 };
 
 enum PortsMouse {
-    MOUSE_STATE = 0,
-    MOUSE_X     = 1,
-    MOUSE_Y     = 3,
+
+    MOUSE_CSR          = 0,
+    MOUSE_X            = 1,
+    MOUSE_Y            = 3,
+    MOUSE_HOTSPOT      = 5,
+    MOUSE_BORDER_COLOR = 6,
+    MOUSE_FILL_COLOR   = 7,
+    MOUSE_ACCENT_COLOR = 8,
+    MOUSE_SPRITE       = 9,
 };
 
-enum MouseButtons {
-    MOUSE_BUTT_RIGHT = 0x01,
-    MOUSE_BUTT_LEFT  = 0x02,
+enum MouseCsr {
+    MOUSE_BUTT_RIGHT = 1 << 0,
+    MOUSE_BUTT_LEFT  = 1 << 1,
+    MOUSE_CUSTOM     = 1 << 5,
+    MOUSE_VISIBLE    = 1 << 6,
+    MOUSE_IE         = 1 << 7,
 };
 
 enum TaleaVideoMode {
@@ -382,7 +391,6 @@ enum AudioCsr {
     AUDIO_CSR_NOTE_ENDED = 1 << 5,
     AUDIO_CSR_GATE       = 1 << 6, // changes mode to release note inmediately
 };
-
 
 /* SYSTEM DEVICE PORTS */
 enum PortsSystem {

@@ -257,13 +257,14 @@ static void Frontend_PollKeyboard(TaleaMachine *m, TaleaConfig *config)
 
 static void Frontend_PollMouse(TaleaMachine *m, TaleaConfig *config)
 {
-    Vector2   positionMouse = GetMousePosition();
-    Rectangle viewport      = GetScaledViewport();
+    Vector2      positionMouse = GetMousePosition();
+    Rectangle    viewport      = GetScaledViewport();
+    DeviceMouse *mouse         = &m->mouse;
 
     // normalized coordinates
     float norm_x = (positionMouse.x - viewport.x) / viewport.width;
     float norm_y = (positionMouse.y - viewport.y) / viewport.height;
-    
+
     i16 mouse_x_px = norm_x * TALEA_SCREEN_WIDTH;
     i16 mouse_y_px = norm_y * TALEA_SCREEN_HEIGHT;
 
@@ -273,14 +274,27 @@ static void Frontend_PollMouse(TaleaMachine *m, TaleaConfig *config)
     // clang-format on
 
     u8 current_state = 0;
+    bool inside_viewport = CheckCollisionPointRec(positionMouse, viewport);
 
-    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) && CheckCollisionPointRec(positionMouse, viewport)) {
+    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) && inside_viewport) {
         current_state |= MOUSE_BUTT_RIGHT;
     }
 
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(positionMouse, viewport)) {
-
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && inside_viewport) {
         current_state |= MOUSE_BUTT_LEFT;
+    }
+
+    if (mouse->visible && mouse->custom && inside_viewport) {
+        u16 hx              = mouse->hotspot >> 4;
+        u16 hy              = mouse->hotspot & 0xf;
+        mouse->render_pos.x = positionMouse.x - hx;
+        mouse->render_pos.y = positionMouse.y - hy;
+        mouse->render_custom_cursor = true;
+        if (mouse->showing_os_cursor) HideCursor(); // if we where showing the OS cursor, lets hide it
+        mouse->showing_os_cursor = false;
+    }  else if (!inside_viewport) {
+        ShowCursor(); // Show OS cursor if we go outisde of the virtual screen of Talea
+        mouse->render_custom_cursor = false;
     }
 
     static uint8_t last_state = 0;
@@ -291,6 +305,7 @@ static void Frontend_PollMouse(TaleaMachine *m, TaleaConfig *config)
     } else {
         Mouse_UpdateCoordinates(m, current_state, mouse_x_px, mouse_y_px);
     }
+
 }
 
 static void Frontend_PollSerial(TaleaMachine *m, TaleaConfig *config)
@@ -502,6 +517,10 @@ end:
                     (state.window.scale / WINDOW_SCALE_DPI.x) -
                 80,
             (int)state.ui.button_row - 25);
+
+    if (m->mouse.render_custom_cursor) {
+        DrawTextureV(m->mouse.sprite_texture, m->mouse.render_pos, WHITE);
+    }
 
     EndDrawing();
 }

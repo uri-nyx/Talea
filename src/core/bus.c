@@ -18,7 +18,7 @@ u8 Machine_ReadData8(TaleaMachine *m, u16 addr)
     case DEV_TTY_BASE: value = Terminal_ReadHandler(m, addr); break;
     case DEV_VIDEO_BASE: value = Video_ReadHandler(m, addr); break;
     case DEV_TPS_BASE: value = Storage_ReadHandler(m, addr); break;
-    case DEV_MOUSE_BASE: value = (m->data_memory[addr]); break;
+    case DEV_MOUSE_BASE: value = Mouse_ReadHandler(m, addr); break;
     case DEV_AUDIO_BASE: value = Synth_ReadHandler(m, addr); break;
     case DEV_SYSTEM_BASE: value = System_ReadHandler(m, addr); break;
     default: value = (m->data_memory[addr]);
@@ -38,10 +38,13 @@ void Machine_WriteData8(TaleaMachine *m, u16 addr, u8 value)
     case DEV_TTY_BASE: Terminal_WriteHandler(m, addr, value); break;
     case DEV_VIDEO_BASE: Video_WriteHandler(m, addr, value); break;
     case DEV_TPS_BASE: Storage_WriteHandler(m, addr, value); break;
-    case DEV_MOUSE_BASE: m->data_memory[addr] = value; break;
+    case DEV_MOUSE_BASE: Mouse_WriteHandler(m, addr, value); break;
     case DEV_AUDIO_BASE: Synth_WriteHandler(m, addr, value); break;
     case DEV_SYSTEM_BASE: System_WriteHandler(m, addr, value); break;
-    default: m->data_memory[addr] = value;
+    default: {
+        m->data_memory[addr] = value;
+        break;
+    }
     }
 }
 

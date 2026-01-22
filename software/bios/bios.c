@@ -12,6 +12,7 @@ in LICENSE-THIRD-PARTY. This project is licensed under the MIT License.
 // #include "freestanding/ctype.h"
 #include "isr.h"
 #include "libsirius/devices.h"
+#define KEYS_INCLUDE_KEYNAME_MAP
 #include "libsirius/keys.h"
 #include "libsirius/types.h"
 #include "ushell.h"
@@ -769,10 +770,10 @@ void peek(int argc, char *argv[])
         u8  j = 0;
         u8 *m = (u8 *)0;
         ttty_mux_printf(&Con, "%06x:  ", i);
-        ttty_mux_printf(&Con, "%02x %02x %02x %02x %02x %02x %02x %02x ", m[i], m[i + 1], m[i + 2], m[i + 3],
-                        m[i + 4], m[i + 5], m[i + 6], m[i + 7]);
-        ttty_mux_printf(&Con, "| %02x %02x %02x %02x %02x %02x %02x %02x", m[i + 8], m[i + 9], m[i + 10],
-                        m[i + 11], m[i + 12], m[i + 13], m[i + 14], m[i + 15]);
+        ttty_mux_printf(&Con, "%02x %02x %02x %02x %02x %02x %02x %02x ", m[i], m[i + 1], m[i + 2],
+                        m[i + 3], m[i + 4], m[i + 5], m[i + 6], m[i + 7]);
+        ttty_mux_printf(&Con, "| %02x %02x %02x %02x %02x %02x %02x %02x", m[i + 8], m[i + 9],
+                        m[i + 10], m[i + 11], m[i + 12], m[i + 13], m[i + 14], m[i + 15]);
         ttty_mux_puts(&Con, "|  ");
         for (j = 0; j < 16; j++) {
             u8 c = is_print(m[j + i]) ? m[j + i] : '.';
@@ -1332,38 +1333,76 @@ void bios_vblank_handler(void)
 
 void readmouse(void)
 {
-    u8          buttons;
-    u16         x, y;
-    static bool left, right;
+    static usize lp = 0, lr = 0, rp = 0, rr = 0;
+    static bool  left, right;
 
-    buttons = _lbud(Devices.mouse + MOUSE_STATE);
-    x       = _lhud(Devices.mouse + MOUSE_X);
-    y       = _lhud(Devices.mouse + MOUSE_Y);
+    u8  csr;
+    u16 x, y;
 
-    ttty_printf(&Video_tty, "\x1b[15;32H {x: %03d, y: %03d}", x, y);
+    csr = _lbud(Devices.mouse + MOUSE_CSR);
+    x   = _lhud(Devices.mouse + MOUSE_X);
+    y   = _lhud(Devices.mouse + MOUSE_Y);
 
-    if (buttons & MOUSE_BUTT_LEFT) {
-        ttty_printf(&Video_tty, "\x1b[16;34H LEFT PRESSED");
+    ttty_printf(&Video_tty, "\x1b[12;33H{x: %03d, y: %03d}", x, y);
+
+    if (csr & MOUSE_BUTT_LEFT) {
+        ttty_printf(&Video_tty, "\x1b[13;34H LEFT PRESSED");
         left = true;
+        lp++;
     } else if (left == true) {
-        ttty_printf(&Video_tty, "\x1b[16;34HLEFT RELEASED");
+        ttty_printf(&Video_tty, "\x1b[13;34HLEFT RELEASED");
+        left = false;
+        lr++;
     }
 
-    if (buttons & MOUSE_BUTT_RIGHT) {
-        ttty_printf(&Video_tty, "\x1b[17;34H RIGHT PRESSED");
+    if (csr & MOUSE_BUTT_RIGHT) {
+        ttty_printf(&Video_tty, "\x1b[14;34HRIGHT PRESSED ");
         right = true;
+        rp++;
     } else if (right == true) {
-        ttty_printf(&Video_tty, "\x1b[17;34HRIGHT RELEASED");
+        ttty_printf(&Video_tty, "\x1b[14;34HRIGHT RELEASED");
+        right = false;
+        rr++;
     }
+
+    ttty_printf(&Video_tty, "\x1b[29;42H Left  {pressed: %04d, released: %04d}", lp, lr);
+    ttty_printf(&Video_tty, "\x1b[30;42H Right {pressed: %04d, released: %04d}", rp, rr);
 }
+
+static const u8 mouse_pointer_sprite[64] = { 0x40, 0x00, 0x00, 0x00, /* 10000000 ... */
+                                             0x50, 0x00, 0x00, 0x00, /* 10100000 ... */
+                                             0x54, 0x00, 0x00, 0x00, /* 10101000 ... */
+                                             0x55, 0x00, 0x00, 0x00, /* 10101010 ... */
+                                             0x55, 0x40, 0x00, 0x00, /* 10101010 01000000 */
+                                             0x55, 0x50, 0x00, 0x00, /* 10101010 10100000 */
+                                             0x55, 0x54, 0x00, 0x00, /* 10101010 10101000 */
+                                             0x55, 0x55, 0x00, 0x00, /* 10101010 10101010 */
+                                             0x55, 0x55, 0x40, 0x00, /* ... */
+                                             0x55, 0x51, 0x00, 0x00, /* (The "tail" start) */
+                                             0x54, 0x51, 0x00, 0x00, 0x40, 0x14, 0x00, 0x00,
+                                             0x00, 0x14, 0x00, 0x00, 0x00, 0x15, 0x00, 0x00,
+                                             0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 void mouse(int argc, char *argv[])
 {
-    bool escape = false;
-    u32  vcsr   = _lbud(Devices.video + VIDEO_CSR);
+    bool escape   = false;
+    u32  vcsr     = _lbud(Devices.video + VIDEO_CSR);
+    u8   mcsr     = _lbud(Devices.mouse + MOUSE_CSR);
+    u8   old_mcsr = mcsr;
+    u16  sprite_data_addr;
 
     ttty_clear(&Video_tty);
     ttty_puts(&Video_tty, "Hover your mouse over the screen and click anywhere! \nEsc to quit\n");
+
+    mcsr |= MOUSE_CUSTOM;
+    mcsr |= MOUSE_VISIBLE;
+
+    for (sprite_data_addr = 0x200; sprite_data_addr < (0x200 + 64); sprite_data_addr++) {
+        _sbd(sprite_data_addr, mouse_pointer_sprite[sprite_data_addr - 0x200]);
+    }
+
+    _shd(Devices.mouse + MOUSE_SPRITE, 0x200);
+    _sbd(Devices.mouse + MOUSE_CSR, mcsr);
 
     on_vblank = &readmouse;
 
@@ -1380,6 +1419,7 @@ void mouse(int argc, char *argv[])
     vcsr &= ~VIDEO_VBLANK_EN; // vblank disable
     vcsr |= VIDEO_CURSOR_EN;
     _sbd(Devices.video + VIDEO_CSR, vcsr);
+    _sbd(Devices.mouse + MOUSE_CSR, old_mcsr);
 
     on_vblank = NULL;
 
@@ -1413,8 +1453,10 @@ void kbtest(int argc, char *argv[])
             }
 
             ttty_printf(&Video_tty, "\x1b[4;H\tcharacter:\t\'%c\' [%03d]\n",
-                       (is_print(e->character) && !is_space(e->character)) ? e->character : ' ', e->character);
-            ttty_printf(&Video_tty, "\tscancode:\t0x%04x\n", e->scancode);
+                        (is_print(e->character) && !is_space(e->character)) ? e->character : ' ',
+                        e->character);
+            ttty_printf(&Video_tty, "\tscancode:\t0x%04x \x1b[K[%s]\n", e->scancode,
+                        keys_getkeyname(e->scancode));
             ttty_printf(&Video_tty, "\x1b[K\tevent:\t %s\tmodifiers: 0x%02x\n",
                         e->is_keydown ? "KEY DOWN" : "KEY RELEASED", e->modifiers);
         }
