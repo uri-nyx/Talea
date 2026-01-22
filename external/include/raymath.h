@@ -66,11 +66,11 @@
 // Function specifiers definition
 #if defined(RAYMATH_IMPLEMENTATION)
     #if defined(_WIN32) && defined(BUILD_LIBTYPE_SHARED)
-        #define RMAPI __declspec(dllexport) extern inline // We are building raylib as a Win32 shared library (.dll)
+        #define RMAPI __declspec(dllexport) extern inline    // Building raylib as a Win32 shared library (.dll)
     #elif defined(BUILD_LIBTYPE_SHARED)
-        #define RMAPI __attribute__((visibility("default"))) // We are building raylib as a Unix shared library (.so/.dylib)
+        #define RMAPI __attribute__((visibility("default"))) // Building raylib as a Unix shared library (.so/.dylib)
     #elif defined(_WIN32) && defined(USE_LIBTYPE_SHARED)
-        #define RMAPI __declspec(dllimport)         // We are using raylib as a Win32 shared library (.dll)
+        #define RMAPI __declspec(dllimport)                  // Using raylib as a Win32 shared library (.dll)
     #else
         #define RMAPI extern inline // Provide external definition
     #endif
@@ -177,26 +177,24 @@ typedef struct float16 {
 #if defined(RAYMATH_USE_SIMD_INTRINSICS)
     // SIMD is used on the most costly raymath function MatrixMultiply()
     // NOTE: Only SSE intrinsics support implemented
-    // TODO: Consider support for other SIMD instrinsics
+    // TODO: Consider support for other SIMD instrinsics:
+    //  - SSEx, AVX, AVX2, FMA, NEON, RVV
     /*
     #if defined(__SSE4_2__)
-        #define SW_HAS_SSE42
         #include <nmmintrin.h>
+        #define RAYMATH_SSE42_ENABLED
     #elif defined(__SSE4_1__)
-        #define SW_HAS_SSE41
         #include <smmintrin.h>
+        #define RAYMATH_SSE41_ENABLED
     #elif defined(__SSSE3__)
-        #define SW_HAS_SSSE3
         #include <tmmintrin.h>
+        #define RAYMATH_SSSE3_ENABLED
     #elif defined(__SSE3__)
-        #define SW_HAS_SSE3
         #include <pmmintrin.h>
+        #define RAYMATH_SSE3_ENABLED
     #elif defined(__SSE2__) || (defined(_M_AMD64) || defined(_M_X64)) // SSE2 x64
-        #define SW_HAS_SSE2
         #include <emmintrin.h>
-    #elif defined(__SSE__)
-        #define SW_HAS_SSE
-        #include <xmmintrin.h>
+        #define RAYMATH_SSE2_ENABLED
     #endif
     */
     #if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && (_M_IX86_FP >= 1))
@@ -597,7 +595,7 @@ RMAPI int Vector2Equals(Vector2 p, Vector2 q)
 // v: normalized direction of the incoming ray
 // n: normalized normal vector of the interface of two optical media
 // r: ratio of the refractive index of the medium from where the ray comes
-//    to the refractive index of the medium on the other side of the surface
+// to the refractive index of the medium on the other side of the surface
 RMAPI Vector2 Vector2Refract(Vector2 v, Vector2 n, float r)
 {
     Vector2 result = { 0 };
@@ -1085,7 +1083,7 @@ RMAPI Vector3 Vector3Barycenter(Vector3 p, Vector3 a, Vector3 b, Vector3 c)
 }
 
 // Projects a Vector3 from screen space into object space
-// NOTE: We are avoiding calling other raymath functions despite available
+// NOTE: Self-contained function, no other raymath functions are called
 RMAPI Vector3 Vector3Unproject(Vector3 source, Matrix projection, Matrix view)
 {
     Vector3 result = { 0 };
@@ -1247,7 +1245,7 @@ RMAPI int Vector3Equals(Vector3 p, Vector3 q)
 // v: normalized direction of the incoming ray
 // n: normalized normal vector of the interface of two optical media
 // r: ratio of the refractive index of the medium from where the ray comes
-//    to the refractive index of the medium on the other side of the surface
+// to the refractive index of the medium on the other side of the surface
 RMAPI Vector3 Vector3Refract(Vector3 v, Vector3 n, float r)
 {
     Vector3 result = { 0 };
@@ -2665,14 +2663,14 @@ RMAPI Matrix MatrixCompose(Vector3 translation, Quaternion rotation, Vector3 sca
     forward = Vector3RotateByQuaternion(forward, rotation);
     
     // Set result matrix output
-	Matrix result = {
-		right.x, up.x, forward.x, translation.x,
-		right.y, up.y, forward.y, translation.y,
-		right.z, up.z, forward.z, translation.z,
-		0.0f, 0.0f, 0.0f, 1.0f
-	};
+    Matrix result = {
+        right.x, up.x, forward.x, translation.x,
+        right.y, up.y, forward.y, translation.y,
+        right.z, up.z, forward.z, translation.z,
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
 
-	return result;
+    return result;
 }
 
 // Decompose a transformation matrix into its rotational, translational and scaling components and remove shear

@@ -96,7 +96,7 @@ void main()
     bool isUnderlinePixel = underline && (localUV.y > 0.85 && localUV.y < 0.92);
     if (oblique) {
         localUV.x += (localUV.y - 0.7) * 0.25;
-        // if (localUV.x < 0.0 || localUV.x > 1.0) discard;
+        if (localUV.x < 0.15 || localUV.x > 1.2) discard;
     }
 
     vec2 charUV = localUV / atlasCharSize;

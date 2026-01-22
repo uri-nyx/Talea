@@ -3,25 +3,21 @@ _start:
 
 ################################################################################
 #                               SYSTEM INITIALIZATION:
-#       1. Set status register as: supervisor, intterupt enabled, mmu disabled
-#          priority 2, ivt at 0xf800
-
-    li      x10, 3421499392
-    ssreg   x10
-
 #       2. Disable all interupts
 
     cli
 
-#       3. Set stack pointer to the top of memory - 8 K. We query the SYSTEM 
+#       3. Set stack pointer to the top of memory - 64 K. We query the SYSTEM 
 #          DEVICE at port MEMSIZE/FLASH. Reading from it gives amount of memory
 #          in MB ( 1024*1024 bytes).
 
     lbud    x2, 0xF0(x0)
     muli    x2, x2, 1024
     muli    x2, x2, 1024
-    addi    x2, x2, -32768
-
+    li x5, 64*1024
+    sub x2, x2, x5 # we subtract the ROM size (64KB)
+    trace x2, x0, x0, x0
+    
 #       4. Initialize the IVT.
 
     li      x11, 0xf800
@@ -48,7 +44,6 @@ _start:
     la      x10, _isr_kbd_scancode          # KB SCANCODE
     swd     x10, 48(x11)
     addi    x12, x11, 48
-    trace   x0, x10, x12, x0
     la      x10, _isr_not_implemented       # TPS FINISH
     swd     x10, 52(x11)
     la      x10, _isr_not_implemented       # HCS FINISH
@@ -397,6 +392,21 @@ _trace_sreg:
     gsreg   x5
     ret
 
+    .globl _ssreg
+_ssreg:
+    ssreg x12
+    ret
+
+    .globl _cli
+_cli:
+    cli
+    ret
+
+    .globl _sti
+_sti:
+    sti
+    ret
+    
     .globl _sbd # extern void _sbd(u16 addr, u8 value)
 _sbd:
     sbd     x13, 0(x12) #x12 addr, x13 u8 value

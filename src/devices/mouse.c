@@ -5,15 +5,14 @@
 #define P_MOUSE_X     (DEV_MOUSE_BASE + 1)
 #define P_MOUSE_Y     (DEV_MOUSE_BASE + 3)
 
-void Mouse_ProcessButtonPress(TaleaMachine *m, int buttons, int scaled_x,
-                              int scaled_y)
+void Mouse_ProcessButtonPress(TaleaMachine *m, int buttons, int scaled_x, int scaled_y)
 {
     Mouse_UpdateCoordinates(m, buttons, scaled_x, scaled_y);
-    Machine_RaiseInterrupt(m, INT_MOUSE_PRESSED, PRIORITY_KEYBOARD_INTERRUPT);
+    if (m->data_memory[P_MOUSE_STATE] & MOUSE_IE)
+        Machine_RaiseInterrupt(m, INT_MOUSE_PRESSED, PRIORITY_KEYBOARD_INTERRUPT);
 }
 
-void Mouse_UpdateCoordinates(TaleaMachine *m, int buttons, int scaled_x,
-                             int scaled_y)
+void Mouse_UpdateCoordinates(TaleaMachine *m, int buttons, int scaled_x, int scaled_y)
 {
     m->data_memory[P_MOUSE_STATE] = buttons;
     m->data_memory[P_MOUSE_X]     = scaled_x >> 8;

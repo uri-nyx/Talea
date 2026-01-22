@@ -9,8 +9,6 @@
 #define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
 #include "gui_window_file_dialog.h"
 
-
-
 struct FrontendState state = { 0 };
 
 static inline Rectangle GetScaledViewport(void)
@@ -40,22 +38,27 @@ void Frontend_InitWindow(TaleaConfig *config)
     if (config->hidpi) {
         Ww *= HACK_HIDPI;
         Wh *= HACK_HIDPI;
-    } 
+    }
 #endif
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | config->flags); // TODO: Put in the
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIDDEN | config->flags);
     // TODO: Put in the config file AND in the  UI
     InitWindow(Ww, Wh, TALEA_WINDOW_TITLE);
 
 #if defined(PLATFORM_DESKTOP)
+    PollInputEvents();
+    Vector2 dpi = GetWindowScaleDPI();
+    SetWindowSize(Ww * dpi.x, Wh * dpi.y);
     SetWindowPosition((GetMonitorWidth(GetCurrentMonitor()) - GetRenderWidth()) / 2,
                       (GetMonitorHeight(GetCurrentMonitor()) - GetRenderHeight()) / 2);
     SetWindowMinSize(320, 240);
 #endif
 
+    ClearWindowState(FLAG_WINDOW_HIDDEN);
+
     InitAudioDevice();
     SetMasterVolume(1.0f); // TODO: Put in the config file AND in the UI
-    //SetAudioStreamBufferSizeDefault(4096);
+    // SetAudioStreamBufferSizeDefault(4096);
 
     state = (struct FrontendState){
         .window =
@@ -101,7 +104,7 @@ void Frontend_InitWindow(TaleaConfig *config)
         .synth =
             (struct FrontendSynthCtx){
                 .SynthStream = LoadAudioStream(44100, 16, 1),
-                .PCMStream = LoadAudioStream(11025, 16, 1),
+                .PCMStream   = LoadAudioStream(11025, 16, 1),
             },
         .is_restart = false,
     };
@@ -257,30 +260,37 @@ static void Frontend_PollMouse(TaleaMachine *m, TaleaConfig *config)
     Vector2   positionMouse = GetMousePosition();
     Rectangle viewport      = GetScaledViewport();
 
-    int scaled_x =
-        (int)(positionMouse.x - (GetRenderWidth() - viewport.width) / 2) * state.window.scale;
-    int scaled_y =
-        (int)(positionMouse.y - (GetRenderWidth() - viewport.height) / 2) * state.window.scale;
+    // normalized coordinates
+    float norm_x = (positionMouse.x - viewport.x) / viewport.width;
+    float norm_y = (positionMouse.y - viewport.y) / viewport.height;
+    
+    i16 mouse_x_px = norm_x * TALEA_SCREEN_WIDTH;
+    i16 mouse_y_px = norm_y * TALEA_SCREEN_HEIGHT;
+
+    // clang-format off
+    mouse_x_px = (mouse_x_px >= TALEA_SCREEN_WIDTH) ? TALEA_SCREEN_WIDTH - 1 : (mouse_x_px < 0 ) ? 0 : mouse_x_px;
+    mouse_y_px = (mouse_y_px >= TALEA_SCREEN_HEIGHT) ? TALEA_SCREEN_HEIGHT - 1 : (mouse_y_px < 0 ) ? 0 : mouse_y_px;
+    // clang-format on
 
     u8 current_state = 0;
 
-    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) &&
-        CheckCollisionPointRec(positionMouse, GetScaledViewport())) {
-        current_state |= MOUSE_BUTT_RIGHT; // TODO: use enum for this
+    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) && CheckCollisionPointRec(positionMouse, viewport)) {
+        current_state |= MOUSE_BUTT_RIGHT;
     }
 
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(positionMouse, GetScaledViewport())) {
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(positionMouse, viewport)) {
+
         current_state |= MOUSE_BUTT_LEFT;
     }
 
     static uint8_t last_state = 0;
-    if (current_state != last_state) {
-        Mouse_ProcessButtonPress(m, current_state, scaled_x, scaled_y);
-        last_state = current_state;
-    }
 
-    Mouse_UpdateCoordinates(m, current_state, scaled_x, scaled_y);
+    if (current_state != last_state) {
+        Mouse_ProcessButtonPress(m, current_state, mouse_x_px, mouse_y_px);
+        last_state = current_state;
+    } else {
+        Mouse_UpdateCoordinates(m, current_state, mouse_x_px, mouse_y_px);
+    }
 }
 
 static void Frontend_PollSerial(TaleaMachine *m, TaleaConfig *config)
@@ -547,7 +557,8 @@ void Frontend_Deinit(TaleaConfig *config)
     CloseWindow();
 }
 
-void Frontend_StopSynth(void) {
+void Frontend_StopSynth(void)
+{
     StopAudioStream(state.synth.SynthStream);
 }
 
@@ -566,7 +577,8 @@ void Frontend_StartMusic(void)
     PlayMusicStream(state.sfx.loopSound);
 }
 
-void Frontend_StartSynth(void) {
+void Frontend_StartSynth(void)
+{
     PlayAudioStream(state.synth.SynthStream);
 }
 

@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define HACK_HIDPI 3
+//#define HACK_HIDPI 3
 
 #ifndef DO_NOT_INCLUDE_RAYLIB
 // Due to confilcts with the WinAPI
@@ -102,10 +102,9 @@ typedef int64_t  i64;
 #define FPS                         60
 #define TALEA_MAIN_MEM_SZ           (1U << 24) // 16MB
 #define TALEA_DATA_MEM_SZ           (1U << 16) // 64KB
-#define TALEA_MAX_FIRMWARE_SIZE     (32 * 1024)
+#define TALEA_MAX_FIRMWARE_SIZE     (64 * 1024)
 // TODO: This should be a fixed  address at the top of the  address space, no matter  how much
 // memory we have
-//  0xFF8000
 #define TALEA_FIRMWARE_ADDRESS (TALEA_MAIN_MEM_SZ - TALEA_MAX_FIRMWARE_SIZE)
 
 #define TALEA_MEM_SZ_MB 16
@@ -125,13 +124,13 @@ enum DeviceID {
 
 /* --- INTERRUPTS AND CPU EXCEPTIONS --- */
 
-#define PRIORITY_KEYBOARD_INTERRUPT 4
-#define PRIORITY_SERIAL_INTERRUPT   5
-#define PRIORITY_STORAGE_INTERRUPT  5
-#define PRIORITY_AUDIO_INTERRUPT    2
+#define PRIORITY_STORAGE_INTERRUPT  1
+#define PRIORITY_VBLANK_INTERRUPT   2
+#define PRIORITY_AUDIO_INTERRUPT    3
+#define PRIORITY_SERIAL_INTERRUPT   4
+#define PRIORITY_KEYBOARD_INTERRUPT 5
 #define PRIORITY_TIMEOUT_INTERRUPT  6
 #define PRIORITY_INTERVAL_INTERRUPT 6
-#define PRIORITY_VBLANK_INTERRUPT   6
 
 enum TaleaInterrupt {
     EXCEPTION_NONE = -1,
@@ -406,8 +405,8 @@ enum VideoCSR {
 };
 
 enum VideoClearFlag {
-        VIDEO_CLEAR_FLAG_TB = 1<<0,
-        VIDEO_CLEAR_FLAG_FB = 1<<1,
+    VIDEO_CLEAR_FLAG_TB = 1 << 0,
+    VIDEO_CLEAR_FLAG_FB = 1 << 1,
 };
 
 enum VideoROP {
@@ -437,16 +436,17 @@ enum VideoBatchFlags {
     VIDEO_BATCH_TYPE1            = 1 << 1,
     VIDEO_BATCH_BACKFACE_CULLING = 1 << 2,
     VIDEO_BATCH_ZSHADING         = 1 << 3,
-    VIDEO_BATCH_DITHER           = 1 << 4, // NOT IMPLEMENTED
+    VIDEO_BATCH_MODIFY_TOPOLOGY  = 1 << 4,
     VIDEO_BATCH_ABSOLUTE         = 1 << 5,
     VIDEO_BATCH_PERSPECTIVE      = 1 << 6,
     VIDEO_BATCH_DEPTH_SORT       = 1 << 7,
 };
 
 enum VideoBatchType {
-    VIDEO_BATCH_TYPE_POINT = 0,
-    VIDEO_BATCH_TYPE_LINE  = 1,
-    VIDEO_BATCH_TYPE_TRI   = 2,
+    VIDEO_BATCH_TYPE_POINT    = 0,
+    VIDEO_BATCH_TYPE_LINE     = 1,
+    VIDEO_BATCH_TYPE_TRISTRIP = 2,
+    VIDEO_BATCH_TYPE_TRILIST  = 3,
 };
 
 enum VideoFontID {
@@ -613,9 +613,10 @@ void Video_Update(TaleaMachine *m);
 u8   Video_ReadHandler(TaleaMachine *m, u16 addr);
 void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value);
 
-enum MouseButtons {
-    MOUSE_BUTT_RIGHT = 0x01,
-    MOUSE_BUTT_LEFT  = 0x02,
+enum MouseCsr {
+    MOUSE_BUTT_RIGHT = 1<<0,
+    MOUSE_BUTT_LEFT  = 1<<1,
+    MOUSE_IE  = 1<<7,
 };
 
 void Mouse_ProcessButtonPress(TaleaMachine *m, int buttons, int scaled_x, int scaled_y);

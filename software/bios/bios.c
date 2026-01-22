@@ -72,7 +72,7 @@ u32        Memsize;
 enum TpsId CurrentTps;
 
 void *Stack_top;
-void *Stack_base;
+void *Stack_end;
 
 u32 Charbuff_size;
 u8 *Charbuff;
@@ -135,11 +135,9 @@ static struct KbdEvent *kbd_event_pop(KbdEventQueue *q)
 /* Interrupt service routine for the keyboard interrupt */
 void bios_kbd_handler(void)
 {
-    static struct KbdEvent e;
-    bool                   success  = false;
-    u32                    keypress = _lwd(Devices.keyboard + KBD_CSR);
-
-    _trace(0xdead, keypress, (keypress >> 16) & 0xff, keypress & (~0x8000U));
+    struct KbdEvent e;
+    bool            success  = false;
+    u32             keypress = _lwd(Devices.keyboard + KBD_CSR);
 
     e.modifiers = keypress >> 24;
     e.character = (keypress >> 16) & 0xff;
@@ -181,11 +179,11 @@ static struct tins_ansi *kbd_event_to_ansi(struct KbdEvent *e)
     return &trans;
 }
 
-int kbd_get_translated(KbdEventQueue *q, bool *peeked)
+static struct tins_ansi *pending;
+static bool              has_pending = false;
+int                      kbd_get_translated(KbdEventQueue *q, bool *peeked)
 {
-    static struct tins_ansi *pending;
-    static bool              has_pending = false;
-    int                      c;
+    int c;
 
     if (!has_pending) {
         /* we need an event to translate */
@@ -212,6 +210,12 @@ int kbd_get_translated(KbdEventQueue *q, bool *peeked)
             has_pending = false;
         return TINS_NO_DATA;
     }
+}
+
+void kbd_reset_translation(void)
+{
+    has_pending = false;
+    pending     = NULL;
 }
 
 /* 4. Integration with tins.h */
@@ -371,9 +375,10 @@ static void bios_init(void)
     KeyboardEvents.head = 0;
     KeyboardEvents.tail = 0;
 
-    Memsize    = (u32)_lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MEMSIZE) * 0x100000;
-    Stack_top  = (void *)(Memsize - (32 * 1024));
-    Stack_base = (void *)((u32)Stack_top - STACK_SIZE);
+    Memsize   = (u32)_lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MEMSIZE) * 0x100000;
+    Stack_top = (void *)(Memsize - (64 * 1024));
+    Stack_end = (void *)((u32)Stack_top - STACK_SIZE);
+    _trace((u32)Stack_top);
 
     find_devices();
 
@@ -393,7 +398,7 @@ static void bios_init(void)
 
     video_text_screen_size(&cols, &rows, &bpc);
     Charbuff_size = rows * cols * bpc;
-    Charbuff      = (u8 *)((u32)Stack_base - 1024 - Charbuff_size);
+    Charbuff      = (u8 *)((u32)Stack_end - 1024 - Charbuff_size);
 
     _trace(0x1, cols, rows, bpc);
 
@@ -419,8 +424,8 @@ static void bios_init(void)
     }
 
     /* TODO: use a proper driver for the video */
-    ttty_init(&Video_tty, "System Console", TTTY_XYLF | TTTY_ANSI, cols, rows, bpc, (void *)Charbuff,
-              video_text_mode_default_attr, video_outc, video_setpos);
+    ttty_init(&Video_tty, "System Console", TTTY_XYLF | TTTY_ANSI, cols, rows, bpc,
+              (void *)Charbuff, video_text_mode_default_attr, video_outc, video_setpos);
     ttty_init(&Serial_tty, "Dumb Terminal", TTTY_STREAM, 0xff, 0xff, 1, (void *)&Devices.tty, NULL,
               serial_outc, NULL);
 
@@ -551,6 +556,69 @@ help:
     }
 }
 
+void pretty_echo(int argc, char *argv[])
+{
+    u8 old_fg, old_att;
+    if (argc >= 3 && argv[2][0] == '-') {
+        u8   fg = argv[1][0];
+        char sw = argv[2][1];
+        old_fg  = Video_tty.default_att[0];
+        old_att = Video_tty.default_att[2];
+
+        Video_tty.default_att[0] = fg;
+        Video_tty.default_att[2] = TEXTMODE_ATT_BOLD | TEXTMODE_ATT_OBLIQUE |
+                                   TEXTMODE_ATT_UNDERLINE | TEXTMODE_ATT_ALT_FONT;
+
+        switch (sw) {
+help:
+        case 'h':
+            ttty_printf(&Video_tty, "Usage: pecho <color> -[h|a|e] <args>\n");
+            ttty_printf(&Video_tty, "\tLike echo, but pretty. The color is a single char\n");
+            ttty_printf(&Video_tty, "\t-h\tprint this help\n");
+            ttty_printf(&Video_tty, "\t-a\tprepend \\x1b (ESC) to process ANSI escape code\n");
+            ttty_printf(&Video_tty, "\t-e\techo args without processing\n");
+            break;
+        case 'a': {
+            int i = 0;
+            for (i = 2; i < argc; i++) {
+                ttty_printf(&Video_tty, "\x1b%s", argv[i]);
+                ttty_putc(&Video_tty, ' ');
+            }
+            ttty_putc(&Video_tty, '\n');
+            break;
+        }
+        case 'e':
+        default: {
+            int i = 0;
+            for (i = 2; i < argc; i++) {
+                ttty_puts(&Video_tty, argv[i]);
+                ttty_putc(&Video_tty, ' ');
+            }
+            ttty_putc(&Video_tty, '\n');
+            break;
+        }
+        }
+    } else if (argc > 2) {
+        u8  fg                   = argv[1][0];
+        int i                    = 0;
+        old_fg                   = Video_tty.default_att[0];
+        old_att                  = Video_tty.default_att[3];
+        Video_tty.default_att[0] = fg;
+        Video_tty.default_att[2] = TEXTMODE_ATT_BOLD | TEXTMODE_ATT_OBLIQUE |
+                                   TEXTMODE_ATT_UNDERLINE | TEXTMODE_ATT_ALT_FONT;
+        for (i = 2; i < argc; i++) {
+            ttty_puts(&Video_tty, argv[i]);
+            ttty_putc(&Video_tty, ' ');
+        }
+        ttty_putc(&Video_tty, '\n');
+    } else {
+        goto help;
+    }
+
+    Video_tty.default_att[0] = old_fg;
+    Video_tty.default_att[2] = old_att;
+}
+
 char *strchr(const char *s, int c)
 {
     do {
@@ -568,7 +636,7 @@ u8 to_lower(u8 c)
 
 bool is_space(u8 c)
 {
-    return (c == ' ' || c == '\t' || c == '\n');
+    return (c == ' ' || c == '\t' || c == '\n' || c == '\f');
 }
 
 long strtol(const char *s, char **endp, int base)
@@ -695,19 +763,19 @@ void peek(int argc, char *argv[])
     addr     = strtoul(argv[1], NULL, 0);
     end_addr = addr + 128;
 
+    ttty_mux_printf(&Con, "%06x -> %02x\n", addr, *(u8 *)addr);
+
     for (i = addr & ~0xf; i < end_addr; i += 16 /* 16 bytes per row*/) {
-        /* TODO: add padding to printf*/
         u8  j = 0;
         u8 *m = (u8 *)0;
-        ttty_mux_printf(&Con, "%x -> %x", addr, *(u8 *)addr);
-        ttty_mux_printf(&Con, "%x:", i);
-        ttty_mux_printf(&Con, "\t%x %x %x %x %x %x %x %x", m[i], m[i + 1], m[i + 2], m[i + 3],
+        ttty_mux_printf(&Con, "%06x:  ", i);
+        ttty_mux_printf(&Con, "%02x %02x %02x %02x %02x %02x %02x %02x ", m[i], m[i + 1], m[i + 2], m[i + 3],
                         m[i + 4], m[i + 5], m[i + 6], m[i + 7]);
-        ttty_mux_printf(&Con, "|%x %x %x %x %x %x %x %x\t", m[i + 8], m[i + 9], m[i + 10],
+        ttty_mux_printf(&Con, "| %02x %02x %02x %02x %02x %02x %02x %02x", m[i + 8], m[i + 9], m[i + 10],
                         m[i + 11], m[i + 12], m[i + 13], m[i + 14], m[i + 15]);
-        ttty_mux_putc(&Con, '|');
+        ttty_mux_puts(&Con, "|  ");
         for (j = 0; j < 16; j++) {
-            u8 c = m[j + i] ? m[j + i] : '.';
+            u8 c = is_print(m[j + i]) ? m[j + i] : '.';
             ttty_mux_putc(&Con, c);
             if (j == 7) ttty_mux_putc(&Con, '|');
         }
@@ -805,6 +873,20 @@ static bool vol_control(void)
     return false;
 }
 
+static bool pause(bool *paused, int scancode)
+{
+    // checks if key has been pressed and toggles itself
+    struct KbdEvent *e;
+
+    e = kbd_event_pop(&KeyboardEvents);
+    if (e != NULL && e->scancode == scancode) {
+        *paused = !*paused;
+        return *paused;
+    }
+
+    return *paused;
+}
+
 /* AUDIO TESTS */
 
 #define F_C 0x110
@@ -835,7 +917,6 @@ void play_chord(u16 f1, u16 f2, u16 f3)
 
     /* Wait for the most significant byte to show the flags (Big Endian) */
     do {
-        if (vol_control()) return;
         status = _lwd(Devices.audio + AUDIO_GLOBAL_STATUS0);
     } while ((status & MASK) != MASK);
 
@@ -955,6 +1036,9 @@ void tamlin(int argc, char *argv[])
 static u8   video_context    = 0;
 static bool video_is_drawing = false;
 
+static u16  focal = 256, max_distance = 1200;
+static fx16 wox, woy, woz = TO_FX16(300);
+
 static void video_begin_drawing(u8 context)
 {
     video_context    = context;
@@ -1009,7 +1093,6 @@ void bouncing_box(void)
     if (current_x < -40 || current_x > 600) dx = -dx;
     if (current_y < -40 || current_y > 440) dy = -dy;
 
-
     video_begin_drawing(0);
 
     video_clear(0x5, VIDEO_CLEAR_FLAG_FB);
@@ -1027,7 +1110,8 @@ void bouncing_box(void)
 
     video_end_drawing();
 
-    ttty_printf(&Video_tty, "\x1b[30;61HBox {x: %03d, y: %03d}", current_x + box_size / 2, current_y + box_size / 2);
+    ttty_printf(&Video_tty, "\x1b[30;61HBox {x: %03d, y: %03d}", current_x + box_size / 2,
+                current_y + box_size / 2);
 }
 
 static void (*on_vblank)(void) = NULL;
@@ -1041,7 +1125,7 @@ void test2d(int argc, char *argv[])
 
     on_vblank = &bouncing_box;
 
-    vcsr |= 1; // vblank enable
+    vcsr |= VIDEO_VBLANK_EN; // vblank enable
     _sbd(Devices.video + VIDEO_CSR, vcsr);
 
     do {
@@ -1049,7 +1133,7 @@ void test2d(int argc, char *argv[])
     } while (!escape);
 
     vcsr = _lbud(Devices.video + VIDEO_CSR);
-    vcsr &= ~1; // vblank enable
+    vcsr &= ~VIDEO_VBLANK_EN; // vblank enable
     _sbd(Devices.video + VIDEO_CSR, vcsr);
 
     video_clear(0, VIDEO_CLEAR_FLAG_TB | VIDEO_CLEAR_FLAG_FB);
@@ -1058,9 +1142,286 @@ void test2d(int argc, char *argv[])
     ttty_clear(&Video_tty);
 }
 
+#define MAX_VERTS 100
+static vxi16 vxbuff[MAX_VERTS];
+
+void draw_batch(const vxi16 *vxbuff, usize vxbuff_len, u16 rotx, u16 roty, u16 rotz, u8 flags)
+{
+    _swd(Devices.video + VIDEO_GPU0, (u32)vxbuff);
+    _sbd(Devices.video + VIDEO_GPU0, video_context);
+    _shd(Devices.video + VIDEO_GPU4, vxbuff_len / VXI16_REPR_SZ);
+    _shd(Devices.video + VIDEO_GPU6, focal);
+    _swd(Devices.video + VIDEO_GPU0, wox);
+    _swd(Devices.video + VIDEO_GPU4, woy);
+    _swd(Devices.video + VIDEO_GPU0, woz);
+    _shd(Devices.video + VIDEO_GPU4, rotx);
+    _shd(Devices.video + VIDEO_GPU6, roty);
+    _shd(Devices.video + VIDEO_GPU0, rotz);
+    _shd(Devices.video + VIDEO_GPU2, max_distance);
+    _sbd(Devices.video + VIDEO_GPU4, flags);
+    _sbd(Devices.video + VIDEO_GPU7, 0); // latch
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_DRAW_BATCH);
+}
+
+static const vxi16 cube_mesh[] = {
+    /* STRIP 1: THE SIDES (Sleeve) - 10 vertices */
+    /* Connecting (Front TL, Back TL, Front TR, Back TR, Front BR, Back BR, Front BL, Back BL, then
+       back to start) */
+    { -50, -50, -50, 21, 0 },
+    { -50, -50, 50, 21, 0 },
+    { 50, -50, -50, 21, 0 },
+    { 50, -50, 50, 21, 0 },
+    { 50, 50, -50, 21, 0 },
+    { 50, 50, 50, 21, 0 },
+    { -50, 50, -50, 21, 0 },
+    { -50, 50, 50, 21, 0 },
+    { -50, -50, -50, 21, 0 },
+    { -50, -50, 50, 21, VX_END_OF_STRIP },
+
+    /* STRIP 2: TOP CAP - 4 vertices */
+    { -50, -50, -50, 32, 0 },
+    { 50, -50, -50, 32, 0 },
+    { -50, 50, -50, 32, 0 },
+    { 50, 50, -50, 32, VX_END_OF_STRIP },
+
+    /* STRIP 3: BOTTOM CAP - 4 vertices */
+    { -50, -50, 50, 45, 0 },
+    { -50, 50, 50, 45, 0 },
+    { 50, -50, 50, 45, 0 },
+    { 50, 50, 50, 45, VX_END_OF_STRIP }
+};
+
+static const vxi16 quad_mesh[] = {
+    /* Triangle 1 */
+    { -50, -50, 0, 10, 0 }, /* Bottom-Left  */
+    { 50, -50, 0, 10, 0 },  /* Bottom-Right */
+    { -50, 50, 0, 10, 0 },  /* Top-Left    */
+    /* Triangle 2 */
+    { 50, -50, 0, 10, 0 }, /* Bottom-Right */
+    { 50, 50, 0, 10, 0 },  /* Top-Right    */
+    { -50, 50, 0, 10, 0 }  /* Top-Left    */
+};
+
+static const vxi16 hexagon_mesh[] = {
+    { 0, 0, 0, 12, 0 },               /* V0: Center Hub */
+    { 0, 50, 0, 12, 0 },              /* V1: Top */
+    { 43, 25, 0, 12, 0 },             /* V2 */
+    { 43, -25, 0, 12, 0 },            /* V3 */
+    { 0, -50, 0, 12, 0 },             /* V4: Bottom */
+    { -43, -25, 0, 12, 0 },           /* V5 */
+    { -43, 25, 0, 12, 0 },            /* V6 */
+    { 0, 50, 0, 12, VX_END_OF_STRIP } /* V7: Close back to Top */
+};
+
+static const vxi16 points_abs_mesh[] = { { -100, 80, 200, 15, 0 },
+                                         { 150, -30, 450, 14, 0 },
+                                         { 10, 10, 100, 13, 0 },
+                                         { -200, -50, 800, 12, 0 } };
+
+static const vxi16 points_linked_mesh[] = { { 0, 0, 0, 15, 0 }, /* V0: The anchor (Place at
+                                                                   world_offset) */
+                                            { 10, 10, 10, 7, 0 },
+                                            { -10, 10, 10, 7, 0 },
+                                            { 0, -15, -5, 7, 0 } };
+
+static const vxi16 line_strip_mesh[] = {
+    { -40, 40, 0, 11, 0 },              /* Top-Left */
+    { 40, 40, 0, 11, 0 },               /* Top-Right */
+    { -40, -40, 0, 11, 0 },             /* Bottom-Left */
+    { 40, -40, 0, 11, VX_END_OF_STRIP } /* Bottom-Right */
+};
+
+static const vxi16 line_star_mesh[] = {
+    { 0, 0, 0, 15, 0 },               /* V0: The Hub */
+    { 50, 0, 0, 45, 0 },              /* Line 1: X-Axis */
+    { 0, 50, 0, 21, 0 },              /* Line 2: Y-Axis */
+    { 0, 0, 50, 32, VX_END_OF_STRIP } /* Line 3: Z-Axis */
+};
+
+static u16  ry        = 0;
+static u16  rx        = 0;
+static bool is_paused = false;
+static void cube(void)
+{
+    int x = -3;
+
+    video_begin_drawing(0);
+    video_clear(0x5, VIDEO_CLEAR_FLAG_FB);
+    wox = TO_FX16(80 * x++);
+    draw_batch(cube_mesh, sizeof(cube_mesh), rx, ry, 0,
+               VIDEO_BATCH_TYPE_TRISTRIP | VIDEO_BATCH_BACKFACE_CULLING | VIDEO_BATCH_PERSPECTIVE |
+                   VIDEO_BATCH_DEPTH_SORT);
+    wox = TO_FX16(80 * x++);
+    draw_batch(quad_mesh, sizeof(quad_mesh), 10, 20, 0,
+               VIDEO_BATCH_TYPE_TRILIST | VIDEO_BATCH_BACKFACE_CULLING | VIDEO_BATCH_PERSPECTIVE |
+                   VIDEO_BATCH_DEPTH_SORT);
+    wox = TO_FX16(80 * x++);
+    draw_batch(hexagon_mesh, sizeof(hexagon_mesh), rx, ry, 0,
+               VIDEO_BATCH_TYPE_TRISTRIP | VIDEO_BATCH_MODIFY_TOPOLOGY |
+                   VIDEO_BATCH_BACKFACE_CULLING | VIDEO_BATCH_PERSPECTIVE | VIDEO_BATCH_DEPTH_SORT);
+    wox = TO_FX16(80 * x++);
+    draw_batch(points_abs_mesh, sizeof(points_abs_mesh), rx, ry, 0,
+               VIDEO_BATCH_TYPE_POINT | VIDEO_BATCH_BACKFACE_CULLING | VIDEO_BATCH_PERSPECTIVE |
+                   VIDEO_BATCH_DEPTH_SORT);
+    wox = TO_FX16(80 * x++);
+    draw_batch(points_linked_mesh, sizeof(points_linked_mesh), rx, ry, 0,
+               VIDEO_BATCH_TYPE_POINT | VIDEO_BATCH_MODIFY_TOPOLOGY | VIDEO_BATCH_BACKFACE_CULLING |
+                   VIDEO_BATCH_PERSPECTIVE | VIDEO_BATCH_DEPTH_SORT);
+    wox = TO_FX16(80 * x++);
+    draw_batch(line_strip_mesh, sizeof(line_strip_mesh), 10, 30, 0,
+               VIDEO_BATCH_TYPE_LINE | VIDEO_BATCH_BACKFACE_CULLING | VIDEO_BATCH_PERSPECTIVE |
+                   VIDEO_BATCH_DEPTH_SORT);
+    wox = TO_FX16(80 * x++);
+    draw_batch(line_star_mesh, sizeof(line_star_mesh), rx, ry, 0,
+               VIDEO_BATCH_TYPE_LINE | VIDEO_BATCH_MODIFY_TOPOLOGY | VIDEO_BATCH_BACKFACE_CULLING |
+                   VIDEO_BATCH_PERSPECTIVE | VIDEO_BATCH_DEPTH_SORT);
+    video_end_drawing();
+
+    ttty_printf(&Video_tty, "\x1b[34;40H rotation {rx: %07d, ry: %07d}", rx, ry);
+
+    if (!is_paused) {
+        rx += 200;
+        ry += 350;
+    }
+}
+
+void test3d(int argc, char *argv[])
+{
+    bool escape    = false;
+    u32  vcsr      = _lbud(Devices.video + VIDEO_CSR);
+    u16  old_focal = focal;
+    fx16 old_woz   = woz;
+    fx16 old_woy   = woy;
+
+    video_clear(0, VIDEO_CLEAR_FLAG_TB | VIDEO_CLEAR_FLAG_FB);
+
+    on_vblank = &cube;
+
+    vcsr |= VIDEO_VBLANK_EN; // vblank enable
+
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    do {
+        pause(&is_paused, KEY_SPACE);
+        escape = vol_control();
+    } while (!escape);
+
+    vcsr = _lbud(Devices.video + VIDEO_CSR);
+    vcsr &= ~VIDEO_VBLANK_EN; // vblank disable
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    video_clear(0, VIDEO_CLEAR_FLAG_TB | VIDEO_CLEAR_FLAG_FB);
+    on_vblank = NULL;
+
+    focal = old_focal;
+    woz   = old_woz;
+    woy   = old_woy;
+
+    kbd_reset_translation();
+    // while(kbd_event_pop(&KeyboardEvents) != NULL);
+
+    ttty_clear(&Video_tty);
+}
+
 void bios_vblank_handler(void)
 {
     if (on_vblank) on_vblank();
+}
+
+/* MOUSE TEST */
+
+void readmouse(void)
+{
+    u8          buttons;
+    u16         x, y;
+    static bool left, right;
+
+    buttons = _lbud(Devices.mouse + MOUSE_STATE);
+    x       = _lhud(Devices.mouse + MOUSE_X);
+    y       = _lhud(Devices.mouse + MOUSE_Y);
+
+    ttty_printf(&Video_tty, "\x1b[15;32H {x: %03d, y: %03d}", x, y);
+
+    if (buttons & MOUSE_BUTT_LEFT) {
+        ttty_printf(&Video_tty, "\x1b[16;34H LEFT PRESSED");
+        left = true;
+    } else if (left == true) {
+        ttty_printf(&Video_tty, "\x1b[16;34HLEFT RELEASED");
+    }
+
+    if (buttons & MOUSE_BUTT_RIGHT) {
+        ttty_printf(&Video_tty, "\x1b[17;34H RIGHT PRESSED");
+        right = true;
+    } else if (right == true) {
+        ttty_printf(&Video_tty, "\x1b[17;34HRIGHT RELEASED");
+    }
+}
+
+void mouse(int argc, char *argv[])
+{
+    bool escape = false;
+    u32  vcsr   = _lbud(Devices.video + VIDEO_CSR);
+
+    ttty_clear(&Video_tty);
+    ttty_puts(&Video_tty, "Hover your mouse over the screen and click anywhere! \nEsc to quit\n");
+
+    on_vblank = &readmouse;
+
+    vcsr |= VIDEO_VBLANK_EN; // vblank enable
+    vcsr &= ~VIDEO_CURSOR_EN;
+
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    do {
+        escape = vol_control();
+    } while (!escape);
+
+    vcsr = _lbud(Devices.video + VIDEO_CSR);
+    vcsr &= ~VIDEO_VBLANK_EN; // vblank disable
+    vcsr |= VIDEO_CURSOR_EN;
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    on_vblank = NULL;
+
+    ttty_clear(&Video_tty);
+    kbd_reset_translation();
+}
+
+void kbtest(int argc, char *argv[])
+{
+    struct KbdEvent *e;
+    bool             escape = false;
+    u32              vcsr   = _lbud(Devices.video + VIDEO_CSR);
+    vcsr &= ~VIDEO_CURSOR_EN;
+
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    ttty_clear(&Video_tty);
+    ttty_puts(&Video_tty, "Press any key! \nEsc 2 times to quit");
+
+    for (;;) {
+        e = kbd_event_pop(&KeyboardEvents);
+        if (e != NULL) {
+            if (!escape && e->scancode == KEY_ESCAPE) {
+                ttty_printf(&Video_tty, "\x1b[2;HPress one more time to quit");
+                escape = true;
+            } else if (escape && e->scancode == KEY_ESCAPE) {
+                break;
+            } else {
+                escape = false;
+                ttty_printf(&Video_tty, "\x1b[2;HEsc 2 times to quit");
+            }
+
+            ttty_printf(&Video_tty, "\x1b[4;H\tcharacter:\t\'%c\' [%03d]\n",
+                       (is_print(e->character) && !is_space(e->character)) ? e->character : ' ', e->character);
+            ttty_printf(&Video_tty, "\tscancode:\t0x%04x\n", e->scancode);
+            ttty_printf(&Video_tty, "\x1b[K\tevent:\t %s\tmodifiers: 0x%02x\n",
+                        e->is_keydown ? "KEY DOWN" : "KEY RELEASED", e->modifiers);
+        }
+    }
+    vcsr |= VIDEO_CURSOR_EN;
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+    ttty_clear(&Video_tty);
 }
 
 static const ushell_command_t commands[] = {
@@ -1079,11 +1440,12 @@ static const ushell_command_t commands[] = {
     { "tamlin", "play a bit of Tam Lin", &tamlin },
     /* VIDEO TEST */
     { "box", "a very simple 2d demo", &test2d },
-    // TODO: 3d test
-    // TODO: rich text mode test
+    { "3d", "a very simple 3d demo", &test3d },
+    /* RICH text mode test */
+    { "pecho", "echo, but prettier", &pretty_echo },
     /* UI (KEYBOARD AND MOUSE TEST) */
-    // TODO: mouse test (click & drag & position (hover))
-    // TODO: keyboard tester (scancode & character)
+    { "mous", "test the mouse", &mouse },
+    { "kbtest", "test the keyboard", &kbtest },
     /* STORAGE TEST */
     // TODO: tps test (load sector & store sector)
     // TODO: hcs test (load sector & store sector)
@@ -1103,12 +1465,15 @@ void bios_start(void)
     usize i, wait;
     u8    x, y;
 
+    _cli();
+
     bios_init();
 
     for (i = 0; i < 100000; i++) {
         wait += i;
     }
 
+    _sti();
     ttty_mux_clear(&Con);
 
     ttty_mux_printf(&Con, "%s %s %c\n", BIOS_NAME, BIOS_VERSION, BIOS_CHR);
@@ -1116,6 +1481,8 @@ void bios_start(void)
                 Video_tty.bpc);
 
     ushell_init(commands, sizeof(commands) / sizeof(commands[0]));
+
+    _ssreg(3287281664);
 
     while (true) {
         u8 chr = tins_getc(&Keyboard_in);

@@ -683,7 +683,7 @@ void Serial_SendByte(TaleaMachine *m, u8 byte)
 {
     HayesModem *modem = &m->terminal.serial.modem;
 
-    TALEA_LOG_TRACE("Sending byte %02x\n", byte);
+    //TALEA_LOG_TRACE("Sending byte %02x\n", byte);
 
     switch (modem->state) {
     case MODEM_STATE_COMMAND: Modem_ProcessCommand(m, byte); break;

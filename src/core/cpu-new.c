@@ -81,7 +81,7 @@ static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 
     if (is_interrupt && !SR_GET_INTERRUPT(m->cpu.status)) return;
 
-    m->cpu.is_processing_exception = true;
+    //m->cpu.is_processing_exception = is_interrupt ? false : true;
     m->cpu.exception               = vector;
 
     // normal exception
@@ -121,7 +121,7 @@ static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 #error "Use fixed IVT for now please"
 #endif
 
-    m->cpu.is_processing_exception = false;
+    //m->cpu.is_processing_exception = false;
     m->cpu.exception               = EXCEPTION_NONE;
 
     m->cpu.cycles += CYCLES_EXCEPTION;

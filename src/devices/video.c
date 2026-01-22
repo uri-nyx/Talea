@@ -320,6 +320,8 @@ static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 
         memset(&m->main_memory[v->framebuffer.addr], color,
                (size_t)v->framebuffer.w * v->framebuffer.h);
     }
+
+    v->cursor_cell_index = 0;
 }
 
 static inline void Video_SetMode(DeviceVideo *v, u8 mode)
@@ -803,11 +805,11 @@ static inline void fillTopFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D
     fx16 dy0 = y2 - y0;
 
     fx16 invs0 = (fx16)(((i64)(x2 - x0) << FX16) / dy0);
-    fx16 invs1 = (fx16)(((i64)(x2 - x1) << FX16) / dy1);
+    fx16 invs1 = (fx16)(((i64)(x2 - x1) << FX16) / dy0);
 
     fx16 invl, invr, xl, xr;
-
-    if (x0 < x1) {
+    /*
+    if (invs0 < invs1) {
         xl   = x0;
         xr   = x1;
         invl = invs0;
@@ -818,6 +820,11 @@ static inline void fillTopFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D
         invl = invs1;
         invr = invs0;
     }
+    */
+    xl   = x0;
+    xr   = x1;
+    invl = invs0;
+    invr = invs1;
 
     if (xr < xl) {
         fx16 t = xl;
@@ -1003,6 +1010,10 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
                                u16 len, u16 focal, fx16v3 world_offset, i16v3 rotation,
                                fx16 max_distance, u8 flags)
 {
+    bool is_origin_linked = flags &
+                                (VIDEO_BATCH_TYPE1 | VIDEO_BATCH_TYPE0) == VIDEO_BATCH_TYPE_POINT &&
+                            flags & VIDEO_BATCH_MODIFY_TOPOLOGY;
+
     // preparation:
     // 1. calculate rotations
     double rad_x, rad_y, rad_z;
@@ -1077,14 +1088,26 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
             ry = ((i64)vx->x * m3 + (i64)vx->y * m4 + (i64)vx->z * m5) >> FX16;
             rz = ((i64)vx->x * m6 + (i64)vx->y * m7 + (i64)vx->z * m8) >> FX16;
 
-            // Translate to world offset IF not absolute
-            pvx->x = rx + world_offset.x;
-            pvx->y = ry + world_offset.y;
-            pvx->z = rz + world_offset.z;
+            if (is_origin_linked) {
+                pvx->x = rx + v2d[0].x;
+                pvx->y = ry + v2d[0].y;
+                pvx->z = rz + v2d[0].z;
+            } else {
+                // Translate to world offset IF not absolute and not origin linked
+                pvx->x = rx + world_offset.x;
+                pvx->y = ry + world_offset.y;
+                pvx->z = rz + world_offset.z;
+            }
         } else {
-            pvx->x = vx->x;
-            pvx->y = vx->y;
-            pvx->z = vx->z;
+            if (is_origin_linked) {
+                pvx->x = vx->x + v2d[0].x;
+                pvx->y = vx->y + v2d[0].y;
+                pvx->z = vx->z + v2d[0].z;
+            } else {
+                pvx->x = vx->x;
+                pvx->y = vx->y;
+                pvx->z = vx->z;
+            }
         }
         /*
                 if (i == 0) {
@@ -1175,21 +1198,25 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
         /* calculate Z-shading if enabled */
         /* how to handle dithering? */
         /* raster with Bresehnhan */
+
+        bool is_star = flags & VIDEO_BATCH_MODIFY_TOPOLOGY;
         for (size_t i = 0; i < len - 1; i++) {
-            vxfx16 *pvx0 = &v2d[i];     // projected vertex
+            size_t  v0id = is_star ? 0 : i;
+            vxfx16 *pvx0 = &v2d[v0id];  // projected vertex
             vxfx16 *pvx1 = &v2d[i + 1]; // projected vertex
 
             if (pvx0->flags & VX_HIDE) continue;
             if (pvx1->flags & VX_HIDE) continue;
-            if (pvx0->flags & VX_END_OF_STRIP) continue;
+            if (!is_star && pvx0->flags & VX_END_OF_STRIP) continue;
 
-            i16v2 svx[2] = { 0 };
-            memcpy(svx, &vscreen[i], sizeof(svx));
+            i16v2 svx[2];
+            svx[0] = vscreen[v0id];
+            svx[1] = vscreen[i + 1];
 
             bool visible = CohenSutherland(dest, &svx[0], &svx[1]);
             if (!visible) continue;
 
-            u8 final_color = pvx0->color;
+            u8 final_color = (is_star) ? pvx1->color : pvx0->color;
             if ((flags & VIDEO_BATCH_ZSHADING) && !(pvx0->flags & VX_BRIGHT)) {
                 i8 shade    = pvx0->z >= max_distance ? 0 :
                               pvx0->z <= 0            ? 15 :
@@ -1201,25 +1228,32 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
             Video_DrawLine(m, v, dest, final_color, svx[0].x, svx[0].y, svx[1].x, svx[1].y);
         }
         break;
-    case VIDEO_BATCH_TYPE_TRI: {
+    case VIDEO_BATCH_TYPE_TRISTRIP:
+    case VIDEO_BATCH_TYPE_TRILIST: {
         /* tris: clipping, z-near check*/
         /* culling if not disabled */
         /* calculate Z-shading if enabled */
         /* how to handle dithering? */
         /* raster with DrawTri, probably we have to update it */
 
+        bool   is_fan      = flags & VIDEO_BATCH_MODIFY_TOPOLOGY;
         size_t n_triangles = 0;
         memset(sorted_triangles, 0, sizeof(sorted_triangles));
 
-        for (size_t i = 0; i < len - 2; i++) {
-            vxfx16 *pvx0 = &v2d[i];     // projected vertex
+        size_t step = (primitive == VIDEO_BATCH_TYPE_TRILIST) ? 3 : 1;
+
+        for (size_t i = 0; i < len - 2; i += step) {
+            size_t  v0id = is_fan ? 0 : i;
+            vxfx16 *pvx0 = &v2d[v0id];  // projected vertex
             vxfx16 *pvx1 = &v2d[i + 1]; // projected vertex
             vxfx16 *pvx2 = &v2d[i + 2]; // projected vertex
 
-            if (pvx0->flags & VX_END_OF_STRIP || pvx1->flags & VX_END_OF_STRIP) continue;
+            if (primitive == VIDEO_BATCH_TYPE_TRISTRIP && !is_fan &&
+                (pvx0->flags & VX_END_OF_STRIP || pvx1->flags & VX_END_OF_STRIP))
+                continue;
 
             sorted_triangles[n_triangles].strip_id = i;
-            sorted_triangles[n_triangles].vx0_id   = i;
+            sorted_triangles[n_triangles].vx0_id   = v0id;
             sorted_triangles[n_triangles].vx1_id   = i + 1;
             sorted_triangles[n_triangles].vx2_id   = i + 2;
             sorted_triangles[n_triangles].depth    = (((i64)pvx0->z + pvx1->z + pvx2->z) / 3);
@@ -1237,23 +1271,22 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
             vxfx16  *pvx1 = &v2d[tri->vx1_id]; // projected vertex
             vxfx16  *pvx2 = &v2d[tri->vx2_id]; // projected vertex
 
-            if (pvx0->flags & VX_HIDE || pvx1->flags & VX_HIDE || pvx2->flags & VX_HIDE) continue;
+            if (pvx0->flags & VX_HIDE || pvx1->flags & VX_HIDE || pvx2->flags & VX_HIDE) {
+                // TALEA_LOG_TRACE("Hiding tri because flag said so\n");
+                continue;
+            }
 
             i16v2 *svx0 = &vscreen[tri->vx0_id];
             i16v2 *svx1 = &vscreen[tri->vx1_id];
             i16v2 *svx2 = &vscreen[tri->vx2_id];
 
-            if (tri->strip_id % 2 == 0) {
-                i16v2 *t = svx1;
-                svx1     = svx2;
-                svx2     = t;
-            }
+            i64 det = (i64)(svx1->x - svx0->x) * (svx2->y - svx0->y) -
+                      (i64)(svx1->y - svx0->y) * (svx2->x - svx0->x);
 
-            if (flags & VIDEO_BATCH_BACKFACE_CULLING) {
-                i64 det = (i64)(svx1->x - svx0->x) * (svx2->y - svx0->y) -
-                          (i64)(svx1->y - svx0->y) * (svx2->x - svx0->x);
-                if (det >= 0) continue;
-            }
+            if (primitive == VIDEO_BATCH_TYPE_TRISTRIP && !is_fan && (tri->strip_id % 2 != 0))
+                det = -det;
+
+            if (flags & VIDEO_BATCH_BACKFACE_CULLING && det > 0) continue;
 
             u8 final_shade = pvx0->color;
 
@@ -1935,10 +1968,10 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         // Ensure current index is within total bounds before extracting Y
         if (v->cursor_cell_index >= w * h) v->cursor_cell_index = 0;
 
-        u32 y = v->cursor_cell_index / w;
-        u32 new_x = value % w; // Clamp input X to width
+        u32 y                = v->cursor_cell_index / w;
+        u32 new_x            = value % w; // Clamp input X to width
         v->cursor_cell_index = (y * w) + new_x;
-        //TALEA_LOG_TRACE("Set cursor X to: %d (Y: %d)\n", value, y);
+        // TALEA_LOG_TRACE("Set cursor X to: %d (Y: %d)\n", value, y);
         break;
     }
     case P_VIDEO_CUR_Y: {
@@ -1948,10 +1981,10 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
 
         if (v->cursor_cell_index >= w * h) v->cursor_cell_index = 0;
 
-        u32 x = v->cursor_cell_index % w;
-        u32 new_y = value % h; // Clamp input Y to height
+        u32 x                = v->cursor_cell_index % w;
+        u32 new_y            = value % h; // Clamp input Y to height
         v->cursor_cell_index = (new_y * w) + x;
-        //TALEA_LOG_TRACE("Set cursor Y to: %d (X: %d)\n", value, x);
+        // TALEA_LOG_TRACE("Set cursor Y to: %d (X: %d)\n", value, x);
         break;
     }
     case P_VIDEO_CSR: {

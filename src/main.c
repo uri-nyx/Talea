@@ -25,12 +25,17 @@ void        Machine_Poweroff(TaleaMachine *m)
     Serial_CloseSockets(m);
 }
 
+static char *mapped_file_path = NULL; // A mapped file at 0x1000, passed in argv[0]
+
 void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
 {
     bool is_restart = Frontend_IsRestart();
 
     Frontend_StartMusic();
     Frontend_PlayStartup();
+
+    memset(m->main_memory, 0, TALEA_MAIN_MEM_SZ);
+    memset(m->data_memory, 0, TALEA_DATA_MEM_SZ);
 
     Cpu_Reset(m, conf, is_restart);
     Terminal_Reset(m, conf, is_restart);
@@ -63,6 +68,17 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
 
     Bus_RegisterDevices(m, device_registry, 0, 4);
 
+    if (mapped_file_path) {
+        int sz   = 0;
+        u8 *data = LoadFileData(mapped_file_path, &sz);
+     
+        if (data) {
+            sz = MIN(sz, TALEA_MAIN_MEM_SZ - 0x1000);
+            memcpy(&m->main_memory[0x1000], data, sz);
+            UnloadFileData(data);
+        }
+    }
+
     Machine_LoadFirmware(m, conf->firmware_path);
 }
 
@@ -75,12 +91,14 @@ void Machine_LoadFirmware(TaleaMachine *m, const char *path)
     firmware      = LoadFileData(path, &firmware_size);
 
     if (firmware == NULL || firmware_size < 1 || firmware_size > TALEA_MAX_FIRMWARE_SIZE) {
-        TALEA_LOG_ERROR("Error, firmware file is too big or not valid (size: %d, max: %d)",
+        TALEA_LOG_ERROR("Error, firmware file is too big or not valid (size: %d, max: %d)\n",
                         firmware_size, TALEA_MAX_FIRMWARE_SIZE);
         exit(1);
     }
 
     memcpy(&m->main_memory[TALEA_FIRMWARE_ADDRESS], firmware, firmware_size);
+    TALEA_LOG_TRACE("Loaded firmware at 0x%04x, size: %d bytes\n", TALEA_FIRMWARE_ADDRESS,
+                    firmware_size);
     UnloadFileData(firmware);
 }
 
@@ -119,13 +137,7 @@ int main(int argc, char **argv)
     }
 
     if (argc == 2) {
-        int sz   = 0;
-        u8 *data = LoadFileData(argv[1], &sz);
-
-        if (data) {
-            sz = MIN(sz, TALEA_MAIN_MEM_SZ);
-            memcpy(&talea.main_memory[0x1000], data, sz);
-        }
+        mapped_file_path = argv[1];
     }
 
     TaleaConfig config = Config_Load(CONFIG_FILE_PATH);

@@ -99,6 +99,17 @@ enum PortsKeyboard {
     KBD_SCAN = 0x2  /* R */
 };
 
+enum PortsMouse {
+    MOUSE_STATE = 0,
+    MOUSE_X     = 1,
+    MOUSE_Y     = 3,
+};
+
+enum MouseButtons {
+    MOUSE_BUTT_RIGHT = 0x01,
+    MOUSE_BUTT_LEFT  = 0x02,
+};
+
 enum TaleaVideoMode {
     VIDEO_MODE_TEXT_MONO,
     VIDEO_MODE_TEXT_COLOR,
@@ -158,10 +169,115 @@ enum VideoCommand {
     COMMAND_GET_MARKER,
 };
 
-enum VideoClearFlag {
-        VIDEO_CLEAR_FLAG_TB = 1<<0,
-        VIDEO_CLEAR_FLAG_FB = 1<<1,
+enum VideoCSR {
+    VIDEO_VBLANK_EN    = 0X01,
+    VIDEO_RESET_REGS   = 0X02,
+    VIDEO_CURSOR_EN    = 0X04,
+    VIDEO_CURSOR_BLINK = 0X08,
+    VIDEO_ROP0         = 0X10,
+    VIDEO_ROP1         = 0X20,
+    VIDEO_ROP2         = 0X40,
+    VIDEO_QUEUE_FULL   = 0X80,
 };
+
+enum TextModeAttrib {
+    TEXTMODE_CHAR = 0xFF000000,
+    TEXTMODE_FG   = 0X00FF0000,
+    TEXTMODE_BG   = 0X0000FF00,
+    TEXTMODE_ATT  = 0X000000FF,
+
+    TEXTMODE_ATT_CODEPAGE    = 0x01,
+    TEXTMODE_ATT_ALT_FONT    = 0x02,
+    TEXTMODE_ATT_TRANSPARENT = 0x04,
+    TEXTMODE_ATT_OBLIQUE     = 0x08,
+    TEXTMODE_ATT_DIM         = 0x10,
+    TEXTMODE_ATT_UNDERLINE   = 0x20,
+    TEXTMODE_ATT_BOLD        = 0x40,
+    TEXTMODE_ATT_BLINK       = 0x80,
+};
+
+enum VideoClearFlag {
+    VIDEO_CLEAR_FLAG_TB = 1 << 0,
+    VIDEO_CLEAR_FLAG_FB = 1 << 1,
+};
+
+enum VideoBatchFlags {
+    VIDEO_BATCH_TYPE0            = 1 << 0,
+    VIDEO_BATCH_TYPE1            = 1 << 1,
+    VIDEO_BATCH_BACKFACE_CULLING = 1 << 2,
+    VIDEO_BATCH_ZSHADING         = 1 << 3,
+    VIDEO_BATCH_MODIFY_TOPOLOGY  = 1 << 4,
+    VIDEO_BATCH_ABSOLUTE         = 1 << 5,
+    VIDEO_BATCH_PERSPECTIVE      = 1 << 6,
+    VIDEO_BATCH_DEPTH_SORT       = 1 << 7,
+};
+
+enum VideoBatchType {
+    VIDEO_BATCH_TYPE_POINT    = 0,
+    VIDEO_BATCH_TYPE_LINE     = 1,
+    VIDEO_BATCH_TYPE_TRISTRIP = 2,
+    VIDEO_BATCH_TYPE_TRILIST  = 3,
+};
+
+enum VertexFlags {
+    VX_END_OF_STRIP = 1 << 0,
+    VX_BRIGHT       = 1 << 1,
+    VX_HIDE         = 1 << 2,
+    VX_MARK         = 1 << 3,
+    VX_MARKID0      = 1 << 4,
+    VX_MARKID1      = 1 << 5,
+    VX_MARKID2      = 1 << 6,
+    VX_MARKID3      = 1 << 7,
+};
+
+typedef i32 fx16;
+#define FX16         16
+#define TO_FX16(n)   ((fx16)((n) << FX16))
+#define FROM_FX16(n) ((int)((n) >> FX16))
+
+typedef struct {
+    fx16 x, y, z;
+    u8   color;
+    u8   flags;
+} vxfx16;
+
+typedef struct {
+    i16 x, y, z;
+    u8  color;
+    u8  flags;
+} vxi16;
+
+#define VXI16_REPR_SZ 8
+
+static const i16 sin_table[256] = {
+    0,      402,    803,    1205,   1606,   2006,   2404,   2801,   3196,   3589,   3981,   4370,
+    4756,   5139,   5519,   5896,   6269,   6639,   7004,   7366,   7723,   8075,   8423,   8765,
+    9102,   9434,   9759,   10079,  10393,  10701,  11002,  11297,  11585,  11866,  12139,  12406,
+    12665,  12916,  13159,  13395,  13622,  13842,  14053,  14255,  14449,  14634,  14810,  14978,
+    15136,  15286,  15426,  15557,  15678,  15791,  15893,  15986,  16069,  16142,  16206,  16260,
+    16305,  16339,  16364,  16379,  16384,  16379,  16364,  16339,  16305,  16260,  16206,  16142,
+    16069,  15986,  15893,  15791,  15678,  15557,  15426,  15286,  15136,  14978,  14810,  14634,
+    14449,  14255,  14053,  13842,  13622,  13395,  13159,  12916,  12665,  12406,  12139,  11866,
+    11585,  11297,  11002,  10701,  10393,  10079,  9759,   9434,   9102,   8765,   8423,   8075,
+    7723,   7366,   7004,   6639,   6269,   5896,   5519,   5139,   4756,   4370,   3981,   3589,
+    3196,   2801,   2404,   2006,   1606,   1205,   803,    402,    0,      -402,   -803,   -1205,
+    -1606,  -2006,  -2404,  -2801,  -3196,  -3589,  -3981,  -4370,  -4756,  -5139,  -5519,  -5896,
+    -6269,  -6639,  -7004,  -7366,  -7723,  -8075,  -8423,  -8765,  -9102,  -9434,  -9759,  -10079,
+    -10393, -10701, -11002, -11297, -11585, -11866, -12139, -12406, -12665, -12916, -13159, -13395,
+    -13622, -13842, -14053, -14255, -14449, -14634, -14810, -14978, -15136, -15286, -15426, -15557,
+    -15678, -15791, -15893, -15986, -16069, -16142, -16206, -16260, -16305, -16339, -16364, -16379,
+    -16384, -16379, -16364, -16339, -16305, -16260, -16206, -16142, -16069, -15986, -15893, -15791,
+    -15678, -15557, -15426, -15286, -15136, -14978, -14810, -14634, -14449, -14255, -14053, -13842,
+    -13622, -13395, -13159, -12916, -12665, -12406, -12139, -11866, -11585, -11297, -11002, -10701,
+    -10393, -10079, -9759,  -9434,  -9102,  -8765,  -8423,  -8075,  -7723,  -7366,  -7004,  -6639,
+    -6269,  -5896,  -5519,  -5139,  -4756,  -4370,  -3981,  -3589,  -3196,  -2801,  -2404,  -2006,
+    -1606,  -1205,  -803,   -402
+};
+
+/* Input: 0-255. Output: 1.14 Fixed Point */
+#define FX1_14_SIN(a)    (sin_table[(u8)(a)])
+#define FX1_14_COS(a)    (sin_table[(u8)((a) + 64)])
+#define FX1_14_MUL(a, b) ((i32)(a) * (b) >> 14)
 
 enum StorageMedium { NoMedia, Tps128K, Tps512K, Tps1M, Hcs32M, Hcs64M, Hcs128M };
 
@@ -232,28 +348,28 @@ enum PortsAudio {
 };
 
 enum AudioGlobalStatus {
-    AUDIO_GLOB_NOTE_ENDED0     = (1U << 0U),
-    AUDIO_GLOB_NOTE_ENDED1     = (1U << 1U),
-    AUDIO_GLOB_NOTE_ENDED2     = (1U << 2U),
-    AUDIO_GLOB_NOTE_ENDED3     = (1U << 3U),
-    AUDIO_GLOB_NOTE_ENDED4     = (1U << 4U),
-    AUDIO_GLOB_NOTE_ENDED5     = (1U << 5U),
-    AUDIO_GLOB_NOTE_ENDED6     = (1U << 6U),
-    AUDIO_GLOB_NOTE_ENDED7     = (1U << 7U),
-    AUDIO_GLOB_NOTE_ENDED8     = (1U << 8U),
-    AUDIO_GLOB_NOTE_ENDED_MASK = 0x1ff,
-    AUDIO_GLOB_BUSY0           = (1U << 9U),
-    AUDIO_GLOB_BUSY1           = (1U << 10U),
-    AUDIO_GLOB_BUSY2           = (1U << 11U),
-    AUDIO_GLOB_BUSY3           = (1U << 12U),
-    AUDIO_GLOB_BUSY4           = (1U << 13U),
-    AUDIO_GLOB_BUSY5           = (1U << 14U),
-    AUDIO_GLOB_BUSY6           = (1U << 15U),
-    AUDIO_GLOB_BUSY7           = (1U << 16U),
-    AUDIO_GLOB_BUSY8           = (1U << 17U),
-    AUDIO_GLOB_BUSY_MASK       = 0x3fE00,
-    AUDIO_GLOB_PCM_FIFO_FULL   = (1U << 20U),
-    AUDIO_GLOB_PCM_LOW_WATERMARK = (1U<<21U),
+    AUDIO_GLOB_NOTE_ENDED0       = (1U << 0U),
+    AUDIO_GLOB_NOTE_ENDED1       = (1U << 1U),
+    AUDIO_GLOB_NOTE_ENDED2       = (1U << 2U),
+    AUDIO_GLOB_NOTE_ENDED3       = (1U << 3U),
+    AUDIO_GLOB_NOTE_ENDED4       = (1U << 4U),
+    AUDIO_GLOB_NOTE_ENDED5       = (1U << 5U),
+    AUDIO_GLOB_NOTE_ENDED6       = (1U << 6U),
+    AUDIO_GLOB_NOTE_ENDED7       = (1U << 7U),
+    AUDIO_GLOB_NOTE_ENDED8       = (1U << 8U),
+    AUDIO_GLOB_NOTE_ENDED_MASK   = 0x1ff,
+    AUDIO_GLOB_BUSY0             = (1U << 9U),
+    AUDIO_GLOB_BUSY1             = (1U << 10U),
+    AUDIO_GLOB_BUSY2             = (1U << 11U),
+    AUDIO_GLOB_BUSY3             = (1U << 12U),
+    AUDIO_GLOB_BUSY4             = (1U << 13U),
+    AUDIO_GLOB_BUSY5             = (1U << 14U),
+    AUDIO_GLOB_BUSY6             = (1U << 15U),
+    AUDIO_GLOB_BUSY7             = (1U << 16U),
+    AUDIO_GLOB_BUSY8             = (1U << 17U),
+    AUDIO_GLOB_BUSY_MASK         = 0x3fE00,
+    AUDIO_GLOB_PCM_FIFO_FULL     = (1U << 20U),
+    AUDIO_GLOB_PCM_LOW_WATERMARK = (1U << 21U),
 };
 
 // TODO: DOCUMENT
@@ -267,13 +383,6 @@ enum AudioCsr {
     AUDIO_CSR_GATE       = 1 << 6, // changes mode to release note inmediately
 };
 
-enum MouseButtons {
-    MOUSE_BUTT_RIGHT = 0x01,
-    MOUSE_BUTT_LEFT  = 0x02,
-};
-
-/* MOUSE DEVICE PORTS */
-/* TODO: Support not yet documented */
 
 /* SYSTEM DEVICE PORTS */
 enum PortsSystem {
