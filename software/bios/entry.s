@@ -221,7 +221,7 @@ _isr_timer_timeout:
     addi    x8,x2,32
     sw      x1,24(x2)
 
-    #call    bios_timeout_handler
+    call    bios_timeout_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -244,7 +244,7 @@ _isr_timer_interval:
     addi    x8,x2,32
     sw      x1,24(x2)
 
-    #call    bios_interval_handler
+    call    bios_interval_handler
 
     lw      x1,24(x2)
     lw      x8,44(x2)
@@ -435,6 +435,18 @@ _lhud:
     .globl _lwd # extern u32 _lwd(u16 addr)
 _lwd:
     lwd     x10, 0(x12) #x12 addr
+    ret
+
+    .globl _copydm # extern usize _copydm(u16 data_addr_src, void *buff_dest, usize sz);
+_copydm:
+    copydm x12, x13, x14
+    mv x10, x14 # if interrupted, x14 will return actual bytes copied. //TODO: DOCUMENT THIS
+    ret
+
+    .globl _copymd # extern usize _copymd(void* buff_src, u16 data_addr_dest, usize sz);
+_copymd:
+    copymd x12, x13, x14
+    mv x10, x14 # if interrupted, x14 will return actual bytes copied. //TODO: DOCUMENT THIS
     ret
 
     .globl memset # extern void *memset(void *s, int c, size_t n)

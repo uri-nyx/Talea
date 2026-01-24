@@ -71,8 +71,8 @@ static inline u32 PopW(TaleaMachine *m)
     return word;
 }
 
-//#define DEBUG_LOG_EXCEPTIONS
-//#define DEBUG_LOG_INTERRUPTS
+// #define DEBUG_LOG_EXCEPTIONS
+// #define DEBUG_LOG_INTERRUPTS
 
 static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 {
@@ -81,8 +81,8 @@ static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 
     if (is_interrupt && !SR_GET_INTERRUPT(m->cpu.status)) return;
 
-    //m->cpu.is_processing_exception = is_interrupt ? false : true;
-    m->cpu.exception               = vector;
+    // m->cpu.is_processing_exception = is_interrupt ? false : true;
+    m->cpu.exception = vector;
 
     // normal exception
 
@@ -98,7 +98,7 @@ static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
         // FAULT
         u32 offending = Machine_ReadMain32(m, GET_PC(m) - 4);
         ON_FAULT_RETURN // andle double and triple fault
-        PushW(m, offending);
+            PushW(m, offending);
 
 #ifdef DEBUG_LOG_EXCEPTIONS
         TALEA_LOG_TRACE("FAULT: %u\n", vector);
@@ -121,8 +121,8 @@ static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 #error "Use fixed IVT for now please"
 #endif
 
-    //m->cpu.is_processing_exception = false;
-    m->cpu.exception               = EXCEPTION_NONE;
+    // m->cpu.is_processing_exception = false;
+    m->cpu.exception = EXCEPTION_NONE;
 
     m->cpu.cycles += CYCLES_EXCEPTION;
 }
@@ -150,18 +150,18 @@ static bool CheckInterrupts(TaleaMachine *m)
 
     if (m->storage.current_tps->just_ejected) {
         puts("Raise TPS Ejected \n");
-        m->storage.current_tps->just_ejected = true;
+        m->storage.current_tps->just_ejected = false;
         Machine_RaiseInterrupt(m, INT_TPS_EJECTED, PRIORITY_STORAGE_INTERRUPT);
     }
 
-    if (m->storage.current_tps->real_status & STOR_STATUS_DONE) {
-        m->storage.current_tps->real_status &= ~STOR_STATUS_DONE;
+    u8 old_tps_status = atomic_fetch_and(&m->storage.current_tps->status, ~STOR_STATUS_DONE);
+    if (old_tps_status & STOR_STATUS_DONE) {
         puts("Raise TPS FINISH\n");
         Machine_RaiseInterrupt(m, INT_TPS_FINISH, PRIORITY_STORAGE_INTERRUPT);
     }
 
-    if (m->storage.hcs.real_status & STOR_STATUS_DONE) {
-        m->storage.hcs.real_status &= ~STOR_STATUS_DONE;
+    u8 old_hcs_status = atomic_fetch_and(&m->storage.hcs.status, ~STOR_STATUS_DONE);
+    if (old_tps_status & STOR_STATUS_DONE) {
         Machine_RaiseInterrupt(m, INT_HCS_FINISH, PRIORITY_STORAGE_INTERRUPT);
     }
 
@@ -241,7 +241,7 @@ u32 MMU_TranslateAddr(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type
     }
 
     u32 phys = MMU_WalkPageTable(m, vaddr, access_type);
-    if (m->cpu.exception != EXCEPTION_NONE ) return 0;
+    if (m->cpu.exception != EXCEPTION_NONE) return 0;
 
     cached->phys  = phys & 0xFFF000;
     cached->perm  = phys & 0xFF;
@@ -523,7 +523,7 @@ void Cpu_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
         .cycles    = 0,
         .ticks     = 0,
         // Interrupts
-        .exception = EXCEPTION_NONE,
+        .exception               = EXCEPTION_NONE,
         .is_processing_exception = false,
         // Control lines
         .poweroff = 0,

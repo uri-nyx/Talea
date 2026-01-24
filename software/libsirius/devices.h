@@ -288,7 +288,44 @@ static const i16 sin_table[256] = {
 #define FX1_14_COS(a)    (sin_table[(u8)((a) + 64)])
 #define FX1_14_MUL(a, b) ((i32)(a) * (b) >> 14)
 
-enum StorageMedium { NoMedia, Tps128K, Tps512K, Tps1M, Hcs32M, Hcs64M, Hcs128M };
+enum StorageMedium {
+    NoMedia, // No medium detected
+    Tps128K, // Tps, 256 sectors, 1 bank of 256 sectors, sector is 512 bytes
+    Tps512K, // Tps, 1024 sectors, 4 banks of 256 sectors, sector is 512 bytes
+    Tps1M,   // Tps, 2048 sectors, 8 banks of 256 sectors, sector is 512 bytes
+    Hcs32M,  // Hcs, 65536 sectors, 1 banks of 65536 sectors, sector is 512 bytes
+    Hcs64M,  // Hcs, 131072 sectors, 2 banks of 65536 sectors, sector is 512 bytes
+    Hcs128M  // Hcs, 262144 sectors, 4 banks of 65536 sectors , sector is 512 bytes
+};
+
+enum StorageMediumLookup {
+    STORAGE_MEDIUM_LOOKUP_TYPE,
+    STORAGE_MEDIUM_LOOKUP_SECTORS,
+    STORAGE_MEDIUM_LOOKUP_BANKS,
+    STORAGE_MEDIUM_LOOKUP_BANK_SZ,
+    STORAGE_MEDIUM_LOOKUP_SECTOR_SZ,
+};
+
+#define NOMEDIA 0
+#define TPS     1
+#define HCS     2
+
+static const char *Storage_MediumNames[] = {
+    "NoMedia", // No medium detected
+    "Tps128K", // Tps, 256 sectors, 1 bank of 256 sectors, sector is 512 bytes
+    "Tps512K", // Tps, 1024 sectors, 4 banks of 256 sectors, sector is 512 bytes
+    "Tps1M",   // Tps, 2048 sectors, 8 banks of 256 sectors, sector is 512 bytes
+    "Hcs32M",  // Hcs, 65536 sectors, 1 banks of 65536 sectors, sector is 512 bytes
+    "Hcs64M",  // Hcs, 131072 sectors, 2 banks of 65536 sectors, sector is 512 bytes
+    "Hcs128M"  // Hcs, 262144 sectors, 4 banks of 65536 sectors , sector is 512 bytes
+};
+
+static u32 Storage_MediumLookup[7][5] = {
+    // TYPE, SECTOR COUNT, BANKS, BANK SIZE, SECTOR SIZE
+    { NOMEDIA, 0, 0, 0, 0 },        { TPS, 256, 1, 256, 512 },     { TPS, 1024, 4, 256, 512 },
+    { TPS, 2048, 8, 256, 512 },     { HCS, 65536, 1, 65536, 512 }, { HCS, 131072, 2, 65536, 512 },
+    { HCS, 262144, 4, 65536, 512 },
+};
 
 enum StorageStatus {
     STOR_STATUS_READY = 0x01,
@@ -305,7 +342,7 @@ enum StorageStatus {
 enum TpsId { TPS_ID_A, TPS_ID_B, TPS_TOTAL_DRIVES };
 
 /* TPS DEVICE PORTS */
-enum PortsTps { TPS_COMMAND = 0x00, TPS_DATA = 0x01, TPS_POINT = 0x02, TPS_STATUS = 0x04 };
+enum PortsTps { TPS_COMMAND = 0x00, TPS_DATA = 0x01, TPS_POINT = 0x02, TPS_RESULT = 0x04, TPS_STATUS = 0x05 };
 
 /* HCS DEVICE PORTS */
 enum PortsHCS {
@@ -313,27 +350,20 @@ enum PortsHCS {
     HCS_DATA    = 0x01,
     HCS_SECTOR  = 0x02,
     HCS_POINT   = 0x04,
-    HCS_STATUS  = 0x06
+    HCS_RESULT  = 0x06,
+    HCS_STATUS  = 0x07,
 };
 
-/* SOTRAGE DEVICE COMMANDS */
 enum StorageCommand {
-    STORAGE_COMMAND_NOP,        /* does nothing */
-    STORAGE_COMMAND_STORE,      /* stores to sector DATA of current bank from
-                                   POINT_H:POINT_L */
-    STORAGE_COMMAND_LOAD,       /* loads from sector DATA of current bank in
-                                   POINT_H:POINT_L */
-    STORAGE_COMMAND_GET_STATUS, /* returns the status register on STATUS_L.
-                                   Should */
-                                /* always be there */
-    STORAGE_COMMAND_SETCURRENT, /* Sets the drive (A or B) */
-    STORAGE_COMMAND_GETCURRENT, /* returns the current selected drive on
-                                   STATUS_H */
-    STORAGE_COMMAND_MEDIUM,     /* Returns the medium type in STATUS_H. Can infer
-                                   size, */
-                                /* sector count, etc based on a lookup table */
-    STORAGE_COMMAND_BANK,       /* changes bank */
-    STORAGE_COMMAND_GETBANK,    /* Return the current selected bank on STATUS_H */
+    STORAGE_COMMAND_NOP,        // does nothing
+    STORAGE_COMMAND_STORE,      // stores to sector DATA of current bank from POINT_H:POINT_L
+    STORAGE_COMMAND_LOAD,       // loads from sector DATA of current bank in POINT_H:POINT_L
+    STORAGE_COMMAND_SETCURRENT, // Sets the drive (A or B)
+    STORAGE_COMMAND_GETCURRENT, // returns the current selected drive on STATUS_H
+    STORAGE_COMMAND_MEDIUM,     // Returns the medium type in STATUS_H. Can infer size,
+                                // sector count, etc based on a lookup table
+    STORAGE_COMMAND_BANK,       // changes bank
+    STORAGE_COMMAND_GETBANK,    // Return the current selected bank on STATUS_H
 };
 
 /* AUDIO DEVICE PORTS */

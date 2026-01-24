@@ -75,7 +75,7 @@ u8 System_ReadHandler(TaleaMachine *m, u16 addr)
             return (timeinfo->tm_hour);
     case P_SYSTEM_MINUTE:
         if (m->sys.counter_mode) {
-            TALEA_LOG_TRACE("Reading uptime: %d\n", m->sys.uptime);
+            //TALEA_LOG_TRACE("Reading uptime: %d\n", m->sys.uptime);
             return (m->sys.uptime >> 24);
         }
         else

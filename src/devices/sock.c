@@ -12,7 +12,7 @@
 #include "talea.h"
 #endif
 
-extern double GetTime(void);
+extern double      GetTime(void);
 static inline void Modem_SendStr(TaleaMachine *m, const char *s);
 
 // Initializes the socket API in windows. Returns true on success
@@ -96,15 +96,14 @@ void Serial_HostInit(TerminalSerial *dev, int port)
     printf("Serial Host: Virtual COM port listening on localhost:%d\n", port);
 }
 
-void Modem_AnswerCall(TaleaMachine *m)
+enum HayesResponse Modem_AnswerCall(TaleaMachine *m)
 {
-    HayesModem *modem   = &m->terminal.serial.modem;
+    HayesModem  *modem   = &m->terminal.serial.modem;
     talea_net_t *sock    = &m->terminal.serial.host_socket;
     talea_net_t *pending = &m->terminal.serial.pending_socket;
 
     if (*pending == T_INVALID_SOCKET) {
-        Modem_SendResponse(m, HAYES_ERROR);
-        return;
+        return HAYES_ERROR;
     }
 
     *sock    = *pending;
@@ -113,22 +112,24 @@ void Modem_AnswerCall(TaleaMachine *m)
     net_set_nonblocking(*sock);
     m->terminal.serial.status |= SER_STATUS_CARRIER_DETECT;
 
-    modem->is_ringing = false;
-    modem->ring_count = 0;
-    modem->state      = MODEM_STATE_DATA;
+    modem->is_ringing                   = false;
+    modem->ring_count                   = 0;
+    modem->s_regs[1]                    = 0;
+    modem->state                        = MODEM_STATE_DATA;
+    m->terminal.serial.last_update_time = GetTime();
 
-    modem->cmd_pos = 0;
+    modem->cmd_pos    = 0;
     modem->last_was_A = false;
     memset(modem->cmd_buffer, 0, sizeof(modem->cmd_buffer));
 
-    Modem_SendResponse(m, HAYES_CONNECT);
     TALEA_LOG_TRACE("Modem call answered, line active\n");
+    return HAYES_CONNECT;
 }
 
 void Modem_Update(TaleaMachine *m)
 {
-    HayesModem *modem   = &m->terminal.serial.modem;
-    talea_net_t sock    = m->terminal.serial.host_socket;
+    HayesModem  *modem   = &m->terminal.serial.modem;
+    talea_net_t  sock    = m->terminal.serial.host_socket;
     talea_net_t *pending = &m->terminal.serial.pending_socket;
 
     if (modem->is_ringing) {
@@ -137,9 +138,10 @@ void Modem_Update(TaleaMachine *m)
 
         if (!connected) {
             closesocket(*pending);
-            *pending           = T_INVALID_SOCKET;
+            *pending          = T_INVALID_SOCKET;
             modem->is_ringing = false;
             modem->ring_count = 0;
+            modem->s_regs[1]  = 0;
             goto skip_ring;
         }
 
@@ -148,6 +150,7 @@ void Modem_Update(TaleaMachine *m)
         if (now - modem->last_ring_time > 2.0) {
             Modem_SendStr(m, "\r\nRING\r\n");
             modem->ring_count++;
+            modem->s_regs[1]      = modem->ring_count;
             modem->last_ring_time = now;
 
             if (modem->s_regs[0] > 0 && modem->ring_count >= modem->s_regs[0]) {
@@ -267,6 +270,7 @@ void Serial_Update(TaleaMachine *m)
             printf("Serial Host: Incoming call!\n");
             modem->is_ringing     = true;
             modem->ring_count     = 0;
+            modem->s_regs[1]      = 0; // ring count sreg
             modem->last_ring_time = GetTime();
         } else if (!net_would_block()) {
             TALEA_LOG_ERROR("ERROR connecting to host socket\n");
@@ -279,8 +283,10 @@ void Serial_Update(TaleaMachine *m)
         double delta_time     = now - dev->last_update_time;
         dev->last_update_time = now;
 
+        // check if baud rate valid otherwise default to 9600
+        int baud_rate = (modem->s_regs[37] >= HAYES_BAUD_TOTAL) ? BAUD_9600 : modem->s_regs[37];
         // Clamp to baud rate / 10 bits per byte
-        dev->byte_credit += (SERIAL_BAUD_RATE / 10.0) * delta_time;
+        dev->byte_credit += (HayesBaudRateLookup[baud_rate] / 10.0) * delta_time;
 
         if (dev->byte_credit >= 1.0) {
             int fifo_space  = Serial_GetFifoSpace(dev);
@@ -338,8 +344,11 @@ void Modem_SendResponse(TaleaMachine *m, enum HayesResponse code)
     const char *code_str[] = {
         [HAYES_OK] = "OK",       [HAYES_CONNECT] = "CONNECT",
         [HAYES_RING] = "RING",   [HAYES_NO_CARRIER] = "NO CARRIER",
-        [HAYES_ERROR] = "ERROR",
+        [HAYES_ERROR] = "ERROR", [HAYES_NO_DIALTONE] = "NO DIALTONE",
+        [HAYES_BUSY] = "BUSY",   [HAYES_NO_ANSWER] = "NO ANSWER",
     };
+
+    if (modem->quiet_mode) return;
 
     u8 s3 = modem->s_regs[3];
     u8 s4 = modem->s_regs[4];
@@ -350,13 +359,28 @@ void Modem_SendResponse(TaleaMachine *m, enum HayesResponse code)
         /* Formats as: <CR><LF>OK<CR><LF> */
         Serial_PushByte(m, s3);
         Serial_PushByte(m, s4);
-        Serial_PushString(m, code_str[code]);
+
+        if (code == HAYES_CONNECT && modem->x_level >= 1) {
+            char str[16];
+            modem->s_regs[37] = MIN(modem->s_regs[37], HAYES_BAUD_TOTAL - 1);
+            snprintf(str, sizeof(str), "CONNECT %d", HayesBaudRateLookup[modem->s_regs[37]]);
+            Serial_PushString(m, str);
+            memset(str, 0, sizeof(str));
+        } else if (code == HAYES_NO_DIALTONE && modem->x_level < 2) {
+            Serial_PushString(m, code_str[HAYES_ERROR]);
+        } else {
+            Serial_PushString(m, code_str[code]);
+        }
         Serial_PushByte(m, s3);
         Serial_PushByte(m, s4);
     } else {
         /* Formats as: 0<CR> */
-        Serial_PushByte(m, code + '0'); // TODO: This only works now that codes are single
-                                        // number
+        if (code == HAYES_NO_DIALTONE && modem->x_level < 2) {
+            Serial_PushByte(m, HAYES_ERROR + '0');
+        } else {
+            Serial_PushByte(m, code + '0');
+        }
+        // TODO: This only works now that codes are single number
         Serial_PushByte(m, s3);
     }
 }
@@ -385,23 +409,27 @@ static inline void Modem_SendStr(TaleaMachine *m, const char *s)
 void Modem_ResetSregs(HayesModem *modem)
 {
     memset(modem->s_regs, 0, sizeof(modem->s_regs));
-    modem->s_regs[0]  = 0; // AUTO ANSWER
-    modem->s_regs[2]  = '+';
+    modem->s_regs[0]  = 0;    // AUTO ANSWER
+    modem->s_regs[1]  = 0;    // RING count
+    modem->s_regs[2]  = '+';  // Escape char
     modem->s_regs[3]  = '\r'; // CR (cmd terminator)
     modem->s_regs[4]  = '\n'; // LF
-    modem->s_regs[5]  = '\b'; // backspace
-    modem->s_regs[7]  = 30;   // WAIT FOR CARRIER
-    modem->s_regs[12] = 50;   // default 1s guard time
+    modem->s_regs[5]  = '\b'; // BACSKPACE
+    modem->s_regs[7]  = 30;   // WAIT FOR CARRIER in seconds
+    modem->s_regs[12] = 50;   // GUARD TIME in 1/50th of a second
+
+    // Non standard S regs
+    modem->s_regs[37] = HAYES_BAUD_9600; // Desired baud rate
 
     modem->echo_enabled = true;
     modem->verbose_mode = true;
     modem->plus_count   = 0;
 }
 
-static inline bool Modem_ExecuteATCommand(TaleaMachine *m, char cmd, u8 value)
+static inline enum HayesResponse Modem_ExecuteATCommand(TaleaMachine *m, char cmd, u8 value)
 {
-    HayesModem *modem   = &m->terminal.serial.modem;
-    bool        success = true;
+    HayesModem        *modem    = &m->terminal.serial.modem;
+    enum HayesResponse response = HAYES_OK;
 
     // TODO: implement some cool easter eggs on ATI
 
@@ -409,9 +437,9 @@ static inline bool Modem_ExecuteATCommand(TaleaMachine *m, char cmd, u8 value)
     case 'A':
         /* Answer */
         if (modem->is_ringing) {
-            Modem_AnswerCall(m);
+            response = Modem_AnswerCall(m); // THROWS RESPONSE
         } else {
-            Modem_SendResponse(m, HAYES_ERROR);
+            response = HAYES_ERROR;
         }
         break;
     case 'E':
@@ -422,20 +450,58 @@ static inline bool Modem_ExecuteATCommand(TaleaMachine *m, char cmd, u8 value)
         /* Hang up*/
         Serial_CloseSockets(m);
         modem->state = MODEM_STATE_COMMAND;
-        Modem_SendResponse(m, HAYES_OK);
+        break;
+    case 'I':
+        if (value == 0)
+            Modem_SendStr(m, "103");
+        else if (value == 1)
+            break;
+        else if (value == 2)
+            break;
+        else if (value == 3)
+            Modem_SendStr(m, "The House of Talea [#]1");
+        else if (value == 4) {
+            char str[16] = { 0 };
+
+            for (u8 i = 0; i <= 12; i++) {
+                snprintf(str, sizeof(str), "S%02d=%03u", i, modem->s_regs[i]);
+                Modem_SendStr(m, str);
+                memset(str, 0, sizeof(str));
+            }
+
+            snprintf(str, sizeof(str), "S%02d=%03u", 37, modem->s_regs[37]);
+            Modem_SendStr(m, str);
+            memset(str, 0, sizeof(str));
+
+        } else
+            response = HAYES_ERROR;
         break;
     case 'O':
         /* Go back online (to data mode) */
         if (m->terminal.serial.host_socket != T_INVALID_SOCKET) {
             modem->state = MODEM_STATE_DATA;
         } else {
-            Modem_SendResponse(m, HAYES_ERROR);
+            response = HAYES_ERROR;
         }
         break;
+    case 'Q': modem->quiet_mode = (value != 0); break;
     case 'S':
         /* Select S register*/
-        modem->current_s_reg = value & 0xF;
+        if (value >= 50) {
+            TALEA_LOG_TRACE("Illegal reg: %d\n", value);
+            response = HAYES_ERROR;
+            break;
+        }
+        modem->current_s_reg = value;
         break;
+    case 'X': {
+        if (value > 2) {
+            response = HAYES_ERROR;
+            break;
+        }
+        modem->x_level = value;
+        break;
+    }
     case '=':
         /* Write to selected register */
         modem->s_regs[modem->current_s_reg] = value;
@@ -456,9 +522,10 @@ static inline bool Modem_ExecuteATCommand(TaleaMachine *m, char cmd, u8 value)
         Modem_ResetSregs(modem);
         break;
 
-    default: success = false; break;
+    default: response = HAYES_ERROR; break;
     }
-    return success;
+
+    return response;
 }
 
 static int Modem_InitiateConnection(TaleaMachine *m, const char *address, bool need_tls)
@@ -493,7 +560,7 @@ static int Modem_InitiateConnection(TaleaMachine *m, const char *address, bool n
     hints.ai_socktype = SOCK_STREAM;
 
     if (getaddrinfo(addr_copy, port, &hints, &res) != 0) {
-        // Modem_SendResponse(m, HAYES_NO_DIALTONE); // TODO: handle more errors
+         Modem_SendResponse(m, HAYES_NO_DIALTONE); // TODO: handle more errors
         return false;
     }
 
@@ -513,6 +580,8 @@ static int Modem_InitiateConnection(TaleaMachine *m, const char *address, bool n
     result = connect(m->terminal.serial.host_socket, res->ai_addr, (int)res->ai_addrlen);
     freeaddrinfo(res);
 
+    m->terminal.serial.last_update_time = GetTime();
+
     if (result == T_NET_ERROR) {
         if (net_would_block()) {
             modem->state      = MODEM_STATE_DIALING;
@@ -523,7 +592,7 @@ static int Modem_InitiateConnection(TaleaMachine *m, const char *address, bool n
             net_close(m->terminal.serial.host_socket);
             m->terminal.serial.host_socket = T_INVALID_SOCKET;
             Modem_SendResponse(m, HAYES_NO_CARRIER);
-            return true;
+            return false;
         }
     }
 
@@ -571,27 +640,27 @@ static bool Modem_Dial(TaleaMachine *m, char *address)
     return Modem_InitiateConnection(m, san, need_tls);
 }
 
-static inline Modem_ParseATCommand(TaleaMachine *m, char *cmd_buff)
+static inline void Modem_ParseATCommand(TaleaMachine *m, char *cmd_buff)
 {
-    HayesModem *modem = &m->terminal.serial.modem;
+    HayesModem        *modem    = &m->terminal.serial.modem;
+    enum HayesResponse response = HAYES_DEFER;
 
     if (!(cmd_buff[0] == 'A' && cmd_buff[1] == 'T')) {
-        Modem_SendResponse(m, HAYES_ERROR);
-        return;
+        response = HAYES_ERROR;
+        goto end;
     }
 
     char *p = cmd_buff + 2;
 
-    while (*p != modem->s_regs[3]) {
+    while (*p && *p != modem->s_regs[3]) {
         char  cmd = *p++;
         char *endp;
         u32   val = 0;
 
-        if (cmd == 'D') { // could write this as if(cmd == 'D' && Modem_Dial(m, p))...
-            if (!Modem_Dial(m, p)) {
-                Modem_SendResponse(m, HAYES_ERROR);
-            }
-            return;
+        if (cmd == 'D') {
+            Modem_Dial(m, p);
+            response = HAYES_DEFER;
+            goto end;
         }
 
         while (*p == ' ') {
@@ -606,18 +675,17 @@ static inline Modem_ParseATCommand(TaleaMachine *m, char *cmd_buff)
 
         if (val > 255) {
             TALEA_LOG_TRACE("V: %d\n", val);
-            Modem_SendResponse(m, HAYES_ERROR);
-            return;
+            response = HAYES_ERROR;
+            goto end;
         }
 
-        if (!Modem_ExecuteATCommand(m, cmd, (u8)val)) {
-            Modem_SendResponse(m, HAYES_ERROR);
-            return;
-        }
+        response = Modem_ExecuteATCommand(m, cmd, (u8)val);
+        if (response == HAYES_ERROR) goto end;
     }
 
     memcpy(modem->last_valid_command, cmd_buff, sizeof(modem->last_valid_command));
-    if (!modem->defer_response) Modem_SendResponse(m, HAYES_OK);
+end:
+    if (response != HAYES_DEFER) Modem_SendResponse(m, response);
 }
 
 static void Modem_ProcessCommand(TaleaMachine *m, u8 byte)
@@ -683,7 +751,7 @@ void Serial_SendByte(TaleaMachine *m, u8 byte)
 {
     HayesModem *modem = &m->terminal.serial.modem;
 
-    //TALEA_LOG_TRACE("Sending byte %02x\n", byte);
+    // TALEA_LOG_TRACE("Sending byte %02x\n", byte);
 
     switch (modem->state) {
     case MODEM_STATE_COMMAND: Modem_ProcessCommand(m, byte); break;

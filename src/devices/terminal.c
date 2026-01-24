@@ -89,7 +89,7 @@ static inline void Keyboard_PopEvent(TerminalKeyboard *k)
     }
 }
 
-        // Returns null on empty queue
+// Returns null on empty queue
 static inline KbdEvent *Keyboard_PeekEvent(TerminalKeyboard *k)
 {
     if (k->head == k->tail) {
@@ -198,30 +198,30 @@ void Modem_CheckEscapeSequence(TaleaMachine *m, u8 byte)
     double      elapsed    = now - modem->last_tx_time;
     double      guard_time = GET_GUARD_TIME(modem);
 
-    //TALEA_LOG_TRACE("Checking escape sequence (%c) [%d] %d\n", byte, modem->s_regs[2],
-    //                modem->s_regs[2] == '+');
+    // TALEA_LOG_TRACE("Checking escape sequence (%c) [%d] %d\n", byte, modem->s_regs[2],
+    //                 modem->s_regs[2] == '+');
 
     if (modem->waiting_after) {
         /* Any character sent during this window invalidates the sequence */
-        //TALEA_LOG_TRACE("Invalidadated sequence\n");
+        // TALEA_LOG_TRACE("Invalidadated sequence\n");
         modem->waiting_after = false;
         modem->plus_count    = 0;
     }
 
     if (byte == modem->s_regs[2]) {
-        //TALEA_LOG_TRACE("It is the character!\n");
+        // TALEA_LOG_TRACE("It is the character!\n");
         if (modem->plus_count == 0) {
             /* First '+': Must follow a period of silence */
             if (elapsed >= guard_time) {
-                //TALEA_LOG_TRACE("Got 1st +\n");
+                // TALEA_LOG_TRACE("Got 1st +\n");
                 modem->plus_count = 1;
             }
         } else if (modem->plus_count < 3) {
             if (elapsed < guard_time) {
-                //TALEA_LOG_TRACE("Got another +\n");
+                // TALEA_LOG_TRACE("Got another +\n");
                 modem->plus_count++;
             } else {
-                //TALEA_LOG_TRACE("too much time passed\n");
+                // TALEA_LOG_TRACE("too much time passed\n");
                 modem->plus_count = (elapsed >= guard_time) ? 1 : 0;
             }
         }
@@ -232,7 +232,7 @@ void Modem_CheckEscapeSequence(TaleaMachine *m, u8 byte)
     modem->last_tx_time = now;
 
     if (modem->plus_count == 3) {
-        //TALEA_LOG_TRACE("Got all 3! waiting\n");
+        // TALEA_LOG_TRACE("Got all 3! waiting\n");
         modem->waiting_after = true;
     }
 }
@@ -319,15 +319,22 @@ void Terminal_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         break;
     }
     case P_SERIAL_RXCOUNT: break; // non writable register
-    case P_TIMER_TIMEOUT: m->terminal.timer.timeout_counter |= (u16)value << 8; break;
-    case P_TIMER_TIMEOUT + 1: m->terminal.timer.timeout_counter |= value; break;
+    case P_TIMER_TIMEOUT:
+        m->terminal.timer.timeout_counter = (m->terminal.timer.timeout_counter & 0x00FF) |
+                                            (u16)value << 8;
+        break;
+    case P_TIMER_TIMEOUT + 1:
+        m->terminal.timer.timeout_counter = (m->terminal.timer.timeout_counter & 0xFF00) | value;
+        break;
     case P_TIMER_INTERVAL:
-        m->terminal.timer.interval_counter |= (u16)value << 8;
-        m->terminal.timer.interval_reload |= (u16)value << 8;
+        m->terminal.timer.interval_counter = (m->terminal.timer.interval_counter & 0x00FF) |
+                                             (u16)value << 8;
+        m->terminal.timer.interval_reload = (m->terminal.timer.interval_reload & 0x00FF) |
+                                            (u16)value << 8;
         break;
     case P_TIMER_INTERVAL + 1:
-        m->terminal.timer.interval_counter |= value;
-        m->terminal.timer.interval_reload |= value;
+        m->terminal.timer.interval_counter = (m->terminal.timer.interval_counter & 0xFF00) | value;
+        m->terminal.timer.interval_reload  = (m->terminal.timer.interval_reload & 0xFF00) | value;
         break;
     case P_TIMER_PRESCALER: m->terminal.timer.prescaler = value; break;
     case P_TIMER_CSR: m->terminal.timer.csr = value; break;
@@ -347,18 +354,18 @@ void        Terminal_Reset(TaleaMachine *m, TaleaConfig *conf, bool is_restart)
     memset(t->kb.queue, 0, sizeof(t->kb.queue));
 
     // Reset timer
-    t->kb.csr       = 0;
-    t->kb.modifiers = 0;
-    t->timer.csr = 0;
-     t->timer.timeout_counter  = 0;
+    t->kb.csr                 = 0;
+    t->kb.modifiers           = 0;
+    t->timer.csr              = 0;
+    t->timer.timeout_counter  = 0;
     t->timer.interval_counter = 0;
     t->timer.interval_reload  = 0;
     t->timer.prescaler        = 0;
-    t->timer.cycles  = 0;
-    t->timer.accum_t = 0;
-    t->timer.accum_i = 0;
+    t->timer.cycles           = 0;
+    t->timer.accum_t          = 0;
+    t->timer.accum_i          = 0;
 
-    // Reset Serial and Modem 
+    // Reset Serial and Modem
     t->serial.head = 0;
     t->serial.tail = 0;
     memset(t->serial.rx_fifo, 0, SERIAL_FIFO_SIZE);

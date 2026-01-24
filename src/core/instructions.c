@@ -5,7 +5,7 @@
 #include "core/cpu.h"
 #include "talea.h"
 
-//#define DEBUG_LOG_INSTRUCTION_EXEC
+// #define DEBUG_LOG_INSTRUCTION_EXEC
 
 #ifdef DEBUG_LOG_INSTRUCTION_EXEC
 #define EXEC_LOG(s) TALEA_LOG_TRACE("[EXEC LOG]: " s "\t\t at 0x%x\n", cpu->pc - 4)
@@ -84,7 +84,15 @@ static void instr_Copy(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
 
     bool src_is_data = (imm_15 & 1);
     bool dst_is_data = (imm_15 & 2);
-    bool is_backward = (imm_15 & 4); // TODO: docimument this
+    bool is_backward = (imm_15 & 4); // TODO: docimument this ( and put in the assembler )
+
+    if (src_is_data) {
+        TALEA_LOG_TRACE("Copying FROM %04x in DATA!\n", src_addr);
+    }
+
+    if (dst_is_data) {
+        TALEA_LOG_TRACE("Copying TO %04x in DATA!\n", dest_addr);
+    }
 
     if (dst_is_data || src_is_data) {
         REQUIRE_SUPERVISOR
@@ -686,11 +694,15 @@ static void instr_Idivi(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 
                         u16 imm_15, u32 imm_20)
 {
     EXEC_LOG("Idivi");
-    if (imm_15 == 0) {
+
+    u32 dividend = GPR_GET(m, r2);
+
+    if (imm_15 == 0 || (dividend == INT32_MIN && imm_15 == -1)) {
         m->cpu.exception = EXCEPTION_DIVISION_ZERO;
 
         return;
     }
+
     GPR_SET(m, r1, GPR_GET(m, r2) / sext(imm_15, 15));
 }
 static void instr_Addi(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
@@ -769,17 +781,22 @@ static void instr_Idiv(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
                        u16 imm_15, u32 imm_20)
 {
     EXEC_LOG("Idiv");
-    if (GPR_GET(m, r4) == 0) {
+
+    u32  divisor     = GPR_GET(m, r4);
+    u32  dividend    = GPR_GET(m, r3);
+    bool signed_mode = (vector & 1) == 0;
+
+    if (divisor == 0 || (signed_mode && dividend == INT32_MIN && divisor == -1)) {
         m->cpu.exception = EXCEPTION_DIVISION_ZERO;
         return;
     }
 
-    if ((vector & 1) == 0) {
-        GPR_SET(m, r1, (int32_t)GPR_GET(m, r3) / (int32_t)GPR_GET(m, r4));
-        GPR_SET(m, r2, (int32_t)GPR_GET(m, r3) % (int32_t)GPR_GET(m, r4));
+    if (signed_mode) {
+        GPR_SET(m, r1, (int32_t)dividend / (int32_t)divisor);
+        GPR_SET(m, r2, (int32_t)dividend % (int32_t)divisor);
     } else {
-        GPR_SET(m, r1, GPR_GET(m, r3) / GPR_GET(m, r4));
-        GPR_SET(m, r2, GPR_GET(m, r3) % GPR_GET(m, r4));
+        GPR_SET(m, r1, dividend / divisor);
+        GPR_SET(m, r2, dividend % divisor);
     }
 }
 static void instr_Mul(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,

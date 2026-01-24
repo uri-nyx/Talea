@@ -41,7 +41,7 @@ void Frontend_InitWindow(TaleaConfig *config)
     }
 #endif
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIDDEN | config->flags);
+    SetConfigFlags( FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIDDEN | config->flags);
     // TODO: Put in the config file AND in the  UI
     InitWindow(Ww, Wh, TALEA_WINDOW_TITLE);
 
@@ -273,7 +273,7 @@ static void Frontend_PollMouse(TaleaMachine *m, TaleaConfig *config)
     mouse_y_px = (mouse_y_px >= TALEA_SCREEN_HEIGHT) ? TALEA_SCREEN_HEIGHT - 1 : (mouse_y_px < 0 ) ? 0 : mouse_y_px;
     // clang-format on
 
-    u8 current_state = 0;
+    u8   current_state   = 0;
     bool inside_viewport = CheckCollisionPointRec(positionMouse, viewport);
 
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) && inside_viewport) {
@@ -284,16 +284,25 @@ static void Frontend_PollMouse(TaleaMachine *m, TaleaConfig *config)
         current_state |= MOUSE_BUTT_LEFT;
     }
 
-    if (mouse->visible && mouse->custom && inside_viewport) {
-        u16 hx              = mouse->hotspot >> 4;
-        u16 hy              = mouse->hotspot & 0xf;
-        mouse->render_pos.x = positionMouse.x - hx;
-        mouse->render_pos.y = positionMouse.y - hy;
-        mouse->render_custom_cursor = true;
-        if (mouse->showing_os_cursor) HideCursor(); // if we where showing the OS cursor, lets hide it
-        mouse->showing_os_cursor = false;
-    }  else if (!inside_viewport) {
-        ShowCursor(); // Show OS cursor if we go outisde of the virtual screen of Talea
+    u16 hx              = mouse->hotspot >> 4;
+    u16 hy              = mouse->hotspot & 0xf;
+    mouse->render_pos.x = positionMouse.x - hx;
+    mouse->render_pos.y = positionMouse.y - hy;
+
+    if (inside_viewport) {
+        if (mouse->visible && mouse->custom) {
+            mouse->render_custom_cursor = true;
+            if (!IsCursorHidden()) HideCursor();
+
+        } else if (mouse->visible) {
+            if (IsCursorHidden()) ShowCursor();
+            mouse->render_custom_cursor = false;
+        } else {
+            if (!IsCursorHidden()) HideCursor();
+            mouse->render_custom_cursor = false;
+        }
+    } else {
+        if (IsCursorHidden()) ShowCursor();
         mouse->render_custom_cursor = false;
     }
 
@@ -305,7 +314,6 @@ static void Frontend_PollMouse(TaleaMachine *m, TaleaConfig *config)
     } else {
         Mouse_UpdateCoordinates(m, current_state, mouse_x_px, mouse_y_px);
     }
-
 }
 
 static void Frontend_PollSerial(TaleaMachine *m, TaleaConfig *config)
@@ -345,15 +353,28 @@ void  Frontend_SetupFrame(TaleaMachine *m, TaleaConfig *config)
 static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
 {
     static enum TpsId tpsToLoad;
+    // the directory path buffer and file name buffers in GuiWindowFileDialog are 1024 each, so this
+    // should be safe. a few bytes extra even (for the / and whatever that happens)
+    static char tps_file_path[2100];
 
     BeginDrawing();
     if (state.ui.fileDialogState.SelectFilePressed) {
         if (state.ui.isTpsDialog) {
-            bool success = Storage_InsertTps(tpsToLoad, state.ui.fileDialogState.fileNameText);
+            memcpy(tps_file_path, state.ui.fileDialogState.dirPathText,
+                   MIN(strlen(state.ui.fileDialogState.dirPathText), 1024));
+            size_t path_end             = strlen(tps_file_path);
+            tps_file_path[path_end]     = '/';
+            tps_file_path[path_end + 1] = 0;
+            strncat(tps_file_path, state.ui.fileDialogState.fileNameText,
+                    MIN(strlen(state.ui.fileDialogState.fileNameText), 1024));
+            bool success = Storage_InsertTps(tpsToLoad, tps_file_path);
+
             if (!success)
-                TALEA_LOG_ERROR("Error Loading TPS\n");
+                TALEA_LOG_ERROR("Error Loading TPS %d at %s\n", tpsToLoad, tps_file_path);
             else
                 PlaySound(state.sfx.tpsInsertSfx);
+
+            memset(tps_file_path, 0, sizeof(tps_file_path));
         } else if (state.ui.isFirmwareDialog) {
             bool writeProtected = false;
             // Load firmware file (if supported extension)
@@ -419,13 +440,21 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
     }
 
     if (GuiButton((Rectangle){ 20, 60, 140, 30 }, GuiIconText(ICON_CROSS, "Eject TPS A"))) {
-        Storage_EjectTps(TPS_ID_A);
-        PlaySound(state.sfx.tpsEjectSfx);
+        bool success = Storage_EjectTps(TPS_ID_A);
+        if (!success) {
+            TALEA_LOG_ERROR("Failed to eject tps A\n");
+        } else {
+            PlaySound(state.sfx.tpsEjectSfx);
+        }
     }
 
     if (GuiButton((Rectangle){ 170, 60, 140, 30 }, GuiIconText(ICON_CROSS, "Eject TPS B"))) {
-        Storage_EjectTps(TPS_ID_B);
-        PlaySound(state.sfx.tpsEjectSfx);
+        bool success = Storage_EjectTps(TPS_ID_B);
+        if (!success) {
+            TALEA_LOG_ERROR("Failed to eject tps B\n");
+        } else {
+            PlaySound(state.sfx.tpsEjectSfx);
+        }
     }
 
     if (GuiDropdownBox((Rectangle){ 20, 100, 140, 30 },

@@ -92,17 +92,19 @@ void main()
     int   currentIndex = currentCell.y * charTextureSize.x + currentCell.x;
 
     vec2 localUV = mod(charsTexCoord, 1.0);
+    bool inside_bounding_box = true;
 
     bool isUnderlinePixel = underline && (localUV.y > 0.85 && localUV.y < 0.92);
     if (oblique) {
         localUV.x += (localUV.y - 0.7) * 0.25;
-        if (localUV.x < 0.15 || localUV.x > 1.2) discard;
+        if (localUV.x < 0.15 || localUV.x > 1.15) inside_bounding_box = false;
     }
 
     vec2 charUV = localUV / atlasCharSize;
 
     // Render font
     vec4 fontRead = getFontSample(font_index, charIndexUV + charUV);
+    if (!inside_bounding_box) fontRead.a = 0.0;
 
     // vec4 bg =  vec4(mix(bgColor.rgb, vec3(1.0, 0.6875, 0), 0.06), 0.2);
 
@@ -140,10 +142,10 @@ void main()
         }
 
         float invertedAlpha = 1.0 - outColor.a;
-        outColor.a          = mix(outColor.a, invertedAlpha, blinkFactor);
+        outColor.a              = mix(outColor.a, 1.0, blinkFactor);
         // TODO: add different shapes
-        // always white
-        outColor.rgb = 1.0 - outColor.rgb;
+        // inverted color
+        outColor.rgb = mix(outColor.rgb, 1.0 - outColor.rgb, blinkFactor);;
     }
 
     finalColor = outColor;

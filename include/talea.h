@@ -1,6 +1,7 @@
 #ifndef TALEA_H
 #define TALEA_H
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -291,7 +292,31 @@ enum SerialControl {
     SER_CONTROL_MASTER_RESET = 0x80, // Master reset (clear all buffers)
 };
 
-enum HayesResponse { HAYES_OK, HAYES_CONNECT, HAYES_RING, HAYES_NO_CARRIER, HAYES_ERROR };
+enum HayesBaudRate {
+    HAYES_BAUD_300,
+    HAYES_BAUD_1200,
+    HAYES_BAUD_2400,
+    HAYES_BAUD_9600,
+    HAYES_BAUD_19200,
+    HAYES_BAUD_38400,
+    HAYES_BAUD_57600,
+    HAYES_BAUD_TOTAL,
+};
+
+static const int HayesBaudRateLookup[HAYES_BAUD_TOTAL] = { 300,   1200,  2400, 9600,
+                                                           19200, 38400, 57600 };
+
+enum HayesResponse {
+    HAYES_DEFER = -1,
+    HAYES_OK,
+    HAYES_CONNECT,
+    HAYES_RING,
+    HAYES_NO_CARRIER,
+    HAYES_ERROR, 
+    HAYES_NO_DIALTONE,
+    HAYES_BUSY,
+    HAYES_NO_ANSWER,
+};
 enum ModemState {
     MODEM_STATE_COMMAND,      /* Accepting AT commands */
     MODEM_STATE_DIALING,      /* TCP connect() in progress (Non-blocking) */
@@ -315,8 +340,11 @@ typedef struct {
     bool defer_response;
     bool last_was_A;
     bool verbose_mode;
+    bool quiet_mode;
 
-    u8 s_regs[16]; // S registers
+    u8 x_level;
+
+    u8 s_regs[50]; // S registers
     u8 current_s_reg;
 
     // --- Escape Sequence (+++) ---
@@ -619,7 +647,6 @@ typedef struct DeviceMouse {
     bool      custom;
     bool      sprite_loaded;
     bool      render_custom_cursor;
-    bool      showing_os_cursor;
     u8        hotspot;
     u16       x, y;
     u16       sprite_addr;
@@ -660,7 +687,35 @@ ALL INTEGER MULTIBYTE INTEGER VALUES ARE STORED BIG ENDIAN
 0x26 -- 0x200               Reserved.
 */
 
-enum StorageMedium { NoMedia, Tps128K, Tps512K, Tps1M, Hcs32M, Hcs64M, Hcs128M };
+enum StorageMedium {
+    NoMedia, // No medium detected
+    Tps128K, // Tps, 256 sectors, 1 bank of 256 sectors, sector is 512 bytes
+    Tps512K, // Tps, 1024 sectors, 4 banks of 256 sectors, sector is 512 bytes
+    Tps1M,   // Tps, 2048 sectors, 8 banks of 256 sectors, sector is 512 bytes
+    Hcs32M,  // Hcs, 65536 sectors, 1 banks of 65536 sectors, sector is 512 bytes
+    Hcs64M,  // Hcs, 131072 sectors, 2 banks of 65536 sectors, sector is 512 bytes
+    Hcs128M  // Hcs, 262144 sectors, 4 banks of 65536 sectors , sector is 512 bytes
+};
+
+enum StorageMediumLookup {
+    STORAGE_MEDIUM_LOOKUP_TYPE,
+    STORAGE_MEDIUM_LOOKUP_SECTORS,
+    STORAGE_MEDIUM_LOOKUP_BANKS,
+    STORAGE_MEDIUM_LOOKUP_BANK_SZ,
+    STORAGE_MEDIUM_LOOKUP_SECTOR_SZ,
+};
+
+#define NOMEDIA 0
+#define TPS     1
+#define HCS     2
+
+static u32 Storage_MediumLookup[7][5] = {
+    // TYPE, SECTOR COUNT, BANKS, BANK SIZE, SECTOR SIZE
+    [NoMedia] = { NOMEDIA, 0, 0, 0, 0 },        [Tps128K] = { TPS, 256, 1, 256, 512 },
+    [Tps512K] = { TPS, 1024, 4, 256, 512 },     [Tps1M] = { TPS, 2048, 8, 256, 512 },
+    [Hcs32M] = { HCS, 65536, 1, 65536, 512 },   [Hcs64M] = { HCS, 131072, 2, 65536, 512 },
+    [Hcs128M] = { HCS, 262144, 4, 65536, 512 },
+};
 
 enum StorageStatus {
     STOR_STATUS_READY = 0x01,
@@ -701,12 +756,12 @@ typedef struct Tps {
     enum TpsId           id;
 
     // status
-    u8 real_status; // to be sure to always keep the state
 
     // registers
-    u8  data;
-    u16 point;
-    u8  statusH, statusL;
+    u8           data;
+    u16          point;
+    u8           result;
+    atomic_uchar status; // to be sure to always keep the state
     // --
     u8 bank;
 } Tps;
@@ -716,13 +771,12 @@ typedef struct {
     struct StorageHeader header;
     FILE                *file; // The persistent handle to the .hcs file
 
-    u8 real_status;
-
-    u8  data;
-    u16 sector;
-    u16 point;            // 16-bit register (to be shifted << 9)
-    u8  statusH, statusL; // BUSY, ERROR, READY bits
-    u32 total_sectors;    // Cached from the header for safety checks
+    u8           data;
+    u16          sector;
+    u16          point;  // 16-bit register (to be shifted << 9)
+    u8           result; // BUSY, ERROR, READY bits
+    atomic_uchar status;
+    u32          total_sectors; // Cached from the header for safety checks
 } Hcs;
 
 typedef struct DeviceStorage {
@@ -733,7 +787,7 @@ typedef struct DeviceStorage {
 } DeviceStorage;
 
 bool Storage_InsertTps(enum TpsId tps_id, const char *path);
-void Storage_EjectTps(enum TpsId tps_id);
+bool Storage_EjectTps(enum TpsId tps_id);
 
 void Storage_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart);
 void Storage_Deinit(TaleaMachine *m);

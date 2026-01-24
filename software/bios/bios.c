@@ -453,6 +453,7 @@ void sysinfo(int argc, char *argv[])
     /*
                 SYSTEM INFORMATION
     The Talea Computer System. v0.5-beta
+    12:00:00 10/10/2026
 
     [ CORE ]
     Processor:   Sirius-24 @ 10MHz
@@ -467,14 +468,33 @@ void sysinfo(int argc, char *argv[])
     0x23  0x02  Serial Modem     [CARRIER OK]
     */
     u32 mhz, uptime, khz;
+    u8  ss, mm, hh, year, month, day;
 
     if (argc != 1) {
         ttty_mux_puts(&Con, "Usage: sysinfo\n");
         return;
     }
 
+    ss    = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_SECOND);
+    mm    = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+    hh    = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_HOUR);
+    day   = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_DAY);
+    month = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MONTH);
+    year  = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_YEAR);
+
+    if (ss == 59) {
+        ss    = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_SECOND);
+        mm    = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+        hh    = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_HOUR);
+        day   = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_DAY);
+        month = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MONTH);
+        year  = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_YEAR);
+    }
+
     ttty_mux_puts(&Con, "\t\t\tSYSTEM INFORMATION\n");
-    ttty_mux_puts(&Con, "The Talea Computer System. v0.5-beta\n\n");
+    ttty_mux_puts(&Con, "The Talea Computer System. v0.5-beta\n");
+    ttty_mux_printf(&Con, "\t%02d:%02d:%02d\t%02d/%02d/%04d\n", hh, mm, ss, day, month + 1,
+                    year + 1900);
     ttty_mux_puts(&Con, "[ CORE ]\n");
 
     /* Processor */
@@ -559,26 +579,30 @@ help:
 
 void pretty_echo(int argc, char *argv[])
 {
-    u8 old_fg, old_att;
+    u8 old_fg  = Video_tty.default_att[0];
+    u8 old_att = Video_tty.default_att[2];
+
     if (argc >= 3 && argv[2][0] == '-') {
         u8   fg = argv[1][0];
         char sw = argv[2][1];
-        old_fg  = Video_tty.default_att[0];
-        old_att = Video_tty.default_att[2];
+
+        if (sw == 'h') {
+help:
+            ttty_printf(&Video_tty, "Usage: pecho <color> -[h|a|e] <args>\n");
+            ttty_printf(&Video_tty, "\tLike echo, but pretty. The color is a single char\n");
+            ttty_printf(&Video_tty, "\t-h\tprint this help\n");
+            ttty_printf(&Video_tty, "\t-a\tprepend \\x1b (ESC) to process ANSI escape code\n");
+            ttty_printf(&Video_tty, "\t-e\techo args without processing\n");
+            goto end;
+        }
 
         Video_tty.default_att[0] = fg;
         Video_tty.default_att[2] = TEXTMODE_ATT_BOLD | TEXTMODE_ATT_OBLIQUE |
                                    TEXTMODE_ATT_UNDERLINE | TEXTMODE_ATT_ALT_FONT;
 
         switch (sw) {
-help:
-        case 'h':
-            ttty_printf(&Video_tty, "Usage: pecho <color> -[h|a|e] <args>\n");
-            ttty_printf(&Video_tty, "\tLike echo, but pretty. The color is a single char\n");
-            ttty_printf(&Video_tty, "\t-h\tprint this help\n");
-            ttty_printf(&Video_tty, "\t-a\tprepend \\x1b (ESC) to process ANSI escape code\n");
-            ttty_printf(&Video_tty, "\t-e\techo args without processing\n");
-            break;
+        case 'h': goto help; break;
+
         case 'a': {
             int i = 0;
             for (i = 2; i < argc; i++) {
@@ -602,8 +626,6 @@ help:
     } else if (argc > 2) {
         u8  fg                   = argv[1][0];
         int i                    = 0;
-        old_fg                   = Video_tty.default_att[0];
-        old_att                  = Video_tty.default_att[3];
         Video_tty.default_att[0] = fg;
         Video_tty.default_att[2] = TEXTMODE_ATT_BOLD | TEXTMODE_ATT_OBLIQUE |
                                    TEXTMODE_ATT_UNDERLINE | TEXTMODE_ATT_ALT_FONT;
@@ -616,6 +638,7 @@ help:
         goto help;
     }
 
+end:
     Video_tty.default_att[0] = old_fg;
     Video_tty.default_att[2] = old_att;
 }
@@ -1010,7 +1033,7 @@ void tamlin(int argc, char *argv[])
 
     if (samples[0] != -7484) {
         ttty_mux_printf(&Con, "Tamlin is not loaded, or data is corrupted\n"
-                              "(you must load the tamlin.raw file with the emulator)");
+                              "(you must load the tamlin.raw file with the emulator)\n");
         return;
     }
 
@@ -1466,6 +1489,571 @@ void kbtest(int argc, char *argv[])
     ttty_clear(&Video_tty);
 }
 
+static u32 time(void)
+{
+    _sbd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE, 1); // set counter mode
+    return _lwd(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+}
+
+static u8 temp_buff[1024]; // store sectors here before testing them
+static u8 test_data[1024];
+static u8 read_data[1024];
+
+static u8 *align_to_sector_boundary(void *buff, usize sz)
+{
+    u32 buff_uintptr = (u32)buff;
+    if (sz < 512 + 511) {
+        // ttty_mux_printf(&Con, "Error buffer too small %d\n", sz);
+        return NULL;
+    }
+
+    // ttty_mux_printf(&Con, "Aligned to %08x\n", (buff_uintptr + 511) & ~511);
+    return (u8 *)((buff_uintptr + 511) & ~511);
+}
+
+#define TPS_SECTOR_DATA_ADDR (0x400)
+
+static bool tps_sector_io(int command, u8 bank, u8 sector, u8 *buff)
+{
+    u32 left;
+    // copy from TAM to DATA IF COMMAND == STORE
+    if (command == STORAGE_COMMAND_STORE) {
+        if ((left = _copymd(buff, TPS_SECTOR_DATA_ADDR, 512)) != 0) {
+            _trace(0xdead0, 0, left);
+            return false;
+        }
+    };
+
+    while (_lbud(Devices.tps + TPS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+
+    _sbd(Devices.tps + TPS_DATA, bank);
+    _sbd(Devices.tps + TPS_COMMAND, STORAGE_COMMAND_BANK);
+
+    if (_lbud(Devices.tps + TPS_STATUS) & STOR_STATUS_ERROR) {
+        _trace(0xdead0, 1);
+        return false;
+    }
+
+    while (_lbud(Devices.tps + TPS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+
+    _sbd(Devices.tps + TPS_DATA, sector);
+    // Assume buff is aligned, and if not, we'r sorry
+    _shd(Devices.tps + TPS_POINT, TPS_SECTOR_DATA_ADDR >> 9);
+    _sbd(Devices.tps + TPS_COMMAND, command);
+
+    if (_lbud(Devices.tps + TPS_STATUS) & STOR_STATUS_ERROR) {
+        _trace(0xdead0, 2);
+        return false;
+    }
+
+    // copy from DATA to RAM IF COMMAND == LOAD
+    if (command == STORAGE_COMMAND_LOAD) {
+        if ((left = _copydm(TPS_SECTOR_DATA_ADDR, buff, 512)) != 0) {
+            _trace(0xdead0, 3, left);
+            return false;
+        }
+    };
+
+    return true;
+}
+
+static bool hcs_sector_io(int command, u8 bank, u16 sector, u8 *buff)
+{
+    while (_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+
+    _sbd(Devices.hcs + HCS_DATA, bank);
+    _shd(Devices.hcs + HCS_SECTOR, sector);
+    // Assume buff is aligned, and if not, we'r sorry
+    _shd(Devices.hcs + HCS_POINT, ((u32)buff) >> 9);
+    _sbd(Devices.hcs + HCS_COMMAND, command);
+
+    if (_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_ERROR) {
+        _trace(0xdead1, 1);
+        return false;
+    };
+
+    while (_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+
+    // return
+    {
+        bool r = !(_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_ERROR);
+        if (!r) _trace(0xdead1, 3);
+        return r;
+    }
+}
+
+static bool tps_sector_load(u8 bank, u8 sector, u8 *buff)
+{
+    return tps_sector_io(STORAGE_COMMAND_LOAD, bank, sector, buff);
+}
+
+static bool tps_sector_store(u8 bank, u8 sector, u8 *buff)
+{
+    return tps_sector_io(STORAGE_COMMAND_STORE, bank, sector, buff);
+}
+
+static bool hcs_sector_load(u8 bank, u8 sector, u8 *buff)
+{
+    return hcs_sector_io(STORAGE_COMMAND_LOAD, bank, sector, buff);
+}
+
+static bool hcs_sector_store(u8 bank, u8 sector, u8 *buff)
+{
+    return hcs_sector_io(STORAGE_COMMAND_STORE, bank, sector, buff);
+}
+
+enum { HCS_IOCTL, TPS_IOCTL };
+
+static bool sector_store(int ioctl, u8 bank, u16 sector, u8 *buff)
+{
+    if (ioctl == TPS_IOCTL) {
+        if (sector > 255) return false;
+        return tps_sector_store(bank, sector, buff);
+    } else if (ioctl == HCS_IOCTL) {
+        return hcs_sector_store(bank, sector, buff);
+    } else {
+        return false;
+    }
+}
+
+static bool sector_load(int ioctl, u8 bank, u16 sector, u8 *buff)
+{
+    if (ioctl == TPS_IOCTL) {
+        if (sector > 255) return false;
+        return tps_sector_load(bank, sector, buff);
+    } else if (ioctl == HCS_IOCTL) {
+        return hcs_sector_load(bank, sector, buff);
+    } else {
+        _trace(0xdead34);
+        return false;
+    }
+}
+
+int memcmp(const void *s1, const void *s2, usize n)
+{
+    i8   *a = (i8 *)s1, *b = (i8 *)s2;
+    usize i;
+    for (i = 0; i < n; i++) {
+        if (a[i] != b[i]) return a - b;
+    }
+
+    return 0;
+}
+
+static u32 lcg_seed = 12345;
+static u16 talea_rand()
+{
+    lcg_seed = (lcg_seed * 1103515245 + 12345) & 0x7fffffff;
+    return (u16)(lcg_seed >> 16);
+}
+
+static u32 test_sector(int ioctl, u8 bank, u8 sector, u8 *data, u8 *readback, u8 *tmp, u32 *ios,
+                       bool *fatal)
+{
+    u32  time_start = 0, time_end = 0, time_accum = 0;
+    bool success = false;
+
+    *fatal = false;
+
+    if (ioctl < HCS_IOCTL || ioctl > TPS_IOCTL) {
+        ttty_mux_printf(&Con, "Unknown IO controller %d\n", ioctl);
+        return 0;
+    }
+
+    ttty_mux_printf(&Con, "testing sector %s:0x%02x:0x%02x ", ioctl == TPS_IOCTL ? "TPS" : "HCS",
+                    bank, sector);
+
+    // Save original data
+    time_start = time();
+    (*ios)++;
+    success  = sector_load(ioctl, bank, sector, tmp);
+    time_end = time();
+    time_accum += (time_end - time_start);
+    if (!success) {
+        ttty_mux_printf(&Con, "failed\n");
+        return time_accum;
+    } else
+        ttty_mux_printf(&Con, ".");
+
+    // store pattern
+    time_start = time();
+    (*ios)++;
+    success  = sector_store(ioctl, bank, sector, data);
+    time_end = time();
+    time_accum += (time_end - time_start);
+    if (!success) {
+        ttty_mux_printf(&Con, "failed\n");
+        return time_accum;
+    } else
+        ttty_mux_printf(&Con, ".");
+
+    // read back
+    time_start = time();
+    (*ios)++;
+    success  = sector_load(ioctl, bank, sector, readback);
+    time_end = time();
+    time_accum += (time_end - time_start);
+    if (!success) {
+        ttty_mux_printf(&Con, "failed\n");
+        return time_accum;
+    } else
+        ttty_mux_printf(&Con, ".");
+
+    if (memcmp(data, readback, 512) != 0) {
+        ttty_mux_printf(&Con, " test mismatch");
+    } else {
+        ttty_mux_printf(&Con, " test ok");
+    }
+
+    // restore original data
+    time_start = time();
+    (*ios)++;
+    success  = sector_store(ioctl, bank, sector, tmp);
+    time_end = time();
+    time_accum += (time_end - time_start);
+    if (!success) {
+        ttty_mux_printf(&Con, "\nfatal: failed to restore original data\n");
+        *fatal = true;
+        return time_accum;
+    } else
+        ttty_mux_printf(&Con, ".\n");
+    return time_accum;
+}
+
+static void io_stress_test(int ioctl)
+{
+    usize i;
+    bool  fatal      = false;
+    u32   time_accum = 0, ios = 0, tested_sectors = 0;
+    u8   *data     = align_to_sector_boundary(test_data, sizeof(test_data));
+    u8   *readback = align_to_sector_boundary(read_data, sizeof(read_data));
+    u8   *tmp      = align_to_sector_boundary(temp_buff, sizeof(temp_buff));
+    if (tmp == NULL || data == NULL || readback == NULL) {
+        ttty_mux_printf(&Con, "Do you have an aligned buffer? I don't. (allocation error)\n");
+        ttty_mux_printf(&Con, "temp: %08x, data: %08x, readback: %08x\n", (u32)tmp, (u32)data,
+                        (u32)readback);
+        return;
+    } else {
+        // 0xd52a
+        // 0xffaa00, 0xffa600, 0xffa200
+        ttty_mux_printf(&Con, "temp: %08x, data: %08x, readback: %08x\n", (u32)tmp, (u32)data,
+                        (u32)readback);
+    }
+
+    memseth(data, 0x55AA, 512);
+
+    // first 10 sectors
+    for (i = 0; i < 10; i++) {
+        time_accum += test_sector(ioctl, 0, i, data, readback, tmp, &ios, &fatal);
+        tested_sectors++;
+        if (fatal) return;
+    }
+
+    // last 10 sectors (sorry for hardcoding, im in a hurry)
+    for (i = 256 - 10; i < 256; i++) {
+        time_accum += test_sector(ioctl, 0, i, data, readback, tmp, &ios, &fatal);
+        tested_sectors++;
+        if (fatal) return;
+    }
+
+    // 5 random sectors TODO: use lcg
+    time_accum += test_sector(ioctl, 0, talea_rand() & 0xff, data, readback, tmp, &ios, &fatal);
+    tested_sectors++;
+    if (fatal) return;
+    time_accum += test_sector(ioctl, 0, talea_rand() & 0xff, data, readback, tmp, &ios, &fatal);
+    tested_sectors++;
+    if (fatal) return;
+    time_accum += test_sector(ioctl, 0, talea_rand() & 0xff, data, readback, tmp, &ios, &fatal);
+    tested_sectors++;
+    if (fatal) return;
+    time_accum += test_sector(ioctl, 0, talea_rand() & 0xff, data, readback, tmp, &ios, &fatal);
+    tested_sectors++;
+    if (fatal) return;
+    time_accum += test_sector(ioctl, 0, talea_rand() & 0xff, data, readback, tmp, &ios, &fatal);
+    tested_sectors++;
+    if (fatal) return;
+    {
+        ttty_mux_printf(&Con,
+                        "\nTest finished. Tested %d sectors (%d io operations).\n"
+                        "Avg IO time: %d.%02dms | Total time: %dms\n"
+                        "Transfer speed: %d.%02d KB/s | IOPS: %d.%02d\n",
+                        tested_sectors, ios, (time_accum * 100 / ios) / 100,
+                        (time_accum * 100 / ios) % 100, time_accum,
+                        ((tested_sectors * 512 * 4 * 100 / 1024) * 1000 / time_accum) / 100,
+                        ((tested_sectors * 512 * 4 * 100 / 1024) * 1000 / time_accum) % 100,
+                        ((ios * 1000 * 100) / time_accum) / 100,
+                        ((ios * 1000 * 100) / time_accum) % 100);
+    }
+}
+
+void tpstest(int argc, char *argv[])
+{
+    u8 to_select;
+    u8 selected;
+    u8 medium;
+    u8 status;
+
+    if (argc != 2) {
+        usize i;
+        ttty_mux_printf(&Con, "Usage: tpstest <tps_id>\n");
+        ttty_mux_printf(&Con, "TPS IDs are (only one digit):\n");
+        for (i = 0; i < TPS_TOTAL_DRIVES; i++) {
+            ttty_mux_printf(&Con, "\tTPS %c -> %d\n", 'A' + i, i);
+        }
+
+        return;
+    }
+
+    to_select = argv[1][0] - '0';
+
+    if (to_select >= TPS_TOTAL_DRIVES) {
+        ttty_mux_printf(&Con, "Error: No such drive\n");
+        return;
+    }
+
+    while (_lbud(Devices.tps + TPS_STATUS) & STOR_STATUS_BUSY);
+
+    _sbd(Devices.tps + TPS_DATA, to_select);
+    _sbd(Devices.tps + TPS_COMMAND, STORAGE_COMMAND_SETCURRENT);
+    _sbd(Devices.tps + TPS_COMMAND, STORAGE_COMMAND_GETCURRENT);
+    selected = _lbud(Devices.tps + TPS_RESULT);
+    _sbd(Devices.tps + TPS_COMMAND, STORAGE_COMMAND_MEDIUM);
+    medium = _lbud(Devices.tps + TPS_RESULT);
+    status = _lbud(Devices.tps + TPS_STATUS);
+
+    ttty_mux_printf(&Con, "[TPS DRIVE %d INFO]\n", to_select);
+    ttty_mux_printf(&Con, "\tselected: %s (%d)\n",
+                    (selected == TPS_ID_A) ? "A" :
+                    (selected == TPS_ID_B) ? "B" :
+                                             "UNKNOWN",
+                    selected);
+    ttty_mux_printf(&Con, "\tstatus [%02x] %s\n", status,
+                    (status & STOR_STATUS_ERROR) ? "ERROR" : "");
+
+    if (medium > NoMedia && medium <= Hcs128M) {
+        u32 sectors  = Storage_MediumLookup[medium][STORAGE_MEDIUM_LOOKUP_SECTORS];
+        u32 sectorsz = Storage_MediumLookup[medium][STORAGE_MEDIUM_LOOKUP_SECTOR_SZ];
+        u32 banks    = Storage_MediumLookup[medium][STORAGE_MEDIUM_LOOKUP_BANKS];
+        u32 banksz   = Storage_MediumLookup[medium][STORAGE_MEDIUM_LOOKUP_BANK_SZ];
+
+        ttty_mux_printf(&Con, "[MEDIUM INFO] %s\n",
+                        status & STOR_STATUS_WPROT ? "WRITE PROTECTED" : "");
+        ttty_mux_printf(&Con, "\ttype: %s\n", Storage_MediumNames[medium]);
+        ttty_mux_printf(&Con, "\tsectors: %d (%d bytes per sector)\n", sectors, sectorsz);
+        ttty_mux_printf(&Con, "\tbanks: %d (%d sectors per bank)\n", banks, banksz);
+        ttty_mux_printf(&Con, "\tTOTAL CAPACITY: %d bytes (%d KB)\n", sectors * sectorsz,
+                        (sectors * sectorsz) / 1024);
+    } else {
+        ttty_mux_printf(&Con, "[NO MEDIUM DETECTED]\n");
+        return;
+    }
+
+    if (status & STOR_STATUS_WPROT) return;
+
+    ttty_mux_printf(
+        &Con, "\nWARINING: The following test preserves the data only if its allowed to finish.\n"
+              "If you want to proceed press enter. Any other key to exit\n");
+
+    {
+        struct KbdEvent *e;
+        while ((e = kbd_event_pop(&KeyboardEvents)) == NULL);
+        if (e->scancode != KEY_ENTER) return;
+        io_stress_test(TPS_IOCTL);
+    }
+}
+
+void hcstest(int argc, char *argv[])
+{
+    u8 medium;
+    u8 status;
+
+    while (_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_BUSY);
+
+    _sbd(Devices.hcs + HCS_COMMAND, STORAGE_COMMAND_MEDIUM);
+    medium = _lbud(Devices.hcs + HCS_RESULT);
+    status = _lbud(Devices.hcs + HCS_STATUS);
+
+    ttty_mux_printf(&Con, "[HCS DRIVE INFO]\n");
+    ttty_mux_printf(&Con, "\tstatus [%02x] %s\n", status,
+                    (status & STOR_STATUS_ERROR) ? "ERROR" : "");
+
+    if (medium > NoMedia && medium <= Hcs128M) {
+        u32 sectors  = Storage_MediumLookup[medium][STORAGE_MEDIUM_LOOKUP_SECTORS];
+        u32 sectorsz = Storage_MediumLookup[medium][STORAGE_MEDIUM_LOOKUP_SECTOR_SZ];
+        u32 banks    = Storage_MediumLookup[medium][STORAGE_MEDIUM_LOOKUP_BANKS];
+        u32 banksz   = Storage_MediumLookup[medium][STORAGE_MEDIUM_LOOKUP_BANK_SZ];
+
+        ttty_mux_printf(&Con, "[MEDIUM INFO] %s\n",
+                        status & STOR_STATUS_WPROT ? "WRITE PROTECTED" : "");
+        ttty_mux_printf(&Con, "\ttype: %s\n", Storage_MediumNames[medium]);
+        ttty_mux_printf(&Con, "\tsectors: %d (%d bytes per sector)\n", sectors, sectorsz);
+        ttty_mux_printf(&Con, "\tbanks: %d (%d sectors per bank)\n", banks, banksz);
+        ttty_mux_printf(&Con, "\tTOTAL CAPACITY: %d bytes (%d MB)\n", sectors * sectorsz,
+                        (sectors * sectorsz) / (1024 * 1024));
+    } else {
+        ttty_mux_printf(&Con, "[NO MEDIUM DETECTED]\n");
+        return;
+    }
+
+    if (status & STOR_STATUS_WPROT) return;
+
+    ttty_mux_printf(
+        &Con, "\nWARINING: The following test preserves the data only if its allowed to finish.\n"
+              "If you want to proceed press enter. Any other key to exit\n");
+
+    {
+        struct KbdEvent *e;
+        while ((e = kbd_event_pop(&KeyboardEvents)) == NULL);
+        if (e->scancode != KEY_ENTER) return;
+        io_stress_test(HCS_IOCTL);
+    }
+}
+
+static void (*on_interval)(void) = NULL;
+static void (*on_timeout)(void)  = NULL;
+
+void bios_interval_handler()
+{
+    if (on_interval) on_interval();
+}
+
+void bios_timeout_handler()
+{
+    if (on_timeout) on_timeout();
+}
+
+void test_interval(void)
+{
+    static u32 ticks = 0;
+    ticks++;
+    ttty_mux_printf(&Con, "\x1b[2;HTicks: %d", ticks);
+}
+
+void test_timeout(void)
+{
+    static u32 ticks = 0;
+    u8         csr   = _lbud(Devices.timer + TIM_CSR);
+
+    ticks++;
+    ttty_mux_printf(&Con, "\x1b[3;HTimeout!");
+    _sbd(Devices.timer + TIM_CSR, csr & ~TIM_INTERVAL_EN); // Pre enable both timers
+}
+
+void timertest(int argc, char *argv[])
+{
+    u8 csr      = _lbud(Devices.timer + TIM_CSR);
+    u8 vcsr     = _lbud(Devices.video + VIDEO_CSR);
+    on_interval = &test_interval;
+    on_timeout  = &test_timeout;
+
+    _sbd(Devices.video + VIDEO_CSR, vcsr & ~VIDEO_CURSOR_EN);
+    ttty_mux_clear(&Con);
+    ttty_mux_printf(&Con, "Esc to quit.");
+
+    _shd(Devices.timer + TIM_INTERVAL, 0xfffff);
+    _shd(Devices.timer + TIM_TIMEOUT, 0xfffff);
+    _sbd(Devices.timer + TIM_PRESCALER, 1); // prescaler == 1 -> 1 for interval, 256 for timeout
+    _sbd(Devices.timer + TIM_CSR, csr | TIM_GLOBAL_EN | TIM_TIMEOUT_EN | TIM_INTERVAL_EN); // fire!
+
+    while (!vol_control());
+
+    // disable all timers
+    _sbd(Devices.timer + TIM_CSR, csr & ~(TIM_GLOBAL_EN | TIM_TIMEOUT_EN | TIM_INTERVAL_EN));
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+    on_interval = NULL;
+    on_timeout  = NULL;
+    ttty_mux_clear(&Con);
+}
+
+static u32 unixtime()
+{
+    u32 time;
+    _sbd(DEVICE_SYSTEM + PORTS_SYSTEM_YEAR, 0); // unixtime mode
+    time = _lwd(DEVICE_SYSTEM + PORTS_SYSTEM_YEAR);
+    _sbd(DEVICE_SYSTEM + PORTS_SYSTEM_YEAR, 1); // date mode
+    return time;
+}
+
+void clock(int argc, char *argv[])
+{
+    u8 vcsr = _lbud(Devices.video + VIDEO_CSR);
+    _sbd(Devices.video + VIDEO_CSR, vcsr & ~VIDEO_CURSOR_EN);
+    ttty_mux_printf(&Con, "Esc to quit.\n");
+
+    do {
+        u32 unix = unixtime();
+        u8  ss   = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_SECOND);
+        u8  mm   = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+        u8  hh   = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_HOUR);
+
+        if (ss == 59) {
+            ss = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_SECOND);
+            mm = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MINUTE);
+            hh = _lbud(DEVICE_SYSTEM + PORTS_SYSTEM_HOUR);
+        }
+
+        ttty_mux_printf(&Con, "%02d:%02d:%02d (unix: %0d)\r", hh, mm, ss, unix);
+    } while (!vol_control());
+    ttty_mux_putc(&Con, '\n');
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+}
+
+void cpymd(int argc, char *argv[])
+{
+    u32 addr_main = 0, i = 0, left;
+    u16 addr_data = 0;
+
+    if (argc != 3) {
+        ttty_mux_printf(&Con, "Usage: cpymd <addr> <data-addr> \n");
+        ttty_mux_printf(&Con, "\t<addr>\taddress in hex to copy from to data (128 bytes)\n");
+        ttty_mux_printf(&Con, "\t<data-addr>\taddress in hex to copy to\n");
+        return;
+    }
+
+    addr_main = strtoul(argv[1], NULL, 0);
+    addr_data = strtoul(argv[2], NULL, 0);
+
+    if (addr_data < 0x110) {
+        ttty_mux_printf(&Con, "Cannot copy to address %04x, MMIO range\n");
+        return;
+    }
+
+    ttty_mux_printf(&Con, "%06x -> %04x\n", addr_main, addr_data);
+
+    left = _copymd(addr_main, addr_data, 128);
+
+    if (left != 0) ttty_mux_printf(&Con, "Copy instruction interrupted. Copied %d bytes\n", 128 - left);
+    
+}
+
+void cpydm(int argc, char *argv[])
+{
+    u32 addr_main = 0, i = 0, left;
+    u16 addr_data = 0;
+
+    if (argc != 3) {
+        ttty_mux_printf(&Con, "Usage: cpydm <data-addr> <addr> \n");
+        ttty_mux_printf(&Con, "\t<data-addr>\taddress in hex to copy from (128 bytes)\n");
+        ttty_mux_printf(&Con, "\t<addr>\taddress in hex to copy to\n");
+        return;
+    }
+
+    addr_data = strtoul(argv[1], NULL, 0);
+    addr_main = strtoul(argv[2], NULL, 0);
+
+    if (addr_data < 0x110) {
+        ttty_mux_printf(&Con, "Cannot copy from address %04x, MMIO range\n");
+        return;
+    }
+
+    ttty_mux_printf(&Con, "%04x -> %06x\n", addr_data, addr_main);
+
+    left = _copydm(addr_data, addr_main, 128);
+
+    if (left != 0) ttty_mux_printf(&Con, "Copy instruction interrupted. Copied %d bytes\n", 128 - left);
+    
+}
+
 static const ushell_command_t commands[] = {
     /* SYSTEM TEST */
     { "sysinfo", "prints system information", &sysinfo },
@@ -1489,12 +2077,14 @@ static const ushell_command_t commands[] = {
     { "mous", "test the mouse", &mouse },
     { "kbtest", "test the keyboard", &kbtest },
     /* STORAGE TEST */
-    // TODO: tps test (load sector & store sector)
-    // TODO: hcs test (load sector & store sector)
+    { "tpstest", "stress test the TPS Drives", &tpstest },
+    { "hcstest", "stress test the HCS Drive", &hcstest },
     /* TIMER TEST*/
-    // TODO: set interval timer
-    // TODO: set timeout timer
+    { "timer", "test the dual timers", &timertest },
     /* UTILITIES */
+    { "clock", "a simple digital clock", &clock },
+    { "cpymd", "block copy 128 bytes from MAIN to DATA", &cpymd },
+    { "cpydm", "block copy 128 bytes from DATA to MAIN", &cpydm },
     { "clear", "clear the screen", &clear }
 };
 
@@ -1510,6 +2100,7 @@ void bios_start(void)
     _cli();
 
     bios_init();
+    lcg_seed = unixtime();
 
     for (i = 0; i < 100000; i++) {
         wait += i;

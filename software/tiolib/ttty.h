@@ -614,12 +614,17 @@ static void ttty_vformat(void (*emit)(void *, char), void *user, const char *fmt
                 u32  x = va_arg(ap, int);
                 u8   content_len;
 
+                if (x == 0) {
+                    buf[i++] = '0';
+                    goto emit_hex;
+                }
+
                 /* Extract digits from least significant to most significant */
                 while (x > 0) {
                     buf[i++] = hex_chars[x & 0xF];
                     x >>= 4;
                 }
-
+emit_hex:
                 content_len = i;
                 while (content_len < width) {
                     emit(user, pad_zero ? '0' : ' ');
@@ -647,6 +652,11 @@ static void ttty_vformat(void (*emit)(void *, char), void *user, const char *fmt
                 }
 
                 /* Extract digits (Right to Left) */
+                if (num == 0) {
+                    buf[i++] = '0';
+                    goto emit_dec;
+                }
+
                 while (num > 0) {
                     buf[i++] = (num % 10) + '0';
                     num /= 10;
@@ -654,6 +664,7 @@ static void ttty_vformat(void (*emit)(void *, char), void *user, const char *fmt
 
                 if (pad_zero && is_neg) emit(user, '-');
 
+emit_dec:
                 content_len = i + (is_neg ? 1 : 0);
 
                 while (content_len < width) {
