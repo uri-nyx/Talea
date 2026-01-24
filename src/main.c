@@ -8,6 +8,7 @@
 #include "frontend/frontend.h"
 #include "raylib.h"
 #include "talea.h"
+#include "core/bus.h" // Should move from here
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,9 +35,7 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
     Frontend_StartMusic();
     Frontend_PlayStartup();
 
-    memset(m->main_memory, 0, TALEA_MAIN_MEM_SZ);
-    memset(m->data_memory, 0, TALEA_DATA_MEM_SZ);
-
+    Bus_Reset(m);
     Cpu_Reset(m, conf, is_restart);
     Terminal_Reset(m, conf, is_restart);
     Storage_Reset(m, conf, is_restart);
@@ -75,7 +74,11 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
      
         if (data) {
             sz = MIN(sz, TALEA_MAIN_MEM_SZ - 0x1000);
-            memcpy(&m->main_memory[0x1000], data, sz);
+            TaleaMemoryView view = Bus_GetView(m, 0x1000, sz, BUS_ACCESS_WRITE);
+            size_t written = Bus_WriteBlock(m, data, &view, sz);
+            if (written != sz) {
+                TALEA_LOG_ERROR("Could not load mapped file at 0x1000\n");
+            }
             UnloadFileData(data);
         }
     }
@@ -97,7 +100,7 @@ void Machine_LoadFirmware(TaleaMachine *m, const char *path)
         exit(1);
     }
 
-    memcpy(&m->main_memory[TALEA_FIRMWARE_ADDRESS], firmware, firmware_size);
+    Bus_LoadFirmware(m, firmware, firmware_size);
     TALEA_LOG_TRACE("Loaded firmware at 0x%04x, size: %d bytes\n", TALEA_FIRMWARE_ADDRESS,
                     firmware_size);
     UnloadFileData(firmware);

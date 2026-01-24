@@ -145,8 +145,6 @@ static bool CheckInterrupts(TaleaMachine *m)
     if (m->storage.current_tps->real_status & STOR_STATUS_DONE) {
         m->storage.current_tps->real_status &= ~STOR_STATUS_DONE;
         puts("Raise TPS FINISH\n");
-        SaveFileData("resources/dump.bin", &m->main_memory[0],
-                     TALEA_SECTOR_SIZE); // TODO: this is just testing
         Machine_RaiseInterrupt(m, INT_TPS_FINISH, PRIORITY_STORAGE_INTERRUPT);
     }
 
@@ -277,6 +275,7 @@ static int Execute(TaleaMachine *m)
             if (((imm_15 & 1) != 0) || ((imm_15 & 2) != 0)) {
                 REQUIRE_SUPERVISOR;
             }
+            
             // src in data or main
             u8 *src = ((imm_15 & 1) != 0) ? &m->data_memory[GPR_GET(m, r1) & 0xffff] :
                                             &m->main_memory[GPR_GET(m, r1) & 0xffffff];

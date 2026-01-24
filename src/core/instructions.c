@@ -71,8 +71,6 @@ static void instr_Trace(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 
     trace(m, r1, r2, r3, r4);
 }
 
-#if TALEA_WITH_MMU
-
 static void instr_Copy(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
                        u16 imm_15, u32 imm_20)
 {
@@ -273,125 +271,6 @@ static void instr_Fill(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
         ON_FAULT_RETURN
     }
 }
-#else
-static void instr_Copy(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
-                       u16 imm_15, u32 imm_20)
-{
-    // TODO: change to comply with MMU
-    EXEC_LOG("Copy");
-
-    if (((imm_15 & 1) != 0) || ((imm_15 & 2) != 0)) {
-        REQUIRE_SUPERVISOR;
-    }
-    // src in data or main
-    u8 *src = ((imm_15 & 1) != 0) ? &m->data_memory[GPR_GET(m, r1) & 0xffff] :
-                                    &m->main_memory[GPR_GET(m, r1) & 0xffffff];
-
-    size_t srcSize = MIN(GPR_GET(m, r3) & 0xffffff,
-                         (((imm_15 & 1) != 0) ? TALEA_DATA_MEM_SZ : TALEA_MAIN_MEM_SZ));
-
-    // dst in data or main
-    u8 *dst     = ((imm_15 & 2) != 0) ? &m->data_memory[GPR_GET(m, r2) & 0xffff] :
-                                        &m->main_memory[GPR_GET(m, r2) & 0xffffff];
-    int dstSize = ((imm_15 & 2) != 0) ? GPR_GET(m, r3) & 0xffffff + (GPR_GET(m, r2) & 0xffff) :
-                                        GPR_GET(m, r3) & 0xffffff + (GPR_GET(m, r2) & 0xffffff);
-
-    if ((imm_15 & 2) != 0 && dstSize > TALEA_DATA_MEM_SZ) {
-        cpu->exception = EXCEPTION_BUS_ERROR;
-        return;
-    }
-    if ((imm_15 & 2) == 0 && dstSize > TALEA_MAIN_MEM_SZ) {
-        cpu->exception = EXCEPTION_BUS_ERROR;
-        return;
-    }
-
-    memcpy(dst, src, srcSize);
-}
-
-static void instr_Swap(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
-                       u16 imm_15, u32 imm_20)
-{
-    {
-        EXEC_LOG("Swap");
-
-        size_t size = GPR_GET(m, r3) & 0xffffff;
-
-        u32 addr_a = GPR_GET(m, r1);
-        u32 addr_b = GPR_GET(m, r2);
-
-        size_t offset = 0;
-        while (size >= 4) {
-            u32 a = Machine_ReadMain32(m, addr_a + offset);
-            ON_FAULT_RETURN
-            u32 b = Machine_ReadMain32(m, addr_b + offset);
-            ON_FAULT_RETURN
-
-            Machine_WriteMain32(m, addr_a + offset, b);
-            ON_FAULT_RETURN
-            Machine_WriteMain32(m, addr_b + offset, a);
-            ON_FAULT_RETURN
-
-            offset += 4;
-            size -= 4;
-        }
-
-        while (size > 0) {
-            u8 a = Machine_ReadMain8(m, addr_a + offset);
-            ON_FAULT_RETURN
-            u8 b = Machine_ReadMain8(m, addr_b + offset);
-            ON_FAULT_RETURN
-
-            Machine_WriteMain8(m, addr_a + offset, b);
-            ON_FAULT_RETURN
-            Machine_WriteMain8(m, addr_b + offset, a);
-            ON_FAULT_RETURN
-
-            offset += 1;
-            size -= 1;
-        }
-    }
-}
-
-static void instr_Fill(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
-                       u16 imm_15, u32 imm_20)
-{
-    // TODO: fix to comply with MMU
-    EXEC_LOG("Fill");
-    u8 *dest = &m->main_memory[GPR_GET(m, r1) & 0xffffff];
-    u32 len  = GPR_GET(m, r2);
-
-    if ((imm_15 & 4) != 0) {
-        if (len * 4 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) {
-            cpu->exception = EXCEPTION_BUS_ERROR;
-            return;
-        }
-        for (u32 a = 0; a < len; a++) ((u32 *)dest)[a] = GPR_GET(m, r3);
-    } else if ((imm_15 & 2) != 0) {
-        if (len * 3 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) {
-            cpu->exception = EXCEPTION_BUS_ERROR;
-            return;
-        }
-        for (u32 b = 0; b < (len * 3); b += 3) {
-            dest[b]     = GPR_GET(m, r3) >> 16;
-            dest[b + 1] = GPR_GET(m, r3) >> 8;
-            dest[b + 2] = GPR_GET(m, r3);
-        }
-    } else if ((imm_15 & 1) != 0) {
-        if (len * 2 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) {
-            cpu->exception = EXCEPTION_BUS_ERROR;
-            return;
-        }
-
-        for (u16 c = 0; c < len; c++) ((u16 *)dest)[c] = GPR_GET(m, r3);
-    } else {
-        if (len > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) {
-            cpu->exception = EXCEPTION_BUS_ERROR;
-            return;
-        }
-        memset(dest, GPR_GET(m, r3), len);
-    }
-}
-#endif
 
 static void instr_Through(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
                           u16 imm_15, u32 imm_20)

@@ -88,7 +88,7 @@ u8 Video_ReadHandler(TaleaMachine *m, u16 addr)
         return v->csr;
     }
     case P_VIDEO_ERROR: return v->error;
-    default: return m->data_memory[addr];
+    default: return v->ports[addr & 0xf];
     }
 }
 
@@ -180,16 +180,26 @@ static inline void TextMode_AssembleCharacters(TaleaMachine *m)
 {
     DeviceVideo *v = &m->video;
 
+    TaleaMemoryView text_view =
+        Bus_GetView(m, v->textbuffer.addr, v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride,
+                    ACCESS_READ);
+
+    if (!text_view.ptr ||
+        text_view.length != (v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride)) {
+        TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
+        return;
+    }
+
     for (size_t i = 0; i < v->textbuffer.h; i++) {
         for (size_t j = 0, k = 0; j < (size_t)v->textbuffer.w * v->textbuffer.stride;
              j += v->textbuffer.stride, k++) {
             // TALEA_LOG_TRACE("w: %d h: %d j: %d k: %d\n", v->textbuffer.w, v->textbuffer.h, j, k);
             size_t cell_addr =
-                v->textbuffer.addr + ((size_t)v->textbuffer.w * v->textbuffer.stride * i) + j;
+                ((size_t)v->textbuffer.w * v->textbuffer.stride * i) + j;
 
             if (v->mode == VIDEO_MODE_TEXT_COLOR || v->mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
-                u8 codepage = m->main_memory[cell_addr + 3] & TEXTMODE_ATT_CODEPAGE;
-                u8 alt      = m->main_memory[cell_addr + 3] & TEXTMODE_ATT_ALT_FONT;
+                u8 codepage = text_view.ptr[cell_addr + 3] & TEXTMODE_ATT_CODEPAGE;
+                u8 alt      = text_view.ptr[cell_addr + 3] & TEXTMODE_ATT_ALT_FONT;
 
                 // TALEA_LOG_TRACE("cp: %d, font: %d\n", codepage, alt);
                 //  NOTE: the codepage and alt bits are designed so its sum = fontID:
@@ -198,10 +208,10 @@ static inline void TextMode_AssembleCharacters(TaleaMachine *m)
                 //  codepage 0 + alt 1 = 0 + 2 alt font cp 0 (id 2)
                 //  codepage 1 + alt 1 = 1 + 2 alt font cp 1 (id 3)
                 u8 character =
-                    v->renderer.font_translation_tables[codepage + alt][m->main_memory[cell_addr]];
-                u8 fg                                            = m->main_memory[cell_addr + 1];
-                u8 bg                                            = m->main_memory[cell_addr + 2];
-                u8 attributes                                    = m->main_memory[cell_addr + 3];
+                    v->renderer.font_translation_tables[codepage + alt][text_view.ptr[cell_addr]];
+                u8 fg                                            = text_view.ptr[cell_addr + 1];
+                u8 bg                                            = text_view.ptr[cell_addr + 2];
+                u8 attributes                                    = text_view.ptr[cell_addr + 3];
                 v->renderer.charsFake[(v->textbuffer.w * i) + k] = (Color){
                     character,
                     fg,         // foreground (index)
@@ -211,7 +221,7 @@ static inline void TextMode_AssembleCharacters(TaleaMachine *m)
             } else {
                 u8 character =
                     v->renderer
-                        .font_translation_tables[VIDEO_FONT_BASE_CP0][m->main_memory[cell_addr]];
+                        .font_translation_tables[VIDEO_FONT_BASE_CP0][text_view.ptr[cell_addr]];
                 v->renderer.charsFake[(v->textbuffer.w * i) + k] = (Color){ character, 0, 0, 0 };
             }
         }
@@ -222,9 +232,20 @@ static inline void TextMode_AssembleCharacters(TaleaMachine *m)
 
 static inline void Framebuffer_Update(TaleaMachine *m)
 {
+    DeviceVideo   *v = &m->video;
     VideoRenderer *r = &m->video.renderer;
 
-    UpdateTexture(r->pixels, &m->main_memory[m->video.framebuffer.addr]);
+    TaleaMemoryView fb_view =
+        Bus_GetView(m, v->framebuffer.addr,
+                    v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride, ACCESS_READ);
+
+    if (!fb_view.ptr ||
+        fb_view.length != (v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride)) {
+        TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
+        return;
+    }
+
+    UpdateTexture(r->pixels, fb_view.ptr);
     BeginShaderMode(r->fb_shader);
     SetShaderValueTexture(r->fb_shader, r->fb_loc, r->pixels);
     DrawTexture(r->pixels, 0, 0, WHITE);
@@ -303,22 +324,50 @@ static inline u32 toBe32(u32 u)
 
 static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 color, u8 flags)
 {
+    // TODO: should acquire a view of the text and framebuffers on initialization AND on every
+    // COMMAND_SET_ADDR
     if (v->mode == VIDEO_MODE_TEXT_MONO && (flags & VIDEO_CLEAR_FLAG_TB)) {
-        memset(&m->main_memory[v->textbuffer.addr], ' ', (size_t)v->textbuffer.h * v->textbuffer.w);
+        TaleaMemoryView text_view =
+            Bus_GetView(m, v->textbuffer.addr,
+                        v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride, ACCESS_READ);
+
+        if (!text_view.ptr ||
+            text_view.length != (v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride)) {
+            TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
+            return;
+        }
+        Bus_Memset(m, &text_view, ' ', text_view.length);
         return;
     }
 
     if (flags & VIDEO_CLEAR_FLAG_TB) {
-        u32 *text       = (u32 *)&m->main_memory[v->textbuffer.addr];
-        u32  be_pattern = toBe32(pattern);
-        for (size_t i = 0; i < (size_t)v->textbuffer.w * v->textbuffer.h; i++) {
-            text[i] = be_pattern;
+        TaleaMemoryView text_view =
+            Bus_GetView(m, v->textbuffer.addr,
+                        v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride, ACCESS_READ);
+
+        if (!text_view.ptr ||
+            text_view.length != (v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride)) {
+            TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
+            return;
         }
+
+        u32 be_pattern = toBe32(pattern);
+        Bus_Memset32(m, &text_view, be_pattern, v->textbuffer.h * v->textbuffer.w);
     }
 
     if (flags & VIDEO_CLEAR_FLAG_FB) {
-        memset(&m->main_memory[v->framebuffer.addr], color,
-               (size_t)v->framebuffer.w * v->framebuffer.h);
+        TaleaMemoryView fb_view =
+            Bus_GetView(m, v->framebuffer.addr,
+                        v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride, ACCESS_READ);
+
+        if (!fb_view.ptr ||
+            fb_view.length != (v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride)) {
+            TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
+            return;
+        }
+
+        Bus_Memset(m, &fb_view, color,
+                   (v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride));
     }
 
     v->cursor_cell_index = 0;
@@ -389,8 +438,16 @@ static void Video_Blit(TaleaMachine *m, DeviceVideo *vid, struct Buff2D *dest, u
                        u16 h, i16 x, i16 y, u16 dest_w, u16 dest_h,
                        enum VideoSpriteRotation rotation)
 {
-    u8 *dest_start = &m->main_memory[dest->addr];
-    u8 *dest_end   = dest_start + (dest->w * dest->h * dest->stride);
+    // TODO: acquire a view of the context on bind!
+    TaleaMemoryView dest_view =
+        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
+    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
+        TALEA_LOG_ERROR("Blitter could not acquire a view of the destination\n");
+        return;
+    }
+
+    u8 *dest_start = dest_view.ptr;
+    u8 *dest_end   = dest_start + dest_view.length;
 
     u8  *temp_src = src;
     bool is_temp  = false;
@@ -460,8 +517,15 @@ static void Video_DrawRect(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest,
                            i16 y, u16 w, u16 h)
 {
     if (x >= dest->w || y >= dest->h) {
-        TALEA_LOG_WARNING("Blit, coordinates outside framebuffer\n");
+        TALEA_LOG_WARNING("Blit, coordinates outside buffer\n");
         // TODO: maybe raise an error
+        return;
+    }
+
+    TaleaMemoryView dest_view =
+        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
+    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
+        TALEA_LOG_ERROR("Draw Rect could not acquire a view of the destination\n");
         return;
     }
 
@@ -472,7 +536,7 @@ static void Video_DrawRect(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest,
 
     if (v_x1 >= v_x2 || v_y1 >= v_y2) return;
 
-    u8 *fb = &m->main_memory[dest->addr];
+    u8 *fb = dest_view.ptr;
 
     // TALEA_LOG_TRACE("ROP: %d\n", v->rop);
     for (size_t row = v_y1; row < v_y2; row++) {
@@ -487,7 +551,14 @@ static void Video_PatternFill(TaleaMachine *m, DeviceVideo *vid, struct Buff2D *
                               u8 h, u8 u_off, u8 v_off, i16 x, i16 y, u16 dest_w, u16 dest_h,
                               enum VideoSpriteRotation rotation)
 {
-    u8             *dest_start = &m->main_memory[dest->addr];
+    TaleaMemoryView dest_view =
+        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
+    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
+        TALEA_LOG_ERROR("Pattern Fill could not acquire a view of the destination\n");
+        return;
+    }
+    // TODO: remember to ALWAYS commit before starting these architectural changes...
+    u8             *dest_start = dest_view.ptr;
     RotationMatrix *mat        = &rot_table[rotation];
 
     u16 v_x1 = MAX(0, x);
@@ -536,7 +607,15 @@ static inline void Buff2D_SetPixel(TaleaMachine *m, DeviceVideo *v, struct Buff2
     // if (x == 0) TALEA_LOG_TRACE("Setting pixel at x: %d, y: %d!\n", x, y);
     if (x >= dest->w || y >= dest->h) return;
     if (x < 0 || y < 0) return;
-    u8    *surface = &m->main_memory[dest->addr];
+
+    TaleaMemoryView dest_view =
+        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
+    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
+        TALEA_LOG_ERROR("Set Pixel could not acquire a view of the destination\n");
+        return;
+    }
+
+    u8    *surface = dest_view.ptr;
     size_t index   = (((size_t)y * dest->w) + x) * dest->stride;
     Video_ApplyROP(v, &surface[index], color);
 }
@@ -562,12 +641,19 @@ static void Video_DrawHorizontalLine(TaleaMachine *m, DeviceVideo *v, struct Buf
 
     if (y < 0 || y >= dest->h) return;
 
+    TaleaMemoryView dest_view =
+        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
+    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
+        TALEA_LOG_ERROR("Draw Horizontal Line could not acquire a view of the destination\n");
+        return;
+    }
+
     size_t start_x = MAX(0, MIN(x0, x1));
     size_t end_x   = MIN(dest->w - 1, MAX(x0, x1));
 
     if (start_x > end_x) return;
 
-    u8 *start = &m->main_memory[dest->addr + (y * dest->w) + start_x];
+    u8 *start = &dest_view.ptr[(y * dest->w) + start_x];
     u16 len   = (end_x - start_x) + 1;
 
     DrawHorizontalLineNoCheck(v, color, start, len);
@@ -580,12 +666,19 @@ static void Video_DrawVerticalLine(TaleaMachine *m, DeviceVideo *v, struct Buff2
 
     if (x < 0 || x >= dest->w) return;
 
+    TaleaMemoryView dest_view =
+        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
+    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
+        TALEA_LOG_ERROR("Draw Vline could not acquire a view of the destination\n");
+        return;
+    }
+
     size_t start_y = MAX(0, MIN(y1, y2));
     size_t end_y   = MIN(dest->h - 1, MAX(y1, y2));
 
     if (start_y > end_y) return;
 
-    u8 *buff = &m->main_memory[dest->addr];
+    u8 *buff = dest_view.ptr;
 
     u8 *current_pixel = buff + (start_y * dest->w + x);
     u16 v_stride      = dest->w;
@@ -751,6 +844,14 @@ static inline void fillBottomFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buf
     // vertices alreary ordered
 
     if (y1 <= y0) return; /* BottomFlat: y1 is bottom, y0 is top */
+
+    TaleaMemoryView dest_view =
+        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
+    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
+        TALEA_LOG_ERROR("FILL BOTTOM FLAT TRI could not acquire a view of the destination\n");
+        return;
+    }
+
     fx16 dy = y1 - y0;
 
     fx16 invs0 = (fx16)(((i64)(x1 - x0) << FX16) / dy);
@@ -774,7 +875,7 @@ static inline void fillBottomFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buf
 
     end_y = end_y > dest->h ? dest->h : end_y;
 
-    u8 *row = &m->main_memory[dest->addr + ((start_y * dest->w))];
+    u8 *row = &dest_view.ptr[(start_y * dest->w)];
 
     if (!clip)
         for (size_t scany = start_y; scany < end_y;
@@ -800,6 +901,13 @@ static inline void fillTopFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D
     // verices alreary ordered
 
     if (y2 <= y0) return; /* TopFlat: y2 is bottom, y0 is top */
+
+    TaleaMemoryView dest_view =
+        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
+    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
+        TALEA_LOG_ERROR("FILL TOP FLAT TRI could not acquire a view of the destination\n");
+        return;
+    }
 
     fx16 dy1 = y2 - y1;
     fx16 dy0 = y2 - y0;
@@ -847,7 +955,7 @@ static inline void fillTopFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D
 
     end_y = end_y >= dest->h ? dest->h - 1 : end_y;
 
-    u8 *row = &m->main_memory[dest->addr + ((start_y * dest->w))];
+    u8 *row = &dest_view.ptr[((start_y * dest->w))];
 
     if (!clip)
         for (size_t scany = start_y; scany <= end_y;
@@ -1406,13 +1514,19 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         struct Buff2D *dest = ctx ? &v->ctx[ctx] : &v->framebuffer;
 
         u32 src_addr = (cmd->args[0] >> 32) & 0x00ffffff;
-        u8 *src      = &m->main_memory[src_addr];
 
         u16 w = cmd->args[0] >> 16;
         u16 h = cmd->args[0];
 
         u16 x = cmd->args[1] >> 48;
         u16 y = cmd->args[1] >> 32;
+
+        TaleaMemoryView src_view = Bus_GetView(m, src_addr, (w * h), BUS_ACCESS_READ);
+        if (!src_view.ptr || src_view.length != (w * h)) {
+            TALEA_LOG_ERROR("COMMAND BLIT could not acquire a view of the destination\n");
+            return;
+        }
+        u8 *src = src_view.ptr;
 
         enum VideoSpriteRotation rotation = (cmd->args[1] >> 24) & 0x7;
 
@@ -1452,7 +1566,6 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         struct Buff2D *dest = ctx ? &v->ctx[ctx] : &v->framebuffer;
 
         u32 src_addr = (cmd->args[0] >> 32) & 0x00ffffff;
-        u8 *src      = &m->main_memory[src_addr];
 
         u16 w = cmd->args[0] >> 16;
         u16 h = cmd->args[0];
@@ -1461,6 +1574,13 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         u16 y      = cmd->args[1] >> 32;
         u16 dest_w = cmd->args[1] >> 16;
         u16 dest_h = cmd->args[1];
+
+        TaleaMemoryView src_view = Bus_GetView(m, src_addr, (w * h), BUS_ACCESS_READ);
+        if (!src_view.ptr || src_view.length != (w * h)) {
+            TALEA_LOG_ERROR("COMMAND STRETCH BLIT could not acquire a view of the destination\n");
+            return;
+        }
+        u8 *src = &src_view.ptr;
 
         Video_Blit(m, v, dest, src, w, h, x, y, dest_w, dest_h, rotation);
 
@@ -1501,7 +1621,6 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         struct Buff2D *dest = ctx ? &v->ctx[ctx] : &v->framebuffer;
 
         u32 src_addr = (cmd->args[0] >> 32) & 0x00ffffff;
-        u8 *src      = &m->main_memory[src_addr];
 
         u8 w     = cmd->args[0] >> 24;
         u8 h     = cmd->args[0] >> 16;
@@ -1512,6 +1631,13 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         u16 y      = cmd->args[1] >> 32;
         u16 dest_w = cmd->args[1] >> 16;
         u16 dest_h = cmd->args[1];
+
+        TaleaMemoryView src_view = Bus_GetView(m, src_addr, (w * h), BUS_ACCESS_READ);
+        if (!src_view.ptr || src_view.length != (w * h)) {
+            TALEA_LOG_ERROR("COMMAND PATTERN FILL could not acquire a view of the destination\n");
+            return;
+        }
+        u8 *src = &src_view.ptr;
 
         Video_PatternFill(m, v, dest, src, w, h, u_off, v_off, x, y, dest_w, dest_h, rotation);
 
@@ -1842,31 +1968,31 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
     // Immediate commands
     case COMMAND_SYS_INFO:
         // character w, h in pixels
-        m->data_memory[P_VIDEO_GPU0] = v->fonts[VIDEO_FONT_BASE_CP0].baseSize;
-        m->data_memory[P_VIDEO_GPU1] = VIDEO_GET_FONT_W(v->fonts);
+        v->ports[P_VIDEO_GPU0 & 0xf] = v->fonts[VIDEO_FONT_BASE_CP0].baseSize;
+        v->ports[P_VIDEO_GPU1 & 0xf] = VIDEO_GET_FONT_W(v->fonts);
         // gives important info on the mode
-        m->data_memory[P_VIDEO_GPU2] = v->mode;
-        m->data_memory[P_VIDEO_GPU3] = v->textbuffer.stride;
-        m->data_memory[P_VIDEO_GPU4] = v->textbuffer.w;
-        m->data_memory[P_VIDEO_GPU5] = v->textbuffer.h;
+        v->ports[P_VIDEO_GPU2 & 0xf] = v->mode;
+        v->ports[P_VIDEO_GPU3 & 0xf] = v->textbuffer.stride;
+        v->ports[P_VIDEO_GPU4 & 0xf] = v->textbuffer.w;
+        v->ports[P_VIDEO_GPU5 & 0xf] = v->textbuffer.h;
         // gives important info on the screen
-        m->data_memory[P_VIDEO_GPU6] = v->framebuffer.w >> 8;
-        m->data_memory[P_VIDEO_GPU7] = v->framebuffer.w;
-        m->data_memory[P_VIDEO_GPU8] = v->framebuffer.h >> 8;
-        m->data_memory[P_VIDEO_GPU9] = v->framebuffer.h;
+        v->ports[P_VIDEO_GPU6 & 0xf] = v->framebuffer.w >> 8;
+        v->ports[P_VIDEO_GPU7 & 0xf] = v->framebuffer.w;
+        v->ports[P_VIDEO_GPU8 & 0xf] = v->framebuffer.h >> 8;
+        v->ports[P_VIDEO_GPU9 & 0xf] = v->framebuffer.h;
         v->last_executed_command     = value;
         break;
 
     case COMMAND_BUFFER_INFO:
-        m->data_memory[P_VIDEO_GPU0] = v->textbuffer.addr >> 24;
-        m->data_memory[P_VIDEO_GPU1] = v->textbuffer.addr >> 16;
-        m->data_memory[P_VIDEO_GPU2] = v->textbuffer.addr >> 8;
-        m->data_memory[P_VIDEO_GPU3] = v->textbuffer.addr;
+        v->ports[P_VIDEO_GPU0 & 0xf] = v->textbuffer.addr >> 24;
+        v->ports[P_VIDEO_GPU1 & 0xf] = v->textbuffer.addr >> 16;
+        v->ports[P_VIDEO_GPU2 & 0xf] = v->textbuffer.addr >> 8;
+        v->ports[P_VIDEO_GPU3 & 0xf] = v->textbuffer.addr;
 
-        m->data_memory[P_VIDEO_GPU4] = v->framebuffer.addr >> 24;
-        m->data_memory[P_VIDEO_GPU5] = v->framebuffer.addr >> 16;
-        m->data_memory[P_VIDEO_GPU6] = v->framebuffer.addr >> 8;
-        m->data_memory[P_VIDEO_GPU7] = v->framebuffer.addr;
+        v->ports[P_VIDEO_GPU4 & 0xf] = v->framebuffer.addr >> 24;
+        v->ports[P_VIDEO_GPU5 & 0xf] = v->framebuffer.addr >> 16;
+        v->ports[P_VIDEO_GPU6 & 0xf] = v->framebuffer.addr >> 8;
+        v->ports[P_VIDEO_GPU7 & 0xf] = v->framebuffer.addr;
 
         v->last_executed_command = value;
         break;
@@ -1907,14 +2033,14 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         u8     id     = v->current_cmd.args[0] >> 56;
         i16v3 *marker = &v->vertex_markers[id & 0xf];
 
-        m->data_memory[P_VIDEO_GPU0] = marker->x >> 8;
-        m->data_memory[P_VIDEO_GPU1] = marker->x;
+        v->ports[P_VIDEO_GPU0 & 0xf] = marker->x >> 8;
+        v->ports[P_VIDEO_GPU1 & 0xf] = marker->x;
 
-        m->data_memory[P_VIDEO_GPU2] = marker->y >> 8;
-        m->data_memory[P_VIDEO_GPU3] = marker->y;
+        v->ports[P_VIDEO_GPU2 & 0xf] = marker->y >> 8;
+        v->ports[P_VIDEO_GPU3 & 0xf] = marker->y;
 
-        m->data_memory[P_VIDEO_GPU4] = marker->z >> 8;
-        m->data_memory[P_VIDEO_GPU5] = marker->z;
+        v->ports[P_VIDEO_GPU4 & 0xf] = marker->z >> 8;
+        v->ports[P_VIDEO_GPU5 & 0xf] = marker->z;
 
         v->last_executed_command = value;
 
@@ -1996,7 +2122,7 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         v->csr = ASSEMBLE_CSR(v);
 
         if (value & VIDEO_RESET_REGS) {
-            memset(&m->data_memory[P_VIDEO_GPU0], 0, 11);
+            memset(v->ports, 0, sizeof(v->ports));
         }
 
         break;
@@ -2005,26 +2131,26 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         if (v->is_drawing) {
             // FIXME: Why is this not filling arg with the values, and instead with zeroes?
             u64 arg;
-            arg = ((u64)m->data_memory[P_VIDEO_GPU0]) << 56;
-            arg |= ((u64)m->data_memory[P_VIDEO_GPU1]) << 48;
-            arg |= ((u64)m->data_memory[P_VIDEO_GPU2]) << 40;
-            arg |= ((u64)m->data_memory[P_VIDEO_GPU3]) << 32;
-            arg |= ((u64)m->data_memory[P_VIDEO_GPU4]) << 24;
-            arg |= ((u64)m->data_memory[P_VIDEO_GPU5]) << 16;
-            arg |= ((u64)m->data_memory[P_VIDEO_GPU6]) << 8;
+            arg = ((u64)v->ports[P_VIDEO_GPU0 & 0xf]) << 56;
+            arg |= ((u64)v->ports[P_VIDEO_GPU1 & 0xf]) << 48;
+            arg |= ((u64)v->ports[P_VIDEO_GPU2 & 0xf]) << 40;
+            arg |= ((u64)v->ports[P_VIDEO_GPU3 & 0xf]) << 32;
+            arg |= ((u64)v->ports[P_VIDEO_GPU4 & 0xf]) << 24;
+            arg |= ((u64)v->ports[P_VIDEO_GPU5 & 0xf]) << 16;
+            arg |= ((u64)v->ports[P_VIDEO_GPU6 & 0xf]) << 8;
             arg |= value;
             if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS)
                 v->current_cmd.args[v->current_cmd.argc] = arg;
             // TALEA_LOG_TRACE("Queueing arg%d: (%016llx) %016llx\n", v->current_cmd.argc, arg,
             //               v->current_cmd.args[v->current_cmd.argc]);
-            memset(&m->data_memory[P_VIDEO_GPU0], 0, 8);
+            memset(&v->ports[P_VIDEO_GPU0 & 0xf], 0, 8);
             if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS) v->current_cmd.argc++;
         }
 
         break;
     }
     case P_VIDEO_ERROR: break;
-    default: m->data_memory[addr] = value;
+    default: v->ports[addr & 0xf] = value;
     }
 }
 

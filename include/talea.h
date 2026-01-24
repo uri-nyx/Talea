@@ -101,12 +101,13 @@ typedef int64_t  i64;
 #define ARCH_ID                     'S'
 #define HZ                          10200000
 #define FPS                         60
-#define TALEA_MAIN_MEM_SZ           (1U << 24) // 16MB
-#define TALEA_DATA_MEM_SZ           (1U << 16) // 64KB
 #define TALEA_MAX_FIRMWARE_SIZE     (64 * 1024)
+#define TALEA_MAIN_MEM_SZ           (1U << 24) - TALEA_MAX_FIRMWARE_SIZE  // 16MB
+#define TALEA_DATA_MEM_SZ           (1U << 16) // 64KB
+#define TALEA_DATA_MMIO_END         0x110 // mmio in DATA mem ranges from 0x000 to 0x10f
 // TODO: This should be a fixed  address at the top of the  address space, no matter  how much
 // memory we have
-#define TALEA_FIRMWARE_ADDRESS (TALEA_MAIN_MEM_SZ - TALEA_MAX_FIRMWARE_SIZE)
+#define TALEA_FIRMWARE_ADDRESS ((1U<<24) - TALEA_MAX_FIRMWARE_SIZE)
 
 #define TALEA_MEM_SZ_MB 16
 
@@ -312,7 +313,7 @@ enum HayesResponse {
     HAYES_CONNECT,
     HAYES_RING,
     HAYES_NO_CARRIER,
-    HAYES_ERROR, 
+    HAYES_ERROR,
     HAYES_NO_DIALTONE,
     HAYES_BUSY,
     HAYES_NO_ANSWER,
@@ -609,6 +610,8 @@ typedef struct DeviceVideo {
     enum VideoROP     rop;
     enum VideoCommand last_executed_command;
 
+    u8 ports[16];
+
     u8   csr;
     u8   transparency;
     bool is_drawing;
@@ -892,6 +895,8 @@ void Bus_RegisterDevices(TaleaMachine *m, const int *id_array, u8 start_index, u
 
 /* --- The Talea Machine Structure --- */
 
+typedef struct TaleaBus TaleaBus;
+
 typedef struct TaleaMachine {
     CpuState       cpu;
     DeviceVideo    video;
@@ -900,8 +905,7 @@ typedef struct TaleaMachine {
     DeviceSystem   sys;
     DeviceSynth    synth;
     DeviceMouse    mouse;
-    u8             main_memory[TALEA_MAIN_MEM_SZ];
-    u8             data_memory[TALEA_DATA_MEM_SZ];
+    TaleaBus      *bus;
 } TaleaMachine;
 
 /* --- The system interface --- */

@@ -5,6 +5,9 @@
 
 // Unified memory access
 
+// Opaque bus to access any memory
+typedef struct TaleaBus TaleaBus;
+
 #ifdef DEBUG_LOG_MEMORY_ACCESS
 // TODO: use Raylib's logger
 #define WRITE_LOG(mem, dat) \
@@ -25,8 +28,6 @@ void Machine_WriteData16(TaleaMachine *m, u16 addr, u16 val);
 u32  Machine_ReadData32(TaleaMachine *m, u16 addr);
 void Machine_WriteData32(TaleaMachine *m, u16 addr, u32 val);
 
-#if TALEA_WITH_MMU
-
 u8   Machine_ReadMain8(TaleaMachine *m, u32 addr);
 void Machine_WriteMain8(TaleaMachine *m, u32 addr, u8 val);
 
@@ -34,7 +35,38 @@ u16  Machine_ReadMain16(TaleaMachine *m, u32 addr);
 void Machine_WriteMain16(TaleaMachine *m, u32 addr, u16 val);
 
 u32  Machine_ReadMain32(TaleaMachine *m, u32 addr);
+u32  Machine_ReadMain32Physical(TaleaMachine *m, u32 paddr);
 void Machine_WriteMain32(TaleaMachine *m, u32 addr, u32 val);
+void Machine_WriteMain32Physical(TaleaMachine *m, u32 paddr, u32 value);
+
+    enum MemoryViewAccess {
+        BUS_ACCESS_READ  = 1 << 0,
+        BUS_ACCESS_WRITE = 1 << 1,
+    };
+
+typedef struct TaleaMemoryView {
+    uint8_t              *ptr;          // Pointer to the actual start of the requested block
+    uint32_t              guest_addr;   // The address in the Talea address space
+    size_t                length;       // How many bytes the device is allowed to touch
+    enum MemoryViewAccess access_flags; // R, W, R/W
+} TaleaMemoryView;
+
+void Bus_Reset(TaleaMachine *m);
+void Bus_LoadFirmware(TaleaMachine *m, u8 *firmware, size_t firmware_size);
+
+TaleaMemoryView Bus_GetView(TaleaMachine *m, u32 addr, size_t len, enum MemoryViewAccess);
+void           *Bus_GetDataPointer(TaleaMachine *m, u16 addr, size_t len);
+
+size_t Bus_Copy(TaleaMachine *m, TaleaMemoryView *view_src, TaleaMemoryView *view_dest, size_t len);
+size_t Bus_ReadBlock(TaleaMachine *m, TaleaMemoryView *view_src, void *restrict buff_dest,
+                     size_t len);
+size_t Bus_WriteBlock(TaleaMachine *m, void *restrict buff_src, TaleaMemoryView *view_dest,
+                      size_t len);
+size_t Bus_Memset(TaleaMachine *m, TaleaMemoryView *view_dest, u8 pattern, size_t len);
+size_t Bus_Memset16(TaleaMachine *m, TaleaMemoryView *view_dest, u16 pattern, size_t count);
+size_t Bus_Memset32(TaleaMachine *m, TaleaMemoryView *view_dest, u32 pattern, size_t count);
+
+#if TALEA_WITH_MMU
 
 #define ON_FAULT_RETURN \
     if (cpu->exception != EXCEPTION_NONE) return;
@@ -57,51 +89,6 @@ void Machine_WriteMain32(TaleaMachine *m, u32 addr, u32 val);
 #define ON_FAULT_RETURN_M
 #define ON_FAULT_RETURN0_M
 
-static inline u8 Machine_ReadMain8(TaleaMachine *m, u32 addr)
-{
-    u8 value = m->main_memory[addr & 0x00FFFFFFU];
-    READ_LOG("main", 2);
-    return value;
-}
-static inline u16 Machine_ReadMain16(TaleaMachine *m, u32 addr)
-{
-    u16 value =
-        ((u16)m->main_memory[addr & 0x00FFFFFFU] << 8 | m->main_memory[(addr + 1) & 0x00FFFFFFU]);
-    READ_LOG("main", 4);
-    return value;
-}
-static inline u32 Machine_ReadMain32(TaleaMachine *m, u32 addr)
-{
-    u32 value = ((u32)m->main_memory[addr & 0x00FFFFFFU] << 24 |
-                 (u32)m->main_memory[(addr + 1) & 0x00FFFFFFU] << 16 |
-                 (u32)m->main_memory[(addr + 2) & 0x00FFFFFFU] << 8 |
-                 m->main_memory[(addr + 3) & 0x00FFFFFFU]);
-    READ_LOG("main", 8);
-    return value;
-}
-
-static inline void Machine_WriteMain8(TaleaMachine *m, u32 addr, u8 value)
-{
-    addr &= 0xffffff;
-    m->main_memory[addr] = value;
-    WRITE_LOG("main", 2);
-}
-
-static inline void Machine_WriteMain16(TaleaMachine *m, u32 addr, u16 value)
-{
-    m->main_memory[(addr) & 0xffffff]     = (value & 0xFF00) >> 8;
-    m->main_memory[(addr + 1) & 0xffffff] = value & 0xFF;
-    WRITE_LOG("main", 4);
-}
-
-static inline void Machine_WriteMain32(TaleaMachine *m, u32 addr, u32 value)
-{
-    m->main_memory[(addr) & 0xffffff]     = (value & 0xFF000000) >> 24;
-    m->main_memory[(addr + 1) & 0xffffff] = (value & 0xFF0000) >> 16;
-    m->main_memory[(addr + 2) & 0xffffff] = (value & 0xFF00) >> 8;
-    m->main_memory[(addr + 3) & 0xffffff] = value & 0xFF;
-    WRITE_LOG("main", 8);
-}
 #endif
 
 #endif /* BUS_H */

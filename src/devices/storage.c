@@ -297,7 +297,8 @@ static void Tps_ProcessCommand(TaleaMachine *m, u8 command)
     extern Tps *TpsDrives;
     Tps        *t = &TpsDrives[m->storage.current_tps_id];
 
-    atomic_fetch_and(&m->storage.current_tps->status, ~(STOR_STATUS_BUSY | STOR_STATUS_ERROR | STOR_STATUS_DONE));
+    atomic_fetch_and(&m->storage.current_tps->status,
+                     ~(STOR_STATUS_BUSY | STOR_STATUS_ERROR | STOR_STATUS_DONE));
 
     switch (command) {
     case COMMAND_NOP: break;
@@ -340,12 +341,13 @@ static void Tps_ProcessCommand(TaleaMachine *m, u8 command)
         }
         // 1. SANDBOX CHECK: Ensure POINT is within RAM boundaries
         // Prevent Taleä from reading/writing outside its own memory
-        u16 addr = t->point << 9; // TODO: scale this depending on sector size
-        if (addr > (TALEA_DATA_MEM_SZ - TALEA_SECTOR_SIZE) || (t->bank >= t->header.banks)) {
+        u16 addr         = t->point << 9; // TODO: scale this depending on sector size
+        u8 *data_pointer = Bus_GetDataPointer(m, addr, TALEA_SECTOR_SIZE);
+        if (!data_pointer || (t->bank >= t->header.banks)) {
             atomic_fetch_or(&t->status, STOR_STATUS_ERROR);
 
             TALEA_LOG_TRACE(
-                "ERROR address %08x not suitable for sector load/store (bank %d, header banks %d)\n",
+                "TPS ERROR address %08x not suitable for sector load/store (bank %d, header banks %d)\n",
                 t->id, t->bank, t->header.banks);
             return;
         }
@@ -358,16 +360,9 @@ static void Tps_ProcessCommand(TaleaMachine *m, u8 command)
         tps_request->command         = command;
         tps_request->bank            = t->bank;
         tps_request->sector          = t->data;
-        tps_request->dest_ram_ptr    = &m->data_memory[addr];
+        tps_request->dest_ram_ptr    = data_pointer;
         tps_request->id              = m->storage.current_tps_id;
         tps_request->hardware_status = &t->status;
-
-#if TALEA_WITH_MMU
-        if (m->cpu.status & 0x20000000) {
-            tps_request->dest_ram_ptr = &m->data_memory[addr];
-           // ON_FAULT_RETURN_M
-        }
-#endif
 
         // 3. Set Hardware to BUSY
         atomic_fetch_or(&t->status, STOR_STATUS_BUSY);
@@ -448,7 +443,8 @@ static void Hcs_ProcessCommand(TaleaMachine *m, u8 command)
     // HAS THE MUTEX LOCKED
     Hcs *h = &m->storage.hcs;
 
-    atomic_fetch_and(&m->storage.hcs.status, ~(STOR_STATUS_BUSY | STOR_STATUS_ERROR | STOR_STATUS_DONE));
+    atomic_fetch_and(&m->storage.hcs.status,
+                     ~(STOR_STATUS_BUSY | STOR_STATUS_ERROR | STOR_STATUS_DONE));
 
     switch (command) {
     case COMMAND_NOP: break;
@@ -458,10 +454,15 @@ static void Hcs_ProcessCommand(TaleaMachine *m, u8 command)
     case COMMAND_STORE: {
         // 1. SANDBOX CHECK: Ensure POINT is within RAM boundaries
         // Prevent Taleä from reading/writing outside its own memory
-        u32 addr = h->point << 9; // scale this depending on sector size
-        if (addr > (TALEA_MAIN_MEM_SZ - TALEA_SECTOR_SIZE) || !(h->data < h->header.banks)) {
+        u16 addr         = h->point << 9; // scale this depending on sector size
+        u8 *data_pointer = Bus_GetDataPointer(m, addr, TALEA_SECTOR_SIZE);
+
+        if (!data_pointer || !(h->data < h->header.banks)) {
             // check also if the hcs has that many banks
             atomic_fetch_or(&h->status, STOR_STATUS_ERROR);
+            TALEA_LOG_TRACE(
+                "HCS ERROR address %08x not suitable for sector load/store (bank %d, header banks %d)\n",
+                addr, h->data, h->header.banks);
 
             return;
         }
@@ -473,17 +474,10 @@ static void Hcs_ProcessCommand(TaleaMachine *m, u8 command)
 
         hcs_request->command         = command;
         hcs_request->sector          = ((u32)h->data << 16) | h->sector;
-        hcs_request->dest_ram_ptr    = &m->main_memory[addr];
+        hcs_request->dest_ram_ptr    = data_pointer;
         hcs_request->hardware_status = &h->status;
 
         h->data = 0;
-
-#if TALEA_WITH_MMU
-        if (m->cpu.status & 0x20000000) { // IF MMU enableds
-            hcs_request->dest_ram_ptr = &m->main_memory[MMU_TranslateAddr(m, addr, access)];
-            ON_FAULT_RETURN_M
-        }
-#endif
 
         // 3. Set Hardware to BUSY
         atomic_fetch_or(&h->status, STOR_STATUS_BUSY);

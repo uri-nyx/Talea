@@ -194,15 +194,6 @@ static bool CheckInterrupts(TaleaMachine *m)
 
 #if TALEA_WITH_MMU
 
-static inline u32 Machine_ReadMain32Physical(TaleaMachine *m, u32 paddr)
-{
-    u32 value = ((u32)m->main_memory[paddr & 0x00FFFFFFU] << 24 |
-                 (u32)m->main_memory[(paddr + 1) & 0x00FFFFFFU] << 16 |
-                 (u32)m->main_memory[(paddr + 2) & 0x00FFFFFFU] << 8 |
-                 m->main_memory[(paddr + 3) & 0x00FFFFFFU]);
-    READ_LOG("main", 8);
-    return value;
-}
 
 static void MMU_FlushTLB(TaleaMachine *m)
 {
@@ -250,13 +241,7 @@ u32 MMU_TranslateAddr(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type
     return phys | (vaddr & 0xFFF);
 }
 
-static inline Machine_WriteMain32Physical(TaleaMachine *m, u32 paddr, u32 value)
-{
-    m->main_memory[(paddr) & 0xffffff]     = (value & 0xFF000000) >> 24;
-    m->main_memory[(paddr + 1) & 0xffffff] = (value & 0xFF0000) >> 16;
-    m->main_memory[(paddr + 2) & 0xffffff] = (value & 0xFF00) >> 8;
-    m->main_memory[(paddr + 3) & 0xffffff] = value & 0xFF;
-}
+
 
 static u32 MMU_WalkPageTable(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type)
 {

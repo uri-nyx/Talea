@@ -1541,6 +1541,8 @@ static bool tps_sector_io(int command, u8 bank, u8 sector, u8 *buff)
     _shd(Devices.tps + TPS_POINT, TPS_SECTOR_DATA_ADDR >> 9);
     _sbd(Devices.tps + TPS_COMMAND, command);
 
+    while (_lbud(Devices.tps + TPS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+
     if (_lbud(Devices.tps + TPS_STATUS) & STOR_STATUS_ERROR) {
         _trace(0xdead0, 2);
         return false;
@@ -1559,12 +1561,21 @@ static bool tps_sector_io(int command, u8 bank, u8 sector, u8 *buff)
 
 static bool hcs_sector_io(int command, u8 bank, u16 sector, u8 *buff)
 {
+    u32 left;
+    // copy from TAM to DATA IF COMMAND == STORE
+    if (command == STORAGE_COMMAND_STORE) {
+        if ((left = _copymd(buff, TPS_SECTOR_DATA_ADDR, 512)) != 0) {
+            _trace(0xdead0, 0, left);
+            return false;
+        }
+    };
+
     while (_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_BUSY); // wait for ready
 
     _sbd(Devices.hcs + HCS_DATA, bank);
     _shd(Devices.hcs + HCS_SECTOR, sector);
     // Assume buff is aligned, and if not, we'r sorry
-    _shd(Devices.hcs + HCS_POINT, ((u32)buff) >> 9);
+    _shd(Devices.hcs + HCS_POINT, TPS_SECTOR_DATA_ADDR >> 9);
     _sbd(Devices.hcs + HCS_COMMAND, command);
 
     if (_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_ERROR) {
@@ -1575,11 +1586,19 @@ static bool hcs_sector_io(int command, u8 bank, u16 sector, u8 *buff)
     while (_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_BUSY); // wait for ready
 
     // return
-    {
-        bool r = !(_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_ERROR);
-        if (!r) _trace(0xdead1, 3);
-        return r;
+    if (_lbud(Devices.hcs + HCS_STATUS) & STOR_STATUS_ERROR) {
+        _trace(0xdead1, 3);
+        return false;
     }
+
+    if (command == STORAGE_COMMAND_LOAD) {
+        if ((left = _copydm(TPS_SECTOR_DATA_ADDR, buff, 512)) != 0) {
+            _trace(0xdead0, 3, left);
+            return false;
+        }
+    };
+
+    return true;
 }
 
 static bool tps_sector_load(u8 bank, u8 sector, u8 *buff)
@@ -2022,8 +2041,8 @@ void cpymd(int argc, char *argv[])
 
     left = _copymd(addr_main, addr_data, 128);
 
-    if (left != 0) ttty_mux_printf(&Con, "Copy instruction interrupted. Copied %d bytes\n", 128 - left);
-    
+    if (left != 0)
+        ttty_mux_printf(&Con, "Copy instruction interrupted. Copied %d bytes\n", 128 - left);
 }
 
 void cpydm(int argc, char *argv[])
@@ -2050,8 +2069,8 @@ void cpydm(int argc, char *argv[])
 
     left = _copydm(addr_data, addr_main, 128);
 
-    if (left != 0) ttty_mux_printf(&Con, "Copy instruction interrupted. Copied %d bytes\n", 128 - left);
-    
+    if (left != 0)
+        ttty_mux_printf(&Con, "Copy instruction interrupted. Copied %d bytes\n", 128 - left);
 }
 
 static const ushell_command_t commands[] = {

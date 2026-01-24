@@ -2,6 +2,54 @@
 #include "core/cpu.h"
 #include "talea.h"
 
+#define BUS_MAIN_POINTER_MASK 0xFFFFFFU // 24 bit pointer
+#define BUS_DATA_POINTER_MASK 0xFFFFU   // 16 bit pointer
+
+#define MAIN_BUS_ACCESS(addr) bus->main_memory[(addr) & BUS_MAIN_POINTER_MASK]
+#define DATA_BUS_ACCESS(addr) bus->data_memory[(addr) & BUS_DATA_POINTER_MASK]
+#define ROM_ACCESS(addr)      bus->rom[(addr - bus->rom_start) & BUS_DATA_POINTER_MASK]
+
+#define BUS_IO_DEV_MASK  0xFFF0
+#define BUS_IO_PORT_MASK 0xF
+
+typedef struct TaleaBus {
+    u8     main_memory[TALEA_MAIN_MEM_SZ]; // TODO: get sizes from config
+    u8     rom[TALEA_MAX_FIRMWARE_SIZE];
+    u8     data_memory[TALEA_DATA_MEM_SZ];
+    size_t mainsz;
+    size_t main_end;
+    size_t datasz;
+    size_t romsz;
+    size_t rom_start;
+    size_t rom_end;
+} TaleaBus;
+
+static TaleaBus MachineBus = { 0 };
+
+void Bus_Reset(TaleaMachine *m)
+{
+    m->bus = &MachineBus;
+
+    memset(MachineBus.main_memory, 0, sizeof(MachineBus.main_memory));
+    memset(MachineBus.data_memory, 0, sizeof(MachineBus.data_memory));
+    memset(MachineBus.rom, 0, sizeof(MachineBus.rom));
+    // TODO: LOAD ROM
+    MachineBus.mainsz = sizeof(MachineBus.main_memory);
+    MachineBus.datasz = sizeof(MachineBus.data_memory);
+    MachineBus.romsz  = sizeof(MachineBus.rom);
+
+    // This is a bit redundant but its clearer
+    MachineBus.main_end  = MachineBus.mainsz;
+    MachineBus.rom_start = TALEA_FIRMWARE_ADDRESS; // This is purposefully set at build time
+    MachineBus.rom_end   = MachineBus.rom_start + MachineBus.romsz;
+}
+
+void Bus_LoadFirmware(TaleaMachine *m, u8 *firmware, size_t firmware_size)  {
+    return;
+}
+
+
+
 /* DATA MEMORY FUNCTIONS --------------------------------- */
 
 u8 Machine_ReadData8(TaleaMachine *m, u16 addr)
@@ -11,8 +59,8 @@ u8 Machine_ReadData8(TaleaMachine *m, u16 addr)
     u8  port;
     u16 device;
 
-    port   = addr & 0x0f;
-    device = addr & 0xfff0;
+    port   = addr & BUS_IO_PORT_MASK;
+    device = addr & BUS_IO_DEV_MASK;
 
     switch (device) {
     case DEV_TTY_BASE: value = Terminal_ReadHandler(m, addr); break;
@@ -21,7 +69,7 @@ u8 Machine_ReadData8(TaleaMachine *m, u16 addr)
     case DEV_MOUSE_BASE: value = Mouse_ReadHandler(m, addr); break;
     case DEV_AUDIO_BASE: value = Synth_ReadHandler(m, addr); break;
     case DEV_SYSTEM_BASE: value = System_ReadHandler(m, addr); break;
-    default: value = (m->data_memory[addr]);
+    default: value = (m->bus->data_memory[addr]);
     }
 
     READ_LOG("data", 2);
@@ -29,6 +77,7 @@ u8 Machine_ReadData8(TaleaMachine *m, u16 addr)
 }
 void Machine_WriteData8(TaleaMachine *m, u16 addr, u8 value)
 {
+    TaleaBus *bus = m->bus;
     WRITE_LOG("data", 2);
 
     u8  port   = addr & 0x0f;
@@ -42,7 +91,7 @@ void Machine_WriteData8(TaleaMachine *m, u16 addr, u8 value)
     case DEV_AUDIO_BASE: Synth_WriteHandler(m, addr, value); break;
     case DEV_SYSTEM_BASE: System_WriteHandler(m, addr, value); break;
     default: {
-        m->data_memory[addr] = value;
+        DATA_BUS_ACCESS(addr) = value;
         break;
     }
     }
@@ -52,9 +101,9 @@ u16 Machine_ReadData16(TaleaMachine *m, u16 addr)
 {
     u16 value = 0;
 
-    u16 device = addr & 0xfff0;
+    u16 device = addr & BUS_IO_DEV_MASK;
     if ((((addr + 1) & 0xf0) != device) && (addr < 0x100)) {
-        TALEA_LOG_ERROR("Error reading 16 bits from data memory: misaligned read\n");
+        TALEA_LOG_ERROR("Error reading 16 bits from data memory: misaligned IO read\n");
         // FIXME: logging, please
         return (0xdead);
     }
@@ -69,7 +118,7 @@ void Machine_WriteData16(TaleaMachine *m, u16 addr, u16 value)
 {
     WRITE_LOG("data", 4);
 
-    u16 device = addr & 0xfff0;
+    u16 device = addr & BUS_IO_DEV_MASK;
     if ((((addr + 2) & 0xf0) != device) && (addr < 0x100)) {
         TALEA_LOG_ERROR("Error writing 16 bits to data memory: misaligned write");
         return;
@@ -82,7 +131,7 @@ void Machine_WriteData16(TaleaMachine *m, u16 addr, u16 value)
 u32 Machine_ReadData32(TaleaMachine *m, u16 addr)
 {
     u32 value  = 0;
-    u16 device = addr & 0xfff0;
+    u16 device = addr & BUS_IO_DEV_MASK;
     if ((((addr + 3) & 0xf0) != device) && (addr < 0x100)) {
         TALEA_LOG_ERROR("Error reading 32 bits from data memory: misaligned read\n");
         // FIXME: logging, please
@@ -99,7 +148,7 @@ void Machine_WriteData32(TaleaMachine *m, u16 addr, u32 value)
 {
     WRITE_LOG("data", 8);
 
-    u16 device = addr & 0xfff0;
+    u16 device = addr & BUS_IO_DEV_MASK;
     if ((((addr + 3) & 0xf0) != device) && (addr < 0x100)) {
         TALEA_LOG_ERROR("Error writing 32 bits to data memory: misaligned write");
         return;
@@ -111,19 +160,21 @@ void Machine_WriteData32(TaleaMachine *m, u16 addr, u32 value)
     Machine_WriteData8(m, addr + 3, value & 0xFF);
 }
 
-void Bus_RegisterDevices(TaleaMachine *m, const int *id_array, u8 start_index,
-                         u8 end_index)
+void Bus_RegisterDevices(TaleaMachine *m, const int *id_array, u8 start_index, u8 end_index)
 {
+    TaleaBus *bus = m->bus;
     TALEA_LOG_TRACE("Registering %d devices:\n", end_index - start_index);
     for (size_t i = start_index; i < (end_index + 1); i++) {
-        m->data_memory[DEV_MAP_BASE + i] = id_array[i];
-        TALEA_LOG_TRACE("Registered device 0x%x: 0x%02x (%c == %c)\n", i, m->data_memory[DEV_MAP_BASE + i], m->data_memory[DEV_MAP_BASE + i], id_array[i]);
+        DATA_BUS_ACCESS(DEV_MAP_BASE + i) = id_array[i];
+        TALEA_LOG_TRACE("Registered device 0x%x: 0x%02x (%c == %c)\n", i,
+                        DATA_BUS_ACCESS(DEV_MAP_BASE + i), DATA_BUS_ACCESS(DEV_MAP_BASE + i),
+                        id_array[i]);
     }
 
     TALEA_LOG_TRACE("DEVICE MAP REGISTRY\n");
     for (size_t i = start_index; i < (end_index + 1); i++) {
-        TALEA_LOG_TRACE("0x%04x: 0x%02x (%c)\n", DEV_MAP_BASE + i, m->data_memory[DEV_MAP_BASE + i],
-                        m->data_memory[DEV_MAP_BASE + i]);
+        TALEA_LOG_TRACE("0x%04x: 0x%02x (%c)\n", DEV_MAP_BASE + i,
+                        DATA_BUS_ACCESS(DEV_MAP_BASE + i), DATA_BUS_ACCESS(DEV_MAP_BASE + i));
     }
 }
 
@@ -131,21 +182,37 @@ void Bus_RegisterDevices(TaleaMachine *m, const int *id_array, u8 start_index,
 
 u8 Machine_ReadMain8(TaleaMachine *m, u32 addr)
 {
-    u32 paddr = addr  & 0x00FFFFFFU;
+    TaleaBus *bus   = m->bus;
+    u8        value = 0xFF;
+
+    u32 paddr = addr & BUS_MAIN_POINTER_MASK;
 
     if (SR_GET_MMU(m->cpu.status)) {
         paddr = MMU_TranslateAddr(m, addr, ACCESS_READ);
         if (m->cpu.exception != EXCEPTION_NONE) return 0;
     }
 
-    u8 value = m->main_memory[paddr];
+    if (paddr < bus->main_end) {
+        value = MAIN_BUS_ACCESS(paddr);
+    } else if (paddr >= bus->rom_start && paddr < bus->rom_end) {
+        value = ROM_ACCESS(paddr);
+    }
+#ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_READ
+    else {
+        // THIS ADDRESS IS NOT MAPPED TO PHYSICAL MEMORY!
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    }
+#endif
+
     READ_LOG("main", 2);
     return value;
 }
 
 u16 Machine_ReadMain16(TaleaMachine *m, u32 addr)
 {
-    u32 paddr = addr;
+    TaleaBus *bus   = m->bus;
+    u16       value = 0xDEAD; // open bus
+    u32       paddr = addr & BUS_MAIN_POINTER_MASK;
 
     if (SR_GET_MMU(m->cpu.status)) {
         if ((addr & 0xFFF) > (4096 - 2)) {
@@ -158,17 +225,27 @@ u16 Machine_ReadMain16(TaleaMachine *m, u32 addr)
         }
     }
 
-    // clang-format off
-    u16 value = ((u16)m->main_memory[paddr & 0x00FFFFFFU] << 8 | 
-                m->main_memory[(paddr + 1) & 0x00FFFFFFU]);
-    // clang-format on
+    if ((paddr + 1) < bus->main_end) {
+        value = ((u16)MAIN_BUS_ACCESS(paddr) << 8 | MAIN_BUS_ACCESS(paddr + 1));
+    } else if ((paddr + 1) >= bus->rom_start && (paddr + 1) < bus->rom_end) {
+        value = ((u16)ROM_ACCESS(paddr) << 8 | ROM_ACCESS(paddr + 1));
+    }
+#ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_READ
+    else {
+        // THIS ADDRESS IS NOT MAPPED TO PHYSICAL MEMORY!
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    }
+#endif
+
     READ_LOG("main", 4);
     return value;
 }
 
 u32 Machine_ReadMain32(TaleaMachine *m, u32 addr)
 {
-    u32 paddr = addr & 0x00FFFFFFU;
+    TaleaBus *bus   = m->bus;
+    u32       value = 0xDEADBEEF; // open bus
+    u32       paddr = addr & BUS_MAIN_POINTER_MASK;
 
     if (SR_GET_MMU(m->cpu.status)) {
         if ((addr & 0xFFF) > (4096 - 4)) {
@@ -183,28 +260,79 @@ u32 Machine_ReadMain32(TaleaMachine *m, u32 addr)
         }
     }
 
-    u32 value = ((u32)m->main_memory[paddr] << 24 | (u32)m->main_memory[(paddr + 1) & 0x00FFFFFFU] << 16 |
-                 (u32)m->main_memory[(paddr + 2 )  & 0x00FFFFFFU] << 8 | m->main_memory[(paddr + 3) & 0x00FFFFFFU]);
+    if ((paddr + 3) < bus->main_end) {
+        value = ((u32)MAIN_BUS_ACCESS(paddr) << 24 | (u32)MAIN_BUS_ACCESS(paddr + 1) << 16 |
+                 (u32)MAIN_BUS_ACCESS(paddr + 2) << 8 | MAIN_BUS_ACCESS(paddr + 3));
+    } else if ((paddr + 3) >= bus->rom_start && (paddr + 3) < bus->rom_end) {
+        value = ((u32)ROM_ACCESS(paddr) << 24 | (u32)ROM_ACCESS(paddr + 1) << 16 |
+                 (u32)ROM_ACCESS(paddr + 2) << 8 | ROM_ACCESS(paddr + 3));
+    }
+#ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_READ
+    else {
+        // THIS ADDRESS IS NOT MAPPED TO PHYSICAL MEMORY!
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    }
+#endif
+
+    READ_LOG("main", 8);
+    return value;
+}
+
+u32 Machine_ReadMain32Physical(TaleaMachine *m, u32 paddr)
+{
+    TaleaBus *bus   = m->bus;
+    u32       value = 0xDEADBEEF; // open bus
+    paddr           = paddr & BUS_MAIN_POINTER_MASK;
+
+    if ((paddr + 3) < bus->main_end) {
+        value = ((u32)MAIN_BUS_ACCESS(paddr) << 24 | (u32)MAIN_BUS_ACCESS(paddr + 1) << 16 |
+                 (u32)MAIN_BUS_ACCESS(paddr + 2) << 8 | MAIN_BUS_ACCESS(paddr + 3));
+    } else if ((paddr + 3) >= bus->rom_start && (paddr + 3) < bus->rom_end) {
+        value = ((u32)ROM_ACCESS(paddr) << 24 | (u32)ROM_ACCESS(paddr + 1) << 16 |
+                 (u32)ROM_ACCESS(paddr + 2) << 8 | ROM_ACCESS(paddr + 3));
+    }
+#ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_READ
+    else {
+        // THIS ADDRESS IS NOT MAPPED TO PHYSICAL MEMORY!
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    }
+#endif
+
     READ_LOG("main", 8);
     return value;
 }
 
 void Machine_WriteMain8(TaleaMachine *m, u32 addr, u8 value)
 {
-    u32 paddr = addr & 0xffffff;
+    TaleaBus *bus   = m->bus;
+    u32       paddr = addr & BUS_MAIN_POINTER_MASK;
 
     if (SR_GET_MMU(m->cpu.status)) {
         paddr = MMU_TranslateAddr(m, addr, ACCESS_WRITE);
         if (m->cpu.exception != EXCEPTION_NONE) return;
     }
 
-    m->main_memory[paddr] = value;
+    if (paddr < bus->main_end) {
+        MAIN_BUS_ACCESS(paddr) = value;
+    }
+
+#ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_WRITE
+    if (paddr >= bus->rom_start && paddr < bus->rom_end) {
+        // TODO: DOCUMENT. Writing to ROM is a nop, but don't raise expecption;
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    } else {
+        // THIS ADDRESS IS NOT MAPPED TO PHYSICAL MEMORY!
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    }
+#endif
+
     WRITE_LOG("main", 2);
 }
 
 void Machine_WriteMain16(TaleaMachine *m, u32 addr, u16 value)
 {
-    u32 paddr = addr & 0xffffff;
+    TaleaBus *bus   = m->bus;
+    u32       paddr = addr & BUS_MAIN_POINTER_MASK;
 
     if (SR_GET_MMU(m->cpu.status)) {
         if ((addr & 0xFFF) > (4096 - 2)) {
@@ -217,14 +345,26 @@ void Machine_WriteMain16(TaleaMachine *m, u32 addr, u16 value)
         }
     }
 
-    m->main_memory[paddr]     = (value & 0xFF00) >> 8;
-    m->main_memory[(paddr + 1)  & 0x00FFFFFFU] = value & 0xFF;
+    if ((paddr + 1) < bus->main_end) {
+        MAIN_BUS_ACCESS(paddr)     = (value & 0xFF00) >> 8;
+        MAIN_BUS_ACCESS(paddr + 1) = value & 0xFF;
+    }
+#ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_WRITE
+    if ((paddr + 1) >= bus->rom_start && (paddr + 1) < bus->rom_end) {
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    } else {
+        // THIS ADDRESS IS NOT MAPPED TO PHYSICAL MEMORY!
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    }
+#endif
+
     WRITE_LOG("main", 4);
 }
 
 void Machine_WriteMain32(TaleaMachine *m, u32 addr, u32 value)
 {
-    u32 paddr = addr & 0xffffff;
+    TaleaBus *bus   = m->bus;
+    u32       paddr = addr & 0xffffff;
 
     if (SR_GET_MMU(m->cpu.status)) {
         if ((addr & 0xFFF) > (4096 - 4)) {
@@ -239,10 +379,194 @@ void Machine_WriteMain32(TaleaMachine *m, u32 addr, u32 value)
         }
     }
 
-    m->main_memory[paddr]     = (value & 0xFF000000) >> 24;
-    m->main_memory[(paddr + 1)  & 0x00FFFFFFU] = (value & 0xFF0000) >> 16;
-    m->main_memory[(paddr + 2)  & 0x00FFFFFFU] = (value & 0xFF00) >> 8;
-    m->main_memory[(paddr + 3)  & 0x00FFFFFFU] = value & 0xFF;
+    if ((paddr + 3) < bus->main_end) {
+        MAIN_BUS_ACCESS(paddr)     = (value & 0xFF000000) >> 24;
+        MAIN_BUS_ACCESS(paddr + 1) = (value & 0xFF0000) >> 16;
+        MAIN_BUS_ACCESS(paddr + 2) = (value & 0xFF00) >> 8;
+        MAIN_BUS_ACCESS(paddr + 3) = value & 0xFF;
+    }
+
+#ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_WRITE
+    if ((paddr + 3) >= bus->rom_start && (paddr + 3) < bus->rom_end) {
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    } else {
+        // THIS ADDRESS IS NOT MAPPED TO PHYSICAL MEMORY!
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    }
+#endif
+
     WRITE_LOG("main", 8);
 }
+
+void Machine_WriteMain32Physical(TaleaMachine *m, u32 paddr, u32 value)
+{
+    TaleaBus *bus = m->bus;
+    paddr         = paddr & 0xffffff;
+
+    if ((paddr + 3) < bus->main_end) {
+        MAIN_BUS_ACCESS(paddr)     = (value & 0xFF000000) >> 24;
+        MAIN_BUS_ACCESS(paddr + 1) = (value & 0xFF0000) >> 16;
+        MAIN_BUS_ACCESS(paddr + 2) = (value & 0xFF00) >> 8;
+        MAIN_BUS_ACCESS(paddr + 3) = value & 0xFF;
+    }
+
+#ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_WRITE
+    if ((paddr + 3) >= bus->rom_start && (paddr + 3) < bus->rom_end) {
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    } else {
+        // THIS ADDRESS IS NOT MAPPED TO PHYSICAL MEMORY!
+        m->cpu.exception = EXCEPTION_BUS_ERROR;
+    }
+#endif
+
+    WRITE_LOG("main", 8);
+}
+
+// DMA Bus controller
+
+void *Bus_GetDataPointer(TaleaMachine *m, u16 addr, size_t len)
+{
+    size_t start = addr & BUS_DATA_POINTER_MASK;
+
+    if (start < TALEA_DATA_MMIO_END) return NULL;
+    if (start + len >= TALEA_DATA_MEM_SZ) return NULL;
+
+    return &m->bus->data_memory[start];
+}
+
+TaleaMemoryView Bus_GetView(TaleaMachine *m, u32 addr, size_t len, enum MemoryViewAccess flags)
+{
+    TaleaBus       *bus = m->bus;
+    TaleaMemoryView view =
+        (TaleaMemoryView){ .ptr = NULL, .guest_addr = addr, .length = 0, .access_flags = flags };
+
+    addr = addr & BUS_MAIN_POINTER_MASK;
+
+    if (addr >= bus->rom_start && (addr + len) < bus->rom_end && flags == BUS_ACCESS_READ) {
+        view.ptr    = &bus->rom[addr - bus->rom_start];
+        view.length = len;
+    }
+
+    if ((addr + len) < bus->main_end) {
+        view.ptr    = &bus->main_memory[addr];
+        view.length = len;
+    }
+
+    return view;
+}
+
+size_t Bus_Copy(TaleaMachine *m, TaleaMemoryView *view_src, TaleaMemoryView *view_dest, size_t len)
+{
+    if (!view_src->ptr || view_src->length <= 0) {
+        TALEA_LOG_WARNING("Bus DMA copy request denied: invalid source memory view\n");
+        return 0;
+    }
+
+    if (!view_dest->ptr || view_dest->length <= 0 ||
+        !(view_dest->access_flags & BUS_ACCESS_WRITE)) {
+        if (!(view_dest->access_flags & BUS_ACCESS_WRITE))
+            TALEA_LOG_WARNING("Bus DMA copy request denied: source lacks write access\n");
+        else
+            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+        return 0;
+    }
+
+    if (view_dest->guest_addr == view_src->guest_addr) return len;
+
+    size_t bytes_to_copy = MIN(len, MIN(view_src->length, view_dest->length));
+    memmove(view_dest->ptr, view_src->ptr, bytes_to_copy);
+    return bytes_to_copy;
+}
+
+// Reads from Guest to write to Host
+// NOTE: the buffer should be at leat of len size
+size_t Bus_ReadBlock(TaleaMachine *m, TaleaMemoryView *view_src, void *restrict buff_dest,
+                     size_t len)
+{
+    if (!view_src->ptr || view_src->length <= 0 || !(view_src->access_flags & BUS_ACCESS_READ)) {
+        if (!(view_src->access_flags & BUS_ACCESS_READ))
+            TALEA_LOG_WARNING("Bus DMA copy request denied: source lacks read access\n");
+        else
+            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+        return 0;
+    }
+
+    size_t bytes_to_copy = MIN(len, view_src->length);
+    memcpy(buff_dest, view_src->ptr, bytes_to_copy);
+    return bytes_to_copy;
+}
+
+// Reads from Host to write to Guest
+// NOTE: the buffer should be at leat of len size
+size_t Bus_WriteBlock(TaleaMachine *m, void *restrict buff_src, TaleaMemoryView *view_dest,
+                      size_t len)
+{
+    if (!view_dest->ptr || view_dest->length <= 0 ||
+        !(view_dest->access_flags & BUS_ACCESS_WRITE)) {
+        if (!(view_dest->access_flags & BUS_ACCESS_WRITE))
+            TALEA_LOG_WARNING("Bus DMA copy request denied: destination lacks write access\n");
+        else
+            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+        return 0;
+    }
+
+    size_t bytes_to_copy = MIN(len, view_dest->length);
+    memcpy(view_dest->ptr, buff_src, bytes_to_copy);
+    return bytes_to_copy;
+}
+
+size_t Bus_Memset(TaleaMachine *m, TaleaMemoryView *view_dest, u8 pattern, size_t len)
+{
+    if (!view_dest->ptr || view_dest->length <= 0 ||
+        !(view_dest->access_flags & BUS_ACCESS_WRITE)) {
+        if (!(view_dest->access_flags & BUS_ACCESS_WRITE))
+            TALEA_LOG_WARNING("Bus DMA copy request denied: destination lacks write access\n");
+        else
+            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+        return 0;
+    }
+
+    size_t bytes_to_set = MIN(len, view_dest->length);
+    memset(view_dest->ptr, pattern, bytes_to_set);
+    return bytes_to_set;
+}
+
+// NOTE: this is endianness agnostic it just fills the pattern. Be sure to reverse if needed
+// NOTE: count is in elements (no of 16 bit patterns) return same
+size_t Bus_Memset16(TaleaMachine *m, TaleaMemoryView *view_dest, u16 pattern, size_t count)
+{
+    if (!view_dest->ptr || view_dest->length <= 0 ||
+        !(view_dest->access_flags & BUS_ACCESS_WRITE)) {
+        if (!(view_dest->access_flags & BUS_ACCESS_WRITE))
+            TALEA_LOG_WARNING("Bus DMA copy request denied: destination lacks write access\n");
+        else
+            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+        return 0;
+    }
+
+    size_t elements_to_set = (MIN(count * 2, view_dest->length)) / 2;
+    u16   *raw_ptr         = (u16 *)view_dest->ptr;
+    for (size_t i = 0; i < elements_to_set; i++) raw_ptr[i] = pattern;
+    return elements_to_set;
+}
+
+// NOTE: this is endianness agnostic it just fills the pattern.
+// NOTE: count is in elements (no of 16 bit patterns) return same
+size_t Bus_Memset32(TaleaMachine *m, TaleaMemoryView *view_dest, u32 pattern, size_t count)
+{
+    if (!view_dest->ptr || view_dest->length <= 0 ||
+        !(view_dest->access_flags & BUS_ACCESS_WRITE)) {
+        if (!(view_dest->access_flags & BUS_ACCESS_WRITE))
+            TALEA_LOG_WARNING("Bus DMA copy request denied: destination lacks write access\n");
+        else
+            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+        return 0;
+    }
+
+    size_t elements_to_set = (MIN(count * 4, view_dest->length)) / 4;
+    u32   *raw_ptr         = (u32 *)view_dest->ptr;
+    for (size_t i = 0; i < elements_to_set; i++) raw_ptr[i] = pattern;
+    return elements_to_set;
+}
+
 #endif

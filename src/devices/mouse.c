@@ -58,7 +58,11 @@ static inline void Mouse_LoadSprite(TaleaMachine *m)
 
     TALEA_LOG_TRACE("Loading cursor sprite\n");
     if (mouse->sprite_addr + sizeof(sprite2bit) < TALEA_DATA_MEM_SZ) {
-        memcpy(sprite2bit, &m->data_memory[mouse->sprite_addr], sizeof(sprite2bit));
+        u8 *sprite_pointer = Bus_GetDataPointer(m, mouse->sprite_addr, sizeof(sprite2bit));
+        if (!sprite_pointer)
+            TALEA_LOG_WARNING("Cursor sprite could not be loaded: DATA pointer request denied\n");
+        else
+            memcpy(sprite2bit, sprite_pointer, sizeof(sprite2bit));
     }
 
     for (size_t i = 0; i < 16 * 16; i++) {

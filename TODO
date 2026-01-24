@@ -110,6 +110,6 @@ Bugs:
     ☐ Not a bug per se, but if ATE1 (echo) is enabled on the modem, and the CPU dares to echo back what it gets on the serial line, when answering a call and then escaping to command mode, a feedback loop will be triggered and possibly crash the emulator. This to say that if ATE1 is enabled you DONT NEVER EVER echo again.
     ☐ How does the video subsytem do DMA? all pointers passed to it are physical
     tiny:
-        ☐ modem result codes are a mess
-        ☐ if mouse goes outside the bounding box, and then returns OS mouse is constanly showing over the sprite
-        
+        ✔ modem result codes are a mess @done(26-01-24 14:30)
+        ✔ if mouse goes outside the bounding box, and then returns OS mouse is constanly showing over the sprite @done(26-01-24 14:30)
+
