@@ -45,7 +45,7 @@ u8 System_ReadHandler(TaleaMachine *m, u16 addr)
 
     switch (addr) {
     case P_SYSTEM_MEMSIZE_FLASH:
-        return (TALEA_MEM_SZ_MB);
+        return (TALEA_MAIN_MEM_SZ / (1U<<16)) - 1; // TODO: DOCUMENT THAT THIS GIVES THE NUMBER OF 64KB blocks - 1 (0 means the system has 64Kb ram)
     case P_SYSTEM_CLOCK:
         return (freq_to_byte(m->cpu.frequency / 1000000));
         // TODO: Document this. Get freequency back by 10000 + (reg_val * 353)

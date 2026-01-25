@@ -37,7 +37,7 @@ in LICENSE-THIRD-PARTY. This project is licensed under the MIT License.
 #define BIOS_CHR      'T'
 #define GET_SYSTEM(r) _lbud(DEVICE_SYSTEM + (r))
 
-#define STACK_SIZE (64 * 1024)
+#define STACK_SIZE (16 * 1024)
 
 #define KBD_EVENT_QUEUE_SIZE 32
 
@@ -68,6 +68,8 @@ typedef struct KbdEventQueue {
 struct device_map Devices;
 TttyMux           Con;
 Ttty              Video_tty, Serial_tty;
+
+u8 Video_mode = 0;
 
 u32        Memsize;
 enum TpsId CurrentTps;
@@ -376,10 +378,9 @@ static void bios_init(void)
     KeyboardEvents.head = 0;
     KeyboardEvents.tail = 0;
 
-    Memsize   = (u32)_lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MEMSIZE) * 0x100000;
-    Stack_top = (void *)(Memsize - (64 * 1024));
+    Memsize   = ((u32)_lbud(DEVICE_SYSTEM + PORTS_SYSTEM_MEMSIZE) * (1 << 16)) + (1 << 16);
+    Stack_top = (void *)((64 * 1024));
     Stack_end = (void *)((u32)Stack_top - STACK_SIZE);
-    _trace((u32)Stack_top);
 
     find_devices();
 
@@ -399,7 +400,7 @@ static void bios_init(void)
 
     video_text_screen_size(&cols, &rows, &bpc);
     Charbuff_size = rows * cols * bpc;
-    Charbuff      = (u8 *)((u32)Stack_end - 1024 - Charbuff_size);
+    Charbuff      = (u8 *)((u32)Memsize - 1024 - Charbuff_size);
 
     _trace(0x1, cols, rows, bpc);
 
@@ -423,6 +424,9 @@ static void bios_init(void)
             wait += i;
         }
     }
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_SYS_INFO);
+    Video_mode = _lbud(Devices.video + VIDEO_GPU2);
 
     /* TODO: use a proper driver for the video */
     ttty_init(&Video_tty, "System Console", TTTY_XYLF | TTTY_ANSI, cols, rows, bpc,
@@ -493,8 +497,15 @@ void sysinfo(int argc, char *argv[])
 
     ttty_mux_puts(&Con, "\t\t\tSYSTEM INFORMATION\n");
     ttty_mux_puts(&Con, "The Talea Computer System. v0.5-beta\n");
-    ttty_mux_printf(&Con, "\t%02d:%02d:%02d\t%02d/%02d/%04d\n", hh, mm, ss, day, month + 1,
-                    year + 1900);
+    ttty_mux_printf(&Con, "Time: %02d:%02d:%02d Date: %02d/%02d/%04d\n\n", hh, mm, ss, day,
+                    month + 1, year + 1900);
+    ttty_mux_puts(&Con, "[ TERMINAL INFO ]\n");
+    ttty_mux_printf(&Con, "BIOS monitor terminal: %d columns, %d rows.\n", Video_tty.w,
+                    Video_tty.h);
+    ttty_mux_printf(&Con, "Terminal mode: %s\n", Video_tty.has_ansi ? "ANSI" : "DUMB");
+    ttty_mux_printf(&Con, "Color mode: %s [MODE %x]\n\n",
+                    Video_mode == VIDEO_MODE_TEXT_MONO ? "monochrome" : "256 indexed color",
+                    Video_mode);
     ttty_mux_puts(&Con, "[ CORE ]\n");
 
     /* Processor */
@@ -507,7 +518,7 @@ void sysinfo(int argc, char *argv[])
                     khz);
 
     /* Memory */
-    ttty_mux_printf(&Con, "Memory:\t\t%dKiB\n", GET_SYSTEM(PORTS_SYSTEM_MEMSIZE) * 1024);
+    ttty_mux_printf(&Con, "Memory:\t\t%dKiB\n", Memsize / 1024);
 
     /* Firmware */
     ttty_mux_puts(&Con, "Firmware:\t" BIOS_NAME " v" BIOS_VERSION "\n");
@@ -1027,7 +1038,7 @@ void pcm_synth(int argc, char *argv[])
 
 void tamlin(int argc, char *argv[])
 {
-    i16  *samples     = (i16 *)0x1000;
+    i16  *samples     = (i16 *)0x10000;
     usize len         = 171902 / 2;
     usize curr_sample = 0;
 
@@ -2073,6 +2084,131 @@ void cpydm(int argc, char *argv[])
         ttty_mux_printf(&Con, "Copy instruction interrupted. Copied %d bytes\n", 128 - left);
 }
 
+void glyphs(int argc, char *argv[])
+{
+    usize i;
+    u8    old_attr = Video_tty.default_att[2];
+    ttty_clear(&Video_tty);
+
+    ttty_printf(&Video_tty, "[MAIN FONT: CODE PAGE 0]\n");
+    for (i = 0; i < 255; i++) {
+        ttty_emit_raw(&Video_tty, i);
+    }
+
+    ttty_printf(&Video_tty, "\n[MAIN FONT: CODE PAGE 1]\n");
+    Video_tty.default_att[2] = old_attr | TEXTMODE_ATT_CODEPAGE;
+    for (i = 0; i < 255; i++) {
+        ttty_emit_raw(&Video_tty, i);
+    }
+
+    Video_tty.default_att[2] = old_attr;
+    ttty_printf(&Video_tty, "\n[ALT FONT: CODE PAGE 0]\n");
+    Video_tty.default_att[2] = old_attr | TEXTMODE_ATT_ALT_FONT;
+    for (i = 0; i < 255; i++) {
+        ttty_emit_raw(&Video_tty, i);
+    }
+
+    Video_tty.default_att[2] = old_attr;
+    ttty_printf(&Video_tty, "\n[ALT FONT: CODE PAGE 1]\n");
+    Video_tty.default_att[2] = old_attr | TEXTMODE_ATT_CODEPAGE | TEXTMODE_ATT_ALT_FONT;
+    for (i = 0; i < 255; i++) {
+        ttty_emit_raw(&Video_tty, i);
+    }
+
+    Video_tty.default_att[2] = old_attr;
+}
+
+void palette(int argc, char *argv[])
+{
+    usize i;
+    u8    old_fg  = Video_tty.default_att[0];
+    u8    old_bg  = Video_tty.default_att[1];
+    u8    old_att = Video_tty.default_att[2];
+
+    Video_tty.default_att[2] = 0;
+
+    ttty_printf(&Video_tty, "[LOADED COLOR PALETTE]\n");
+    for (i = 0; i < 255; i++) {
+        Video_tty.default_att[0] = i;
+        Video_tty.default_att[1] = i;
+        ttty_emit_raw(&Video_tty, ' ');
+    }
+
+    Video_tty.default_att[2] = old_att;
+    Video_tty.default_att[1] = old_bg;
+    Video_tty.default_att[0] = old_fg;
+
+    ttty_putc(&Video_tty, '\n');
+}
+
+static void change_pallete(void)
+{
+    static u8 curr_index = 0;
+    static u8 curr_r     = 0;
+    static u8 curr_g     = 0;
+    static u8 curr_b     = 0;
+
+    _sbd(0x500, curr_r++);
+    _sbd(0x501, curr_g++);
+    _sbd(0x502, curr_b++);
+    _sbd(0x503, 0xff);
+
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
+    _sbd(Devices.video + VIDEO_GPU0, 4);               // load pallete
+    _shd(Devices.video + VIDEO_GPU1, 0x500);           // address in DATA of the pallete
+    _sbd(Devices.video + VIDEO_GPU3, 0);               // element count -1
+    _sbd(Devices.video + VIDEO_GPU4, curr_index++);    // starting elment index
+    _sbd(Devices.video + VIDEO_GPU7, 0);               // latch!
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_LOAD); // fire!
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
+}
+
+void palette_shenanigans(int argc, char *argv[])
+{
+    bool escape = false;
+    u32  vcsr   = _lbud(Devices.video + VIDEO_CSR);
+
+    ttty_clear(&Video_tty);
+    ttty_puts(&Video_tty, "Lets do some palette shenanigans! \nEsc to quit\n");
+    palette(0, NULL);
+
+    on_vblank = &change_pallete;
+
+    vcsr |= VIDEO_VBLANK_EN; // vblank enable
+    vcsr &= ~VIDEO_CURSOR_EN;
+
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    do {
+        escape = vol_control();
+    } while (!escape);
+
+    vcsr = _lbud(Devices.video + VIDEO_CSR);
+    vcsr &= ~VIDEO_VBLANK_EN; // vblank disable
+    vcsr |= VIDEO_CURSOR_EN;
+    _sbd(Devices.video + VIDEO_CSR, vcsr);
+
+    on_vblank = NULL;
+
+    ttty_clear(&Video_tty);
+    kbd_reset_translation();
+}
+
+#include "testfont.h"
+
+void fontload(int argc, char *argv[])
+{
+    _copymd(testfont_data, 0x500, sizeof(testfont_data));
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
+    _sbd(Devices.video + VIDEO_GPU0, 0);               // load into base font slot
+    _shd(Devices.video + VIDEO_GPU1, 0x500);           // address in DATA of the pallete
+    _sbd(Devices.video + VIDEO_GPU3, 0);               // element count -1
+    _sbd(Devices.video + VIDEO_GPU4, curr_index++);    // starting elment index
+    _sbd(Devices.video + VIDEO_GPU7, 0);               // latch!
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_LOAD); // fire!
+    _sbd(Devices.video + VIDEO_COMMAND, COMMAND_END_DRAWING);
+}
+
 static const ushell_command_t commands[] = {
     /* SYSTEM TEST */
     { "sysinfo", "prints system information", &sysinfo },
@@ -2104,6 +2240,10 @@ static const ushell_command_t commands[] = {
     { "clock", "a simple digital clock", &clock },
     { "cpymd", "block copy 128 bytes from MAIN to DATA", &cpymd },
     { "cpydm", "block copy 128 bytes from DATA to MAIN", &cpydm },
+    { "glyphs", "shows a table of all glyphs the 4 fonts loaded", &glyphs },
+    { "palette", "shows the loaded color palette", &palette },
+    { "palettetest", "changes pallette index each screen refresh", &palette_shenanigans },
+    { "fontload", "changes the font", &fontload },
     { "clear", "clear the screen", &clear }
 };
 

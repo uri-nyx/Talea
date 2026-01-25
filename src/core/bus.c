@@ -33,7 +33,7 @@ void Bus_Reset(TaleaMachine *m)
     memset(MachineBus.main_memory, 0, sizeof(MachineBus.main_memory));
     memset(MachineBus.data_memory, 0, sizeof(MachineBus.data_memory));
     memset(MachineBus.rom, 0, sizeof(MachineBus.rom));
-    // TODO: LOAD ROM
+
     MachineBus.mainsz = sizeof(MachineBus.main_memory);
     MachineBus.datasz = sizeof(MachineBus.data_memory);
     MachineBus.romsz  = sizeof(MachineBus.rom);
@@ -44,11 +44,25 @@ void Bus_Reset(TaleaMachine *m)
     MachineBus.rom_end   = MachineBus.rom_start + MachineBus.romsz;
 }
 
-void Bus_LoadFirmware(TaleaMachine *m, u8 *firmware, size_t firmware_size)  {
+void Bus_LoadFirmware(TaleaMachine *m, u8 *firmware, size_t firmware_size)
+{
+    // we're going to parse the bare minimum of the a.out header, just to load the code at
+    // FIRMWARE_ADDRESS and the data+bss at FIRMWARE_DATA_ADDDRESS
+    // Also, assume firmware is not NULL and everything because this is only called once, by us
+
+    u32 code_size = fromBe32(((u32 *)firmware)[1]); // code size starts at offset 4 in the a.out
+                                                    // header
+    u32 data_size = fromBe32(((u32 *)firmware)[2]); // data size starts at offset 8 in the a.out
+                                                    // header
+
+    // Don't bother zeroing out the bss, its already 0
+    u8 *stripped = firmware + 32; // the actual code starts at offset 32 in the a.out header
+    memcpy(m->bus->rom, stripped, MIN(code_size, TALEA_MAX_FIRMWARE_SIZE)); // load code
+    memcpy(m->bus->main_memory + TALEA_FIRMWARE_DATA_ADDRESS, stripped + code_size,
+           MIN(data_size, TALEA_MAIN_MEM_SZ - TALEA_FIRMWARE_DATA_ADDRESS)); // load data
+    // and we're done!
     return;
 }
-
-
 
 /* DATA MEMORY FUNCTIONS --------------------------------- */
 
@@ -441,15 +455,27 @@ TaleaMemoryView Bus_GetView(TaleaMachine *m, u32 addr, size_t len, enum MemoryVi
         (TaleaMemoryView){ .ptr = NULL, .guest_addr = addr, .length = 0, .access_flags = flags };
 
     addr = addr & BUS_MAIN_POINTER_MASK;
+    /*
+        TALEA_LOG_TRACE("Requesting DMA memory view to addr %06x, len %d, flags %d\n", addr, len,
+                        flags);
 
+    */
     if (addr >= bus->rom_start && (addr + len) < bus->rom_end && flags == BUS_ACCESS_READ) {
         view.ptr    = &bus->rom[addr - bus->rom_start];
         view.length = len;
+        /*
+                TALEA_LOG_TRACE("Granting DMA memory view to addr %06x [ROM], len %d, flags %d\n",
+           addr, len, flags);
+        */
     }
 
     if ((addr + len) < bus->main_end) {
         view.ptr    = &bus->main_memory[addr];
         view.length = len;
+        /*
+        TALEA_LOG_TRACE("Granting DMA memory view to addr %06x [RAM], len %d, flags %d\n", addr,
+                        len, flags);
+                        */
     }
 
     return view;
@@ -485,9 +511,9 @@ size_t Bus_ReadBlock(TaleaMachine *m, TaleaMemoryView *view_src, void *restrict 
 {
     if (!view_src->ptr || view_src->length <= 0 || !(view_src->access_flags & BUS_ACCESS_READ)) {
         if (!(view_src->access_flags & BUS_ACCESS_READ))
-            TALEA_LOG_WARNING("Bus DMA copy request denied: source lacks read access\n");
+            TALEA_LOG_WARNING("Bus DMA read request denied: source lacks read access\n");
         else
-            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+            TALEA_LOG_WARNING("Bus DMA read request denied: invalid destinantion memory view\n");
         return 0;
     }
 
@@ -504,9 +530,9 @@ size_t Bus_WriteBlock(TaleaMachine *m, void *restrict buff_src, TaleaMemoryView 
     if (!view_dest->ptr || view_dest->length <= 0 ||
         !(view_dest->access_flags & BUS_ACCESS_WRITE)) {
         if (!(view_dest->access_flags & BUS_ACCESS_WRITE))
-            TALEA_LOG_WARNING("Bus DMA copy request denied: destination lacks write access\n");
+            TALEA_LOG_WARNING("Bus DMA write request denied: destination lacks write access\n");
         else
-            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+            TALEA_LOG_WARNING("Bus DMA write request denied: invalid destinantion memory view\n");
         return 0;
     }
 
@@ -520,9 +546,11 @@ size_t Bus_Memset(TaleaMachine *m, TaleaMemoryView *view_dest, u8 pattern, size_
     if (!view_dest->ptr || view_dest->length <= 0 ||
         !(view_dest->access_flags & BUS_ACCESS_WRITE)) {
         if (!(view_dest->access_flags & BUS_ACCESS_WRITE))
-            TALEA_LOG_WARNING("Bus DMA copy request denied: destination lacks write access\n");
+            TALEA_LOG_WARNING(
+                "Bus DMA memset request denied: destination lacks write access [addr: %06x]\n",
+                view_dest->guest_addr);
         else
-            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+            TALEA_LOG_WARNING("Bus DMA memset request denied: invalid destinantion memory view\n");
         return 0;
     }
 
@@ -538,9 +566,10 @@ size_t Bus_Memset16(TaleaMachine *m, TaleaMemoryView *view_dest, u16 pattern, si
     if (!view_dest->ptr || view_dest->length <= 0 ||
         !(view_dest->access_flags & BUS_ACCESS_WRITE)) {
         if (!(view_dest->access_flags & BUS_ACCESS_WRITE))
-            TALEA_LOG_WARNING("Bus DMA copy request denied: destination lacks write access\n");
+            TALEA_LOG_WARNING("Bus DMA memset16 request denied: destination lacks write access\n");
         else
-            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+            TALEA_LOG_WARNING(
+                "Bus DMA memset16 request denied: invalid destinantion memory view\n");
         return 0;
     }
 
@@ -557,9 +586,12 @@ size_t Bus_Memset32(TaleaMachine *m, TaleaMemoryView *view_dest, u32 pattern, si
     if (!view_dest->ptr || view_dest->length <= 0 ||
         !(view_dest->access_flags & BUS_ACCESS_WRITE)) {
         if (!(view_dest->access_flags & BUS_ACCESS_WRITE))
-            TALEA_LOG_WARNING("Bus DMA copy request denied: destination lacks write access\n");
+            TALEA_LOG_WARNING(
+                "Bus DMA memset32 request denied: destination lacks write access [addr: %06x]\n",
+                view_dest->guest_addr);
         else
-            TALEA_LOG_WARNING("Bus DMA copy request denied: invalid destinantion memory view\n");
+            TALEA_LOG_WARNING(
+                "Bus DMA memset32 request denied: invalid destinantion memory view\n");
         return 0;
     }
 

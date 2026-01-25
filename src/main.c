@@ -73,11 +73,11 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
         u8 *data = LoadFileData(mapped_file_path, &sz);
      
         if (data) {
-            sz = MIN(sz, TALEA_MAIN_MEM_SZ - 0x1000);
-            TaleaMemoryView view = Bus_GetView(m, 0x1000, sz, BUS_ACCESS_WRITE);
+            sz = MIN(sz, TALEA_MAIN_MEM_SZ - TALEA_MAPPED_FILE_ADDR);
+            TaleaMemoryView view = Bus_GetView(m, TALEA_MAPPED_FILE_ADDR, sz, BUS_ACCESS_WRITE);
             size_t written = Bus_WriteBlock(m, data, &view, sz);
             if (written != sz) {
-                TALEA_LOG_ERROR("Could not load mapped file at 0x1000\n");
+                TALEA_LOG_ERROR("Could not load mapped file at 0x%x\n", TALEA_MAPPED_FILE_ADDR);
             }
             UnloadFileData(data);
         }
@@ -139,6 +139,8 @@ int main(int argc, char **argv)
     if (argc > 2) {
         TALEA_LOG_ERROR("Usage: %s [optional file to map at 0x1000]\n", argv[0]);
     }
+
+    SetTraceLogLevel(LOG_ALL);
 
     if (argc == 2) {
         mapped_file_path = argv[1];

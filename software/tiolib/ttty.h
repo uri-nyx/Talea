@@ -281,6 +281,33 @@ static void ttty_handle_tab(Ttty *tty)
     if (tty->y >= tty->h) ttty_scroll_up(tty);
 }
 
+// Only scroll on end of screen, dont do any processing
+void ttty_emit_raw(Ttty *tty, char c)
+{
+    if (!tty || !tty->outchar) return;
+
+    if (tty->mode == TTTY_STREAM) {
+        tty->outchar(tty, c);
+        return;
+    }
+
+    /* Trigger output ONLY if within defined bounds */
+    if (tty->outchar && (tty->x < tty->w) && (tty->y < tty->h)) {
+        tty->outchar(tty, c);
+    }
+    
+    tty->x++;
+
+    if (tty->x >= tty->w) {
+        tty->x = 0;
+        tty->y++;
+    }
+
+    if (tty->y >= tty->h) ttty_scroll_up(tty);
+
+    ttty_update_cursor_pos(tty); /* Sync hardware cursor index */
+}
+
 void ttty_emit(Ttty *tty, char c)
 {
     if (!tty || !tty->outchar) return;

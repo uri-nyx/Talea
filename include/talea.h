@@ -102,12 +102,16 @@ typedef int64_t  i64;
 #define HZ                          10200000
 #define FPS                         60
 #define TALEA_MAX_FIRMWARE_SIZE     (64 * 1024)
-#define TALEA_MAIN_MEM_SZ           (1U << 24) - TALEA_MAX_FIRMWARE_SIZE  // 16MB
-#define TALEA_DATA_MEM_SZ           (1U << 16) // 64KB
-#define TALEA_DATA_MMIO_END         0x110 // mmio in DATA mem ranges from 0x000 to 0x10f
+#define TALEA_FIRMWARE_DATA_ADDRESS (32 * 1024)
+#define TALEA_MAIN_MEM_SZ           ((1U << 24) - TALEA_MAX_FIRMWARE_SIZE) // 16MB
+#define TALEA_DATA_MEM_SZ           (1U << 16)                             // 64KB
+#define TALEA_DATA_MMIO_END         0x110   // mmio in DATA mem ranges from 0x000 to 0x10f
+#define TALEA_MAPPED_FILE_ADDR      0x10000 // cheat to load a file into memory at startup
 // TODO: This should be a fixed  address at the top of the  address space, no matter  how much
 // memory we have
-#define TALEA_FIRMWARE_ADDRESS ((1U<<24) - TALEA_MAX_FIRMWARE_SIZE)
+#define TALEA_FIRMWARE_ADDRESS ((1U << 24) - TALEA_MAX_FIRMWARE_SIZE)
+
+static_assert(TALEA_MAIN_MEM_SZ % (1U << 16) == 0, "Main memory size must be a multiple of 64Kb");
 
 #define TALEA_MEM_SZ_MB 16
 
@@ -501,6 +505,9 @@ enum VideoError {
     VIDEO_ERROR_QUEUE_FULL,
     VIDEO_ERROR_NO_MODE,
     VIDEO_ERROR_INVALID_BATCH_TYPE,
+    VIDEO_ERROR_BIND,
+    VIDEO_ERROR_DMA,
+    VIDEO_ERROR_LOAD,
 };
 
 enum VideoDrawMode {
@@ -553,8 +560,6 @@ enum VertexFlags {
 };
 
 typedef struct Videorenderer {
-    u8 font_translation_tables[VIDEO_FONT_IDS][256];
-
     Color background_color, foreground_color;
 
     RenderTexture2D *screen_texture;
@@ -571,7 +576,7 @@ typedef struct Videorenderer {
 
     Shader shader;
     int    chars_loc;
-    int    font_locs[VIDEO_FONT_IDS];
+    int    fonts_loc;
     int    palette_loc;
     int    palettebg_loc;
     int    time_loc;
@@ -582,11 +587,22 @@ typedef struct Videorenderer {
     int    texture_size_loc;
 } VideoRenderer;
 
+enum MemoryViewAccess {
+    BUS_ACCESS_READ  = 1 << 0,
+    BUS_ACCESS_WRITE = 1 << 1,
+};
+
+typedef struct TaleaMemoryView {
+    uint8_t              *ptr;          // Pointer to the actual start of the requested block
+    uint32_t              guest_addr;   // The address in the Talea address space
+    size_t                length;       // How many bytes the device is allowed to touch
+    enum MemoryViewAccess access_flags; // R, W, R/W
+} TaleaMemoryView;
+
 struct Buff2D {
-    u32 addr;
-    u32 w, h;
-    u32 size;
-    u32 stride;
+    TaleaMemoryView view;
+    u32             w, h;
+    u32             stride;
 };
 
 #define VIDEO_CMD_MAX_ARGS 8
@@ -602,6 +618,11 @@ struct VideoCmd {
 struct CommandQueue {
     struct VideoCmd cmd[VIDEO_CMD_QUEUE_SIZE];
     u8              head, tail;
+};
+
+struct VideoFont {
+    u8              char_w, char_h;
+    RenderTexture2D atlas;
 };
 
 typedef struct DeviceVideo {
@@ -620,8 +641,9 @@ typedef struct DeviceVideo {
     bool cursor_blink;
     bool queue_full;
 
-    Font fonts[VIDEO_FONT_IDS];
-    u8   color_shades[256][16];
+    struct VideoFont font;
+
+    u8 color_shades[256][16];
 
     i16v3 vertex_markers[16];
 
@@ -917,5 +939,16 @@ void Machine_RaiseInterrupt(TaleaMachine *m, u8 vector, u8 priority);
 void Machine_Deinit(TaleaMachine *m, TaleaConfig *conf);
 
 void Machine_Poweroff(TaleaMachine *m);
+
+// endianness helpers
+static inline u32 toBe32(u32 u)
+{
+    return (u << 24) | ((u & 0x0000FF00) << 8) | ((u & 0x00FF0000) >> 8) | (u >> 24);
+}
+
+static inline u32 fromBe32(u32 u)
+{
+    return (u << 24) | ((u & 0x0000FF00) << 8) | ((u & 0x00FF0000) >> 8) | (u >> 24);
+}
 
 #endif /* TALEA_H */

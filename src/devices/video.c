@@ -8,6 +8,8 @@
 #include "palettes.h"
 #include "talea.h"
 
+#include "testfont.h"
+
 // PORTS
 
 #define P_VIDEO_COMMAND (DEV_VIDEO_BASE + 0)
@@ -62,17 +64,59 @@ enum VideoCommand {
     COMMAND_GET_MARKER,
 };
 
-// The Font type in raylib does not come with a fixed witdh. We are always using monospaced fonts,
-// and are using the with of 'M' as the maximum witdth of a character. This is not fool proof.
-#define VIDEO_GET_FONT_W(fs)                                                           \
-    (int)MeasureTextEx((fs)[VIDEO_FONT_BASE_CP0], "M",                    \
-                       (float)(fs)[VIDEO_FONT_BASE_CP0].baseSize, 0.0f).x
-
 // clang-format on
 
 #define ASSEMBLE_CSR(v)                                                    \
     (((v)->queue_full << 7) | ((v)->rop << 4) | ((v)->cursor_blink << 3) | \
      ((v)->cursor_enable << 2) | 0 | (v)->vblank_enable)
+
+static inline get_bit_xy(const u8 *bitmap, u8 char_index, u8 x, u8 y, u8 char_w, u8 char_h)
+{
+    size_t bytes_per_row = (char_w + 7) / 8;
+    size_t glyph_start   = char_index * (bytes_per_row * char_h);
+    size_t row_start     = glyph_start + (y * bytes_per_row);
+    return (bitmap[row_start + (x / 8)] >> (7 - (x % 8))) & 1;
+}
+
+static Image Video_Load1BitFont(const u8 *data, u8 char_w, u8 char_h, size_t nchars,
+                                u8 starting_char, u8 unknown_char)
+{
+    // data is 1 BIT per pixel, aligned by row: 0 is blank 1 is filled
+
+    size_t atlas_w = (u32)char_w, atlas_h = (u32)char_h * 256; // always 256 chars
+    size_t bytes_per_row   = ((u32)char_w + 7) / 8;
+    size_t bytes_per_glyph = bytes_per_row * char_h;
+    Image  atlas           = GenImageColor(atlas_w, atlas_h, BLANK);
+    Color *pixels          = atlas.data;
+
+    u8 *unknown_bits = malloc(bytes_per_glyph);
+    if (unknown_bits == NULL) {
+        TALEA_LOG_ERROR("Malloc failed allocating unknown_bits!\n");
+        return (Image){ 0 };
+    }
+
+    memcpy(unknown_bits, &data[(unknown_char * bytes_per_glyph)], bytes_per_glyph);
+
+    // populate the atlas
+    for (size_t row = 0; row < atlas_h; row++) {
+        size_t current_glyph = row / char_h;
+        for (size_t col = 0; col < atlas_w; col++) {
+            u8 bit = 0;
+            if (current_glyph < starting_char || current_glyph >= nchars)
+                bit = get_bit_xy(unknown_bits, 0, col, row % char_h, char_w, char_h);
+            else
+                bit = get_bit_xy(data, current_glyph - starting_char, col, row % char_h, char_w,
+                                 char_h);
+            pixels[(row * atlas_w) + col] = bit ? WHITE : BLANK;
+        }
+    }
+
+    // we pass firstChar as 0 because we have already accounted for that
+    bool success = ExportImage(atlas, "testfont.png");
+    if (!success) TALEA_LOG_TRACE("COULD NOT SAVE THE PIC\n");
+    free(unknown_bits);
+    return atlas;
+}
 
 u8 Video_ReadHandler(TaleaMachine *m, u16 addr)
 {
@@ -92,46 +136,242 @@ u8 Video_ReadHandler(TaleaMachine *m, u16 addr)
     }
 }
 
-// Computes a table of 512 bytes that map each character to its index in the font texture
-void Video_computeFontTranslationTable(DeviceVideo *v, enum VideoFontID id, Font font)
+// We support only PSF 1 and 2 currently
+
+// taken from: https://wiki.osdev.org/PC_Screen_Font
+#define PSF1_FONT_MAGIC 0x0436
+
+typedef struct {
+    u16 magic;         // Magic bytes for identification.
+    u8  fontMode;      // PSF font mode.
+    u8  characterSize; // PSF character size.
+} PSF1Header;
+
+#define PSF2_FONT_MAGIC 0x864ab572
+
+/*
+    PSF2
+*/
+typedef struct {
+    u32 magic;         /* magic bytes to identify PSF */
+    u32 version;       /* zero */
+    u32 headersize;    /* offset of bitmaps in file, 32 */
+    u32 flags;         /* 0 if there's no unicode table */
+    u32 numglyph;      /* number of glyphs */
+    u32 bytesperglyph; /* size of each glyph */
+    u32 height;        /* height in pixels */
+    u32 width;         /* width in pixels */
+} PSF2_Header;
+
+bool Video_PrepareFont(TaleaMachine *m, DeviceVideo *v, enum VideoFontID id, const char *path)
 {
-    int charH       = font.baseSize;
-    int charW       = (int)font.recs[1].width;
-    int charsPerRow = font.texture.width / charW;
+    u8     char_w, char_h, starting_char, unknown_char;
+    size_t number_of_chars; // MAX 256!
+    u8    *glyph_data     = NULL;
+    int    texture_column = 0;
 
-    for (int i = 0; i < 256; i++) {
-        Rectangle rec = GetGlyphAtlasRec(font, i);
-        v->renderer.font_translation_tables[id][i] =
-            (u8)(rec.x / charW + (rec.y / charH) * charsPerRow);
+    int sz;
+    u8 *font_file = LoadFileData(path, &sz);
+
+    if (((u32 *)font_file)[0] == PSF2_FONT_MAGIC) {
+        number_of_chars = ((u32 *)font_file)[4];
+        char_h          = ((u32 *)font_file)[6];
+        char_w          = ((u32 *)font_file)[7];
+        starting_char   = 0;
+        unknown_char    = '?';
+        glyph_data      = font_file + ((u32 *)font_file)[2];
+
+        size_t bytes_per_row   = ((u32)char_w + 7) / 8;
+        size_t bytes_per_glyph = bytes_per_row * char_h;
+        if (bytes_per_glyph != ((u32 *)font_file)[5]) {
+            TALEA_LOG_ERROR("Font %s indicates unexpected bytes per glyph\n", path);
+            return false;
+        }
+    } else if (((u16 *)font_file)[0] == PSF1_FONT_MAGIC) {
+        char_w          = 8;
+        char_h          = font_file[3];
+        starting_char   = 0;
+        unknown_char    = '?';
+        glyph_data      = font_file + 4;
+        number_of_chars = (font_file[2] & 1) ? 512 : 256;
+    } else {
+        TALEA_LOG_ERROR("We only support PSF1 and a subset of PSF2 (%s)\n", path);
+        return false;
     }
-}
 
-void Video_PrepareFont(DeviceVideo *v, enum VideoFontID id, const char *path)
-{
-    if (v->fonts[id].glyphCount != 0) {
-        UnloadRenderTexture(v->renderer.characters_texture);
-        MemFree(v->renderer.charsFake);
+    if (number_of_chars > 256) {
+        TALEA_LOG_WARNING(
+            "Cannot load font with more than 256 glyphs. only first 256 glyphs loaded!(%s)\n",
+            path);
+        number_of_chars = 256;
     }
 
-    v->fonts[id] = LoadFont(path);
+    if (char_w < 4 || char_h < 4) {
+        TALEA_LOG_ERROR("This font (%s) is very little! Make it bigger than 4x4\n", path);
+        return false;
+    }
 
-    Font *f = &v->fonts[id];
+    // CHECK AGAINST BASE_CP0 (if not itself)
+    // Reject or proceed update master texture
+    if (id != VIDEO_FONT_BASE_CP0) {
+        if (char_w != v->font.char_w || char_h != v->font.char_h) {
+            TALEA_LOG_ERROR(
+                "Fonts have to have all the same witdht and height. Try to load this one (%s) as BASE CP0!\n",
+                path);
+            return false;
+        }
 
-    Video_computeFontTranslationTable(v, id, *f);
+        switch (id) {
+        case VIDEO_FONT_BASE_CP1: texture_column = char_w * 1; break;
+        case VIDEO_ALT_FONT_CP0: texture_column = char_w * 2; break;
+        case VIDEO_ALT_FONT_CP1: texture_column = char_w * 3; break;
+        default: TALEA_LOG_TRACE("Malformed font id (should be 1..3) %d\n", id); return false;
+        }
 
-    if (id == VIDEO_FONT_BASE_CP0) {
+    } else {
         // Do this if and only if we're loading the primary font
-        // Calculate character sizes. Should be equal for all 4 fonts
-        Vector2 em      = MeasureTextEx(*f, "M", (float)f->baseSize, 0.0f);
-        v->textbuffer.w = (u8)((float)v->renderer.screen_texture->texture.width / em.x);
-        v->textbuffer.h = (u8)((float)v->renderer.screen_texture->texture.height / em.y);
+        // Calculate character sizes. MUST be equal for all 4 fonts
 
+        // wipe texture.
+        UnloadRenderTexture(v->font.atlas);
+
+        v->textbuffer.w      = v->framebuffer.w / char_w;
+        v->textbuffer.h      = v->framebuffer.h / char_h;
+        v->textbuffer.stride = v->mode == VIDEO_MODE_TEXT_MONO ? 1 : 4;
+        v->textbuffer.view   = Bus_GetView(m, v->textbuffer.view.guest_addr,
+                                           v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride,
+                                           BUS_ACCESS_READ | BUS_ACCESS_WRITE);
+
+        if (!v->textbuffer.view.ptr) {
+            TALEA_LOG_WARNING("Prepare Font, unable to get textbuffer view\n");
+            return false;
+        }
+
+        v->font.char_w = char_w;
+        v->font.char_h = char_h;
+        v->font.atlas  = LoadRenderTexture(char_w * VIDEO_FONT_IDS, char_h * 256);
+        SetTextureFilter(v->font.atlas.texture, TEXTURE_FILTER_POINT);
+        SetTextureWrap(v->font.atlas.texture, TEXTURE_WRAP_CLAMP);
+
+        UnloadRenderTexture(v->renderer.characters_texture);
         v->renderer.characters_texture = LoadRenderTexture(v->textbuffer.w, v->textbuffer.h);
         SetTextureFilter(v->renderer.characters_texture.texture, TEXTURE_FILTER_POINT);
-        v->renderer.charsFake = MemAlloc((size_t)v->textbuffer.w * v->textbuffer.h * sizeof(Color));
+
+        free(v->renderer.charsFake);
+        v->renderer.charsFake = malloc((size_t)v->textbuffer.w * v->textbuffer.h * sizeof(Color));
+
+        texture_column = 0;
     }
 
-    TALEA_LOG_TRACE("Loaded font '%s' \n", path);
+    Image sub_atlas = Video_Load1BitFont(glyph_data, char_w, char_h, number_of_chars, starting_char,
+                                         unknown_char);
+
+    if (!sub_atlas.data || sub_atlas.height == 0 || sub_atlas.width == 0) {
+        TALEA_LOG_ERROR("Failed to load font as cp0: %s\n", path);
+        return false;
+    }
+
+    // update the master texture
+    BeginTextureMode(v->font.atlas);
+    Texture2D sub_atlas_texture = LoadTextureFromImage(sub_atlas);
+    DrawTexture(sub_atlas_texture, texture_column, 0, WHITE);
+    EndTextureMode();
+    UnloadTexture(sub_atlas_texture);
+    UnloadImage(sub_atlas);
+
+    TALEA_LOG_TRACE("Loaded font '%s' w: %d, h:%d, tb:%dx%d chars \n", path, char_w, char_h,
+                    v->textbuffer.w, v->textbuffer.h);
+    return true;
+}
+
+bool Video_PrepareFontFromMemory(TaleaMachine *m, DeviceVideo *v, enum VideoFontID id, u8 *data,
+                                 u8 char_w, u8 char_h, size_t nchars, u8 starting_char,
+                                 u8 unknown_char)
+{
+    int texture_column = 0;
+
+    if (nchars > 256) {
+        TALEA_LOG_WARNING(
+            "Cannot load font from memory with more than 256 glyphs. only first 256 glyphs loaded!(%d)\n",
+            id);
+        nchars = 256;
+    }
+
+    if (char_w < 4 || char_h < 4) {
+        TALEA_LOG_ERROR("This memory font (%d) is very little! Make it bigger than 4x4\n", id);
+        return false;
+    }
+
+    // CHECK AGAINST BASE_CP0 (if not itself)
+    // Reject or proceed update master texture
+    if (id != VIDEO_FONT_BASE_CP0) {
+        if (char_w != v->font.char_w || char_h != v->font.char_h) {
+            TALEA_LOG_ERROR(
+                "Fonts have to have all the same witdht and height. Try to load this one (%d) as BASE CP0!\n",
+                id);
+            return false;
+        }
+
+        switch (id) {
+        case VIDEO_FONT_BASE_CP1: texture_column = char_w * 1; break;
+        case VIDEO_ALT_FONT_CP0: texture_column = char_w * 2; break;
+        case VIDEO_ALT_FONT_CP1: texture_column = char_w * 3; break;
+        default: TALEA_LOG_TRACE("Malformed font id (should be 1..3) %d\n", id); return false;
+        }
+
+    } else {
+        // Do this if and only if we're loading the primary font
+        // Calculate character sizes. MUST be equal for all 4 fonts
+
+        // wipe texture.
+        UnloadRenderTexture(v->font.atlas);
+
+        v->textbuffer.w      = v->framebuffer.w / char_w;
+        v->textbuffer.h      = v->framebuffer.h / char_h;
+        v->textbuffer.stride = v->mode == VIDEO_MODE_TEXT_MONO ? 1 : 4;
+        v->textbuffer.view   = Bus_GetView(m, v->textbuffer.view.guest_addr,
+                                           v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride,
+                                           BUS_ACCESS_READ | BUS_ACCESS_WRITE);
+
+        if (!v->textbuffer.view.ptr) {
+            TALEA_LOG_WARNING("Prepare Font dorm Memory, unable to get textbuffer view\n");
+            return false;
+        }
+
+        v->font.char_w = char_w;
+        v->font.char_h = char_h;
+        v->font.atlas  = LoadRenderTexture(char_w * VIDEO_FONT_IDS, char_h * 256);
+        SetTextureFilter(v->font.atlas.texture, TEXTURE_FILTER_POINT);
+        SetTextureWrap(v->font.atlas.texture, TEXTURE_WRAP_CLAMP);
+
+        UnloadRenderTexture(v->renderer.characters_texture);
+        v->renderer.characters_texture = LoadRenderTexture(v->textbuffer.w, v->textbuffer.h);
+        SetTextureFilter(v->renderer.characters_texture.texture, TEXTURE_FILTER_POINT);
+
+        free(v->renderer.charsFake);
+        v->renderer.charsFake = malloc((size_t)v->textbuffer.w * v->textbuffer.h * sizeof(Color));
+
+        texture_column = 0;
+    }
+
+    Image sub_atlas = Video_Load1BitFont(data, char_w, char_h, nchars, starting_char, unknown_char);
+
+    if (!sub_atlas.data || sub_atlas.height == 0 || sub_atlas.width == 0) {
+        TALEA_LOG_ERROR("Failed to load memory font as cp0\n");
+        return false;
+    }
+
+    // update the master texture
+    BeginTextureMode(v->font.atlas);
+    Texture2D sub_atlas_texture = LoadTextureFromImage(sub_atlas);
+    DrawTexture(sub_atlas_texture, texture_column, 0, WHITE);
+    EndTextureMode();
+    UnloadTexture(sub_atlas_texture);
+    UnloadImage(sub_atlas);
+
+    TALEA_LOG_TRACE("Loaded font from memory: w: %d, h:%d, tb:%dx%d chars \n", char_w, char_h,
+                    v->textbuffer.w, v->textbuffer.h);
+    return true;
 }
 
 void Video_RendererInit(DeviceVideo *v, const char *path)
@@ -147,14 +387,7 @@ void Video_RendererInit(DeviceVideo *v, const char *path)
     TALEA_LOG_ERROR("Shader location for %s: %d\n",  "csr", v->renderer.csr_loc);
     v->renderer.chars_loc       = GetShaderLocation(v->renderer.shader, "characters");
     TALEA_LOG_ERROR("Shader location for %s: %d\n",  "characters", v->renderer.chars_loc);
-    v->renderer.font_locs[VIDEO_FONT_BASE_CP0] = GetShaderLocation(v->renderer.shader, "font_cp0");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "font_cp0", v->renderer.font_locs[VIDEO_FONT_BASE_CP0]);
-    v->renderer.font_locs[VIDEO_FONT_BASE_CP1] = GetShaderLocation(v->renderer.shader, "font_cp1");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "font_cp1", v->renderer.font_locs[VIDEO_FONT_BASE_CP1]);
-    v->renderer.font_locs[VIDEO_ALT_FONT_CP0]  = GetShaderLocation(v->renderer.shader, "alt_font_cp0");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "alt_font_cp0", v->renderer.font_locs[VIDEO_ALT_FONT_CP0]);
-    v->renderer.font_locs[VIDEO_ALT_FONT_CP1]  = GetShaderLocation(v->renderer.shader, "alt_font_cp1");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "alt_font_cp1", v->renderer.font_locs[VIDEO_ALT_FONT_CP1]);
+    v->renderer.fonts_loc = GetShaderLocation(v->renderer.shader, "font_atlas");
     v->renderer.palette_loc     = GetShaderLocation(v->renderer.shader, "palette");
     TALEA_LOG_ERROR("Shader location for %s: %d\n",  "palette", v->renderer.palette_loc);
     v->renderer.time_loc        = GetShaderLocation(v->renderer.shader, "uTime");
@@ -176,76 +409,80 @@ void Video_RendererInit(DeviceVideo *v, const char *path)
     // clang-format on
 }
 
-static inline void TextMode_AssembleCharacters(TaleaMachine *m)
+#define SHADE_LEVELS 16
+static void Video_BuildShadesTable(u8 *dest, u32 *indexed_colors, size_t color_count)
 {
-    DeviceVideo *v = &m->video;
+    // We assume we're using the format of an u32 PER byte in the indexed colors pallete
+    // And we also hardcode 16 levels of shading
 
-    TaleaMemoryView text_view =
-        Bus_GetView(m, v->textbuffer.addr, v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride,
-                    ACCESS_READ);
+    for (size_t i = 0; i < color_count; i++) {
+        u32 r = indexed_colors[(i * 4)];
+        u32 g = indexed_colors[(i * 4) + 1];
+        u32 b = indexed_colors[(i * 4) + 2];
 
-    if (!text_view.ptr ||
-        text_view.length != (v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride)) {
-        TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
-        return;
-    }
+        for (size_t level = 0; level < SHADE_LEVELS; level++) {
+            float brightness = (float)level / (float)(SHADE_LEVELS - 1);
 
-    for (size_t i = 0; i < v->textbuffer.h; i++) {
-        for (size_t j = 0, k = 0; j < (size_t)v->textbuffer.w * v->textbuffer.stride;
-             j += v->textbuffer.stride, k++) {
-            // TALEA_LOG_TRACE("w: %d h: %d j: %d k: %d\n", v->textbuffer.w, v->textbuffer.h, j, k);
-            size_t cell_addr =
-                ((size_t)v->textbuffer.w * v->textbuffer.stride * i) + j;
+            float target_r = r * brightness;
+            float target_g = g * brightness;
+            float target_b = b * brightness;
 
-            if (v->mode == VIDEO_MODE_TEXT_COLOR || v->mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
-                u8 codepage = text_view.ptr[cell_addr + 3] & TEXTMODE_ATT_CODEPAGE;
-                u8 alt      = text_view.ptr[cell_addr + 3] & TEXTMODE_ATT_ALT_FONT;
+            size_t best_match   = 0;
+            float  min_distance = INFINITY;
 
-                // TALEA_LOG_TRACE("cp: %d, font: %d\n", codepage, alt);
-                //  NOTE: the codepage and alt bits are designed so its sum = fontID:
-                //  codepage 0 + alt 0 = 0 + 0 base font cp 0 (id 0)
-                //  codepage 1 + alt 0 = 1 + 0 base font cp 1 (id 1)
-                //  codepage 0 + alt 1 = 0 + 2 alt font cp 0 (id 2)
-                //  codepage 1 + alt 1 = 1 + 2 alt font cp 1 (id 3)
-                u8 character =
-                    v->renderer.font_translation_tables[codepage + alt][text_view.ptr[cell_addr]];
-                u8 fg                                            = text_view.ptr[cell_addr + 1];
-                u8 bg                                            = text_view.ptr[cell_addr + 2];
-                u8 attributes                                    = text_view.ptr[cell_addr + 3];
-                v->renderer.charsFake[(v->textbuffer.w * i) + k] = (Color){
-                    character,
-                    fg,         // foreground (index)
-                    bg,         // background (index)
-                    attributes, // unpacking in shader
-                };
-            } else {
-                u8 character =
-                    v->renderer
-                        .font_translation_tables[VIDEO_FONT_BASE_CP0][text_view.ptr[cell_addr]];
-                v->renderer.charsFake[(v->textbuffer.w * i) + k] = (Color){ character, 0, 0, 0 };
+            for (size_t k = 0; k < color_count; k++) {
+                u32 pr = indexed_colors[(k * 4)];
+                u32 pg = indexed_colors[(k * 4) + 1];
+                u32 pb = indexed_colors[(k * 4) + 2];
+
+                float dr = target_r - pr;
+                float dg = target_g - pg;
+                float db = target_b - pb;
+
+                float dist_sq = (dr * dr * 2) + (dg * dg * 4) + (db * db * 3);
+
+                if (dist_sq < min_distance) {
+                    min_distance = dist_sq;
+                    best_match   = k;
+                }
             }
+
+            dest[(i * SHADE_LEVELS) + level] = (u8)best_match;
         }
     }
 }
 
-// BUG: now in rich text mode the tty does not work as expected
+static inline void TextMode_AssembleCharacters(TaleaMachine *m)
+{
+    DeviceVideo *v = &m->video;
+
+    if (v->mode == VIDEO_MODE_TEXT_COLOR || v->mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
+        for (size_t i = 0, k = 0; i < v->textbuffer.w * v->textbuffer.h; i++, k += 4) {
+            v->renderer.charsFake[i] = (Color){
+                v->textbuffer.view.ptr[k],
+                v->textbuffer.view.ptr[k + 1],
+                v->textbuffer.view.ptr[k + 2],
+                v->textbuffer.view.ptr[k + 3],
+            };
+        }
+    } else if (v->mode == VIDEO_MODE_TEXT_MONO) {
+        for (size_t i = 0; i < v->textbuffer.w * v->textbuffer.h; i++) {
+            v->renderer.charsFake[i] = (Color){
+                v->textbuffer.view.ptr[i],
+                0,
+                0,
+                0,
+            };
+        }
+    }
+}
 
 static inline void Framebuffer_Update(TaleaMachine *m)
 {
     DeviceVideo   *v = &m->video;
     VideoRenderer *r = &m->video.renderer;
 
-    TaleaMemoryView fb_view =
-        Bus_GetView(m, v->framebuffer.addr,
-                    v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride, ACCESS_READ);
-
-    if (!fb_view.ptr ||
-        fb_view.length != (v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride)) {
-        TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
-        return;
-    }
-
-    UpdateTexture(r->pixels, fb_view.ptr);
+    UpdateTexture(r->pixels, v->framebuffer.view.ptr);
     BeginShaderMode(r->fb_shader);
     SetShaderValueTexture(r->fb_shader, r->fb_loc, r->pixels);
     DrawTexture(r->pixels, 0, 0, WHITE);
@@ -261,45 +498,37 @@ static inline void Framebuffer_Update(TaleaMachine *m)
 
 static inline void TextMode_Render(TaleaMachine *m)
 {
-    UpdateTexture(m->video.renderer.characters_texture.texture, m->video.renderer.charsFake);
+    DeviceVideo *v = &m->video;
 
-    float charSize[2]       = { VIDEO_GET_FONT_W(m->video.fonts),
-                                (float)m->video.fonts[VIDEO_FONT_BASE_CP0].baseSize };
-    int   textureSize[2]    = { m->video.renderer.screen_texture->texture.width,
-                                m->video.renderer.screen_texture->texture.height };
-    int   cursor_cell_index = m->video.cursor_cell_index;
-    int   cursorCsr = m->video.csr = ASSEMBLE_CSR(&m->video);
+    if (v->mode == VIDEO_MODE_TEXT_MONO || v->mode == VIDEO_MODE_TEXT_COLOR ||
+        v->mode == VIDEO_MODE_TEXT_AND_GRAPHIC)
+        UpdateTexture(v->renderer.characters_texture.texture, v->renderer.charsFake);
 
-    BeginShaderMode(m->video.renderer.shader);
+    float charSize[2]       = { v->font.char_w, v->font.char_h };
+    int   textureSize[2]    = { v->renderer.screen_texture->texture.width,
+                                v->renderer.screen_texture->texture.height };
+    int   cursor_cell_index = v->cursor_cell_index;
+    int   cursorCsr = v->csr = ASSEMBLE_CSR(&m->video);
 
-    SetShaderValue(m->video.renderer.shader, m->video.renderer.cursor_cell_idx_loc,
-                   &cursor_cell_index, SHADER_UNIFORM_INT);
-    SetShaderValue(m->video.renderer.shader, m->video.renderer.csr_loc, &cursorCsr,
+    BeginShaderMode(v->renderer.shader);
+
+    SetShaderValue(v->renderer.shader, v->renderer.cursor_cell_idx_loc, &cursor_cell_index,
                    SHADER_UNIFORM_INT);
-    SetShaderValue(m->video.renderer.shader, m->video.renderer.base_color_loc,
-                   &m->video.renderer.foreground_color, SHADER_UNIFORM_IVEC4);
-    SetShaderValue(m->video.renderer.shader, m->video.renderer.char_size_loc, &charSize,
-                   SHADER_UNIFORM_VEC2);
-    SetShaderValue(m->video.renderer.shader, m->video.renderer.texture_size_loc, &textureSize,
+    SetShaderValue(v->renderer.shader, v->renderer.csr_loc, &cursorCsr, SHADER_UNIFORM_INT);
+    SetShaderValue(v->renderer.shader, v->renderer.base_color_loc, &v->renderer.foreground_color,
+                   SHADER_UNIFORM_IVEC4);
+    SetShaderValue(v->renderer.shader, v->renderer.char_size_loc, &charSize, SHADER_UNIFORM_VEC2);
+    SetShaderValue(v->renderer.shader, v->renderer.texture_size_loc, &textureSize,
                    SHADER_UNIFORM_IVEC2);
-    SetShaderValueTexture(m->video.renderer.shader,
-                          m->video.renderer.font_locs[VIDEO_FONT_BASE_CP0],
-                          m->video.fonts[VIDEO_FONT_BASE_CP0].texture);
-    SetShaderValueTexture(m->video.renderer.shader,
-                          m->video.renderer.font_locs[VIDEO_FONT_BASE_CP1],
-                          m->video.fonts[VIDEO_FONT_BASE_CP1].texture);
-    SetShaderValueTexture(m->video.renderer.shader, m->video.renderer.font_locs[VIDEO_ALT_FONT_CP0],
-                          m->video.fonts[VIDEO_ALT_FONT_CP0].texture);
-    SetShaderValueTexture(m->video.renderer.shader, m->video.renderer.font_locs[VIDEO_ALT_FONT_CP1],
-                          m->video.fonts[VIDEO_ALT_FONT_CP1].texture);
-    SetShaderValueTexture(m->video.renderer.shader, m->video.renderer.chars_loc,
-                          m->video.renderer.characters_texture.texture);
+    SetShaderValueTexture(v->renderer.shader, v->renderer.fonts_loc, v->font.atlas.texture);
+    SetShaderValueTexture(v->renderer.shader, v->renderer.chars_loc,
+                          v->renderer.characters_texture.texture);
 
-    if (!IsShaderValid(m->video.renderer.shader))
+    if (!IsShaderValid(v->renderer.shader))
         TALEA_LOG_ERROR("On UpdateVideo: Shader is not valid\n");
 
     // Drawing BLANK texture, all magic happens on shader
-    DrawTexture(m->video.renderer.screen_texture->texture, 0, 0, BLANK);
+    DrawTexture(v->renderer.screen_texture->texture, 0, 0, BLANK);
     EndShaderMode(); // Disable our custom shader, return to default shader
 }
 
@@ -317,63 +546,29 @@ static struct VideoCmd *Video_PopCommandQueue(TaleaMachine *m)
     return NULL;
 }
 
-static inline u32 toBe32(u32 u)
-{
-    return (u << 24) | ((u & 0x0000FF00) << 8) | ((u & 0x00FF0000) >> 8) | (u >> 24);
-}
-
 static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 color, u8 flags)
 {
     // TODO: should acquire a view of the text and framebuffers on initialization AND on every
     // COMMAND_SET_ADDR
-    if (v->mode == VIDEO_MODE_TEXT_MONO && (flags & VIDEO_CLEAR_FLAG_TB)) {
-        TaleaMemoryView text_view =
-            Bus_GetView(m, v->textbuffer.addr,
-                        v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride, ACCESS_READ);
-
-        if (!text_view.ptr ||
-            text_view.length != (v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride)) {
-            TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
-            return;
-        }
-        Bus_Memset(m, &text_view, ' ', text_view.length);
+    if (v->mode == VIDEO_MODE_TEXT_MONO) {
+        Bus_Memset(m, &v->textbuffer.view, ' ', &v->textbuffer.view);
         return;
     }
 
     if (flags & VIDEO_CLEAR_FLAG_TB) {
-        TaleaMemoryView text_view =
-            Bus_GetView(m, v->textbuffer.addr,
-                        v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride, ACCESS_READ);
-
-        if (!text_view.ptr ||
-            text_view.length != (v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride)) {
-            TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
-            return;
-        }
-
         u32 be_pattern = toBe32(pattern);
-        Bus_Memset32(m, &text_view, be_pattern, v->textbuffer.h * v->textbuffer.w);
+        Bus_Memset32(m, &v->textbuffer.view, be_pattern, v->textbuffer.h * v->textbuffer.w);
     }
 
     if (flags & VIDEO_CLEAR_FLAG_FB) {
-        TaleaMemoryView fb_view =
-            Bus_GetView(m, v->framebuffer.addr,
-                        v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride, ACCESS_READ);
-
-        if (!fb_view.ptr ||
-            fb_view.length != (v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride)) {
-            TALEA_LOG_ERROR("TextMode could not aqcuire memory view\n");
-            return;
-        }
-
-        Bus_Memset(m, &fb_view, color,
+        Bus_Memset(m, &v->framebuffer.view, color,
                    (v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride));
     }
 
     v->cursor_cell_index = 0;
 }
 
-static inline void Video_SetMode(DeviceVideo *v, u8 mode)
+static inline void Video_SetMode(TaleaMachine *m, DeviceVideo *v, u8 mode)
 {
     // TODO: implement small font
     if (mode > VIDEO_MODE_TEXT_AND_GRAPHIC) {
@@ -382,12 +577,27 @@ static inline void Video_SetMode(DeviceVideo *v, u8 mode)
     }
 
     if (mode == VIDEO_MODE_TEXT_MONO) {
+        // Shrinking the lenght should not affect the view maybe inplement viewResize
         UnloadShader(v->renderer.shader);
-        v->textbuffer.stride = 1;
+        v->textbuffer.stride      = 1;
+        v->textbuffer.view.length = v->textbuffer.stride * v->textbuffer.w * v->textbuffer.h;
         Video_RendererInit(v, SHADERS_PATH("mode_text_mono.fs"));
     } else {
         UnloadShader(v->renderer.shader);
         v->textbuffer.stride = 4;
+        v->textbuffer.view =
+            Bus_GetView(m, v->textbuffer.view.guest_addr,
+                        v->framebuffer.view.length !=
+                            v->framebuffer.w * v->framebuffer.h * v->framebuffer.stride,
+                        BUS_ACCESS_READ | BUS_ACCESS_WRITE);
+        if (!v->framebuffer.view.ptr || v->framebuffer.view.length != v->framebuffer.w *
+                                                                          v->framebuffer.h *
+                                                                          v->framebuffer.stride) {
+            TALEA_LOG_WARNING(
+                "Could not acquire memory view at %06x for framebuffer on reset. Consider relocating it\n",
+                TALEA_FRAMEBUFFER_ADDR);
+            v->error = VIDEO_ERROR_DMA;
+        }
         Video_RendererInit(v, SHADERS_PATH("mode_text_color.fs"));
     }
 
@@ -439,15 +649,9 @@ static void Video_Blit(TaleaMachine *m, DeviceVideo *vid, struct Buff2D *dest, u
                        enum VideoSpriteRotation rotation)
 {
     // TODO: acquire a view of the context on bind!
-    TaleaMemoryView dest_view =
-        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
-    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
-        TALEA_LOG_ERROR("Blitter could not acquire a view of the destination\n");
-        return;
-    }
 
-    u8 *dest_start = dest_view.ptr;
-    u8 *dest_end   = dest_start + dest_view.length;
+    u8 *dest_start = dest->view.ptr;
+    u8 *dest_end   = dest_start + dest->view.length;
 
     u8  *temp_src = src;
     bool is_temp  = false;
@@ -522,13 +726,6 @@ static void Video_DrawRect(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest,
         return;
     }
 
-    TaleaMemoryView dest_view =
-        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
-    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
-        TALEA_LOG_ERROR("Draw Rect could not acquire a view of the destination\n");
-        return;
-    }
-
     u16 v_x1 = MAX(0, x);
     u16 v_y1 = MAX(0, y);
     u16 v_x2 = MIN(dest->w, x + w);
@@ -536,7 +733,7 @@ static void Video_DrawRect(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest,
 
     if (v_x1 >= v_x2 || v_y1 >= v_y2) return;
 
-    u8 *fb = dest_view.ptr;
+    u8 *fb = dest->view.ptr;
 
     // TALEA_LOG_TRACE("ROP: %d\n", v->rop);
     for (size_t row = v_y1; row < v_y2; row++) {
@@ -551,14 +748,8 @@ static void Video_PatternFill(TaleaMachine *m, DeviceVideo *vid, struct Buff2D *
                               u8 h, u8 u_off, u8 v_off, i16 x, i16 y, u16 dest_w, u16 dest_h,
                               enum VideoSpriteRotation rotation)
 {
-    TaleaMemoryView dest_view =
-        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
-    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
-        TALEA_LOG_ERROR("Pattern Fill could not acquire a view of the destination\n");
-        return;
-    }
     // TODO: remember to ALWAYS commit before starting these architectural changes...
-    u8             *dest_start = dest_view.ptr;
+    u8             *dest_start = dest->view.ptr;
     RotationMatrix *mat        = &rot_table[rotation];
 
     u16 v_x1 = MAX(0, x);
@@ -608,14 +799,7 @@ static inline void Buff2D_SetPixel(TaleaMachine *m, DeviceVideo *v, struct Buff2
     if (x >= dest->w || y >= dest->h) return;
     if (x < 0 || y < 0) return;
 
-    TaleaMemoryView dest_view =
-        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
-    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
-        TALEA_LOG_ERROR("Set Pixel could not acquire a view of the destination\n");
-        return;
-    }
-
-    u8    *surface = dest_view.ptr;
+    u8    *surface = dest->view.ptr;
     size_t index   = (((size_t)y * dest->w) + x) * dest->stride;
     Video_ApplyROP(v, &surface[index], color);
 }
@@ -641,19 +825,12 @@ static void Video_DrawHorizontalLine(TaleaMachine *m, DeviceVideo *v, struct Buf
 
     if (y < 0 || y >= dest->h) return;
 
-    TaleaMemoryView dest_view =
-        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
-    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
-        TALEA_LOG_ERROR("Draw Horizontal Line could not acquire a view of the destination\n");
-        return;
-    }
-
     size_t start_x = MAX(0, MIN(x0, x1));
     size_t end_x   = MIN(dest->w - 1, MAX(x0, x1));
 
     if (start_x > end_x) return;
 
-    u8 *start = &dest_view.ptr[(y * dest->w) + start_x];
+    u8 *start = &dest->view.ptr[(y * dest->w) + start_x];
     u16 len   = (end_x - start_x) + 1;
 
     DrawHorizontalLineNoCheck(v, color, start, len);
@@ -666,19 +843,12 @@ static void Video_DrawVerticalLine(TaleaMachine *m, DeviceVideo *v, struct Buff2
 
     if (x < 0 || x >= dest->w) return;
 
-    TaleaMemoryView dest_view =
-        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
-    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
-        TALEA_LOG_ERROR("Draw Vline could not acquire a view of the destination\n");
-        return;
-    }
-
     size_t start_y = MAX(0, MIN(y1, y2));
     size_t end_y   = MIN(dest->h - 1, MAX(y1, y2));
 
     if (start_y > end_y) return;
 
-    u8 *buff = dest_view.ptr;
+    u8 *buff = dest->view.ptr;
 
     u8 *current_pixel = buff + (start_y * dest->w + x);
     u16 v_stride      = dest->w;
@@ -845,13 +1015,6 @@ static inline void fillBottomFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buf
 
     if (y1 <= y0) return; /* BottomFlat: y1 is bottom, y0 is top */
 
-    TaleaMemoryView dest_view =
-        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
-    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
-        TALEA_LOG_ERROR("FILL BOTTOM FLAT TRI could not acquire a view of the destination\n");
-        return;
-    }
-
     fx16 dy = y1 - y0;
 
     fx16 invs0 = (fx16)(((i64)(x1 - x0) << FX16) / dy);
@@ -875,7 +1038,7 @@ static inline void fillBottomFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buf
 
     end_y = end_y > dest->h ? dest->h : end_y;
 
-    u8 *row = &dest_view.ptr[(start_y * dest->w)];
+    u8 *row = &dest->view.ptr[(start_y * dest->w)];
 
     if (!clip)
         for (size_t scany = start_y; scany < end_y;
@@ -902,13 +1065,6 @@ static inline void fillTopFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D
 
     if (y2 <= y0) return; /* TopFlat: y2 is bottom, y0 is top */
 
-    TaleaMemoryView dest_view =
-        Bus_GetView(m, dest->addr, (dest->w * dest->h * dest->stride), BUS_ACCESS_WRITE);
-    if (!dest_view.ptr || dest_view.length != (dest->w * dest->h * dest->stride)) {
-        TALEA_LOG_ERROR("FILL TOP FLAT TRI could not acquire a view of the destination\n");
-        return;
-    }
-
     fx16 dy1 = y2 - y1;
     fx16 dy0 = y2 - y0;
 
@@ -916,19 +1072,7 @@ static inline void fillTopFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D
     fx16 invs1 = (fx16)(((i64)(x2 - x1) << FX16) / dy0);
 
     fx16 invl, invr, xl, xr;
-    /*
-    if (invs0 < invs1) {
-        xl   = x0;
-        xr   = x1;
-        invl = invs0;
-        invr = invs1;
-    } else {
-        xl   = x1;
-        xr   = x0;
-        invl = invs1;
-        invr = invs0;
-    }
-    */
+
     xl   = x0;
     xr   = x1;
     invl = invs0;
@@ -955,7 +1099,7 @@ static inline void fillTopFlatTri(TaleaMachine *m, DeviceVideo *v, struct Buff2D
 
     end_y = end_y >= dest->h ? dest->h - 1 : end_y;
 
-    u8 *row = &dest_view.ptr[((start_y * dest->w))];
+    u8 *row = &dest->view.ptr[((start_y * dest->w))];
 
     if (!clip)
         for (size_t scany = start_y; scany <= end_y;
@@ -1461,7 +1605,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         }
 
         u8 mode = cmd->args[0] >> 56;
-        Video_SetMode(v, mode);
+        Video_SetMode(m, v, mode);
 
         break;
     }
@@ -1482,14 +1626,140 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         u32 fb = cmd->args[0] >> 32;
         u32 tb = cmd->args[0];
 
-        if (fb < 0xffffff) v->framebuffer.addr = fb;
-        if (tb < 0xffffff) v->textbuffer.addr = tb;
+        if (fb < 0xffffff) {
+            v->framebuffer.view =
+                Bus_GetView(m, fb, v->framebuffer.w * v->framebuffer.h * v->framebuffer.stride,
+                            BUS_ACCESS_READ | BUS_ACCESS_WRITE);
+            if (!v->framebuffer.view.ptr ||
+                v->framebuffer.view.length !=
+                    v->framebuffer.w * v->framebuffer.h * v->framebuffer.stride) {
+                TALEA_LOG_WARNING("Could not set address for framebuffer, dma denied\n");
+                v->error = VIDEO_ERROR_DMA;
+            }
+        }
 
-        // TALEA_LOG_TRACE("Set FB at %04x, CB at %04x\n", v->framebuffer.addr, v->textbuffer.addr);
+        if (tb < 0xffffff) {
+            v->textbuffer.view =
+                Bus_GetView(m, tb, v->textbuffer.w * v->textbuffer.h * v->textbuffer.stride,
+                            BUS_ACCESS_READ | BUS_ACCESS_WRITE);
+            if (!v->textbuffer.view.ptr || v->textbuffer.view.length != v->textbuffer.w *
+                                                                            v->textbuffer.h *
+                                                                            v->textbuffer.stride) {
+                TALEA_LOG_WARNING("Could not set address for textbuffer, dma denied\n");
+                v->error = VIDEO_ERROR_DMA;
+            }
+        }
 
         break;
     }
-    case COMMAND_LOAD: break; // TODO: implement font loading
+    case COMMAND_LOAD:
+        // TODO: Document
+        // Arg 0:
+        //  Takes 1 byte in GPU0 for the type of load
+        //      0: FONT BASE CP0 2: FONT BASE CP1...ALT FONT CP1 4: PALETTE
+        //  Takes 1 half word in GPU1-2 for the address of the buffer in DATA MEMORY
+        //  Takes 1 byte in GPU3 for the element count (COLORS or GLYPHS) - 1 (range 1 to 256)
+        //  Takes 1 byte in GPU4 for the starting element index (range 0 to 255)
+        //  FOR FONT ONLY:
+        //  Takes 1 byte in GPU5 for the default glyph index (range 0 to 255) will be converted to
+        //      default - starting. Failure if default < starting
+        //  Takes 1 byte in GPU6 for the pixel widht of the glyph.
+        //      MUST BE == TO BASE CP0 otherwhise fail
+        //  Takes 1 byte in GPU7 for the pixel height of the glyph.
+        //      MUST BE == TO BASE CP0 otherwhise fail
+
+        if (cmd->argc > 1) {
+            goto too_many_args;
+            break;
+        } else if (cmd->argc < 1) {
+            goto not_enough_args;
+            break;
+        }
+
+        u8     type          = cmd->args[0] >> 56;
+        u16    src_addr      = cmd->args[0] >> 40;
+        size_t count         = (cmd->args[0] >> 32 & 0xff) + 1;
+        u8     start_idx     = cmd->args[0] >> 24;
+        u8     default_glyph = cmd->args[0] >> 16;
+        u8     cw            = cmd->args[0] >> 8;
+        u8     ch            = cmd->args[0];
+
+        if (type < VIDEO_ALT_FONT_CP1 + 1 && default_glyph < start_idx) {
+            TALEA_LOG_TRACE("Attempted to load a font with non existing default glyph!\n");
+            v->error = VIDEO_ERROR_LOAD;
+            break;
+        } else {
+            default_glyph -= start_idx;
+        }
+
+        switch (type) {
+        case VIDEO_FONT_BASE_CP1:
+        case VIDEO_ALT_FONT_CP1:
+        case VIDEO_ALT_FONT_CP0:
+            if (v->font.char_h != ch || v->font.char_w != cw) {
+                TALEA_LOG_TRACE(
+                    "Attepted to load secondary font slot with different sizes than BASE CP0\n");
+                v->error = VIDEO_ERROR_LOAD;
+                break;
+            }
+
+        case VIDEO_FONT_BASE_CP0: // maybe this is a bit ugly, but less redundant
+        {
+            size_t bytes_per_row   = ((u32)cw + 7) / 8;
+            size_t bytes_per_glyph = bytes_per_row * ch;
+            u8    *data            = Bus_GetDataPointer(m, src_addr, bytes_per_glyph * count);
+            if (!data) {
+                TALEA_LOG_TRACE("Failed to get pointer to font in data memory\n");
+                v->error = VIDEO_ERROR_DMA;
+                break;
+            }
+
+            if (!Video_PrepareFontFromMemory(m, v, type, data, cw, ch, count, start_idx,
+                                             default_glyph)) {
+                TALEA_LOG_TRACE("Failure to load font from memory in slot: %d\n", type);
+                v->error = VIDEO_ERROR_LOAD;
+                break;
+            } else {
+                TALEA_LOG_TRACE("Successfully loaded font from memory in slot: %d\n", type);
+            }
+
+            break;
+        }
+        case VIDEO_ALT_FONT_CP1 + 1: /*Pallete*/
+            u8 *data = Bus_GetDataPointer(m, src_addr, 4 * count);
+            if (!data) {
+                TALEA_LOG_TRACE("Failed to get pointer to pallette in data memory\n");
+                v->error = VIDEO_ERROR_DMA;
+                break;
+            }
+
+            for (size_t i = start_idx, k = 0; i < count + start_idx; i++) {
+                v->renderer.shaderPalette[(i * 4)]     = data[(k * 4)];
+                v->renderer.shaderPalette[(i * 4) + 1] = data[(k * 4) + 1];
+                v->renderer.shaderPalette[(i * 4) + 2] = data[(k * 4) + 2];
+                v->renderer.shaderPalette[(i * 4) + 3] = data[(k * 4) + 3];
+            }
+
+            Video_BuildShadesTable(v->color_shades, v->renderer.shaderPalette, 256);
+
+            // And set shader uniforms!
+            SetShaderValueV(v->renderer.fb_shader, v->renderer.fb_palette_loc,
+                            v->renderer.shaderPalette, SHADER_UNIFORM_IVEC4, 256);
+            SetShaderValueV(v->renderer.shader, v->renderer.palette_loc, v->renderer.shaderPalette,
+                            SHADER_UNIFORM_IVEC4, 256);
+// sadly dont say anything, because if its used for animation printing would be hell
+#ifdef TALEA_DEBUG_PALETTE_LOAD
+            TALEA_LOG_TRACE("Successfuly loaded %d colors to the pallete\n", count);
+#endif
+
+            break;
+        default:
+            TALEA_LOG_TRACE("Unknonw load subcommand\n");
+            v->error = VIDEO_ERROR_LOAD;
+            break;
+        }
+
+        break;
     case COMMAND_BLIT: {
         // TODO: Document
         // Arg 0:
@@ -1577,7 +1847,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         TaleaMemoryView src_view = Bus_GetView(m, src_addr, (w * h), BUS_ACCESS_READ);
         if (!src_view.ptr || src_view.length != (w * h)) {
-            TALEA_LOG_ERROR("COMMAND STRETCH BLIT could not acquire a view of the destination\n");
+            TALEA_LOG_ERROR("COMMAND STRETCH BLIT could not acquire a view of the source\n");
             return;
         }
         u8 *src = &src_view.ptr;
@@ -1634,7 +1904,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         TaleaMemoryView src_view = Bus_GetView(m, src_addr, (w * h), BUS_ACCESS_READ);
         if (!src_view.ptr || src_view.length != (w * h)) {
-            TALEA_LOG_ERROR("COMMAND PATTERN FILL could not acquire a view of the destination\n");
+            TALEA_LOG_ERROR("COMMAND PATTERN FILL could not acquire a view of the source\n");
             return;
         }
         u8 *src = &src_view.ptr;
@@ -1968,8 +2238,8 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
     // Immediate commands
     case COMMAND_SYS_INFO:
         // character w, h in pixels
-        v->ports[P_VIDEO_GPU0 & 0xf] = v->fonts[VIDEO_FONT_BASE_CP0].baseSize;
-        v->ports[P_VIDEO_GPU1 & 0xf] = VIDEO_GET_FONT_W(v->fonts);
+        v->ports[P_VIDEO_GPU0 & 0xf] = v->font.char_w;
+        v->ports[P_VIDEO_GPU1 & 0xf] = v->font.char_h;
         // gives important info on the mode
         v->ports[P_VIDEO_GPU2 & 0xf] = v->mode;
         v->ports[P_VIDEO_GPU3 & 0xf] = v->textbuffer.stride;
@@ -1984,15 +2254,15 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         break;
 
     case COMMAND_BUFFER_INFO:
-        v->ports[P_VIDEO_GPU0 & 0xf] = v->textbuffer.addr >> 24;
-        v->ports[P_VIDEO_GPU1 & 0xf] = v->textbuffer.addr >> 16;
-        v->ports[P_VIDEO_GPU2 & 0xf] = v->textbuffer.addr >> 8;
-        v->ports[P_VIDEO_GPU3 & 0xf] = v->textbuffer.addr;
+        v->ports[P_VIDEO_GPU0 & 0xf] = v->textbuffer.view.guest_addr >> 24;
+        v->ports[P_VIDEO_GPU1 & 0xf] = v->textbuffer.view.guest_addr >> 16;
+        v->ports[P_VIDEO_GPU2 & 0xf] = v->textbuffer.view.guest_addr >> 8;
+        v->ports[P_VIDEO_GPU3 & 0xf] = v->textbuffer.view.guest_addr;
 
-        v->ports[P_VIDEO_GPU4 & 0xf] = v->framebuffer.addr >> 24;
-        v->ports[P_VIDEO_GPU5 & 0xf] = v->framebuffer.addr >> 16;
-        v->ports[P_VIDEO_GPU6 & 0xf] = v->framebuffer.addr >> 8;
-        v->ports[P_VIDEO_GPU7 & 0xf] = v->framebuffer.addr;
+        v->ports[P_VIDEO_GPU4 & 0xf] = v->framebuffer.view.guest_addr >> 24;
+        v->ports[P_VIDEO_GPU5 & 0xf] = v->framebuffer.view.guest_addr >> 16;
+        v->ports[P_VIDEO_GPU6 & 0xf] = v->framebuffer.view.guest_addr >> 8;
+        v->ports[P_VIDEO_GPU7 & 0xf] = v->framebuffer.view.guest_addr;
 
         v->last_executed_command = value;
         break;
@@ -2015,12 +2285,17 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         u16 w = v->current_cmd.args[0] >> 16;
         u16 h = v->current_cmd.args[0];
 
-        // TALEA_LOG_TRACE("Binding to slot: %d, addr: %04x, w: %d, h: %d\n", slot, addr, w, h);
-        v->ctx[slot].addr   = addr;
+        TaleaMemoryView view = Bus_GetView(m, addr, w * h, BUS_ACCESS_READ | BUS_ACCESS_WRITE);
+        if (!view.ptr || view.length != w * h) {
+            TALEA_LOG_WARNING("Cold not get a view to bind slot %d to addr %06x", slot, addr);
+            v->error = VIDEO_ERROR_BIND;
+            break;
+        }
+
+        v->ctx[slot].view   = view;
         v->ctx[slot].w      = w;
         v->ctx[slot].h      = h;
         v->ctx[slot].stride = 1;
-        v->ctx[slot].size   = w * h;
 
         v->last_executed_command = value;
         break;
@@ -2175,13 +2450,9 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
         .cursor_blink  = true,
         .queue_full    = false,
 
-        .fonts = { 0 },
-
-        .framebuffer.addr   = TALEA_FRAMEBUFFER_ADDR,
         .framebuffer.w      = TALEA_SCREEN_WIDTH,
-        .framebuffer.h      = TALEA_SCREEN_WIDTH,
+        .framebuffer.h      = TALEA_SCREEN_HEIGHT,
         .framebuffer.stride = 1,
-        .textbuffer.addr    = TALEA_CHARBUFFER_ADDR,
         .textbuffer.w       = 80,
         .textbuffer.h       = 30,
         .textbuffer.stride  = 4,
@@ -2205,18 +2476,44 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
     v->csr         = ASSEMBLE_CSR(v);
 
     memcpy(&m->video.renderer.shaderPalette, Palette_Default_Aurora, sizeof(u32) * 4 * (256));
-    memcpy(&m->video.color_shades, aurora_shading_table, sizeof(u8) * 256 * 16);
+    Video_BuildShadesTable(&m->video.color_shades, &m->video.renderer.shaderPalette, 256);
 
-    Video_PrepareFont(&m->video, VIDEO_FONT_BASE_CP0,
-                      TextFormat("%s%s%s", FONT_PATH, config->hardware_font, "/cp0.fnt"));
-    Video_PrepareFont(&m->video, VIDEO_FONT_BASE_CP1,
-                      TextFormat("%s%s%s", FONT_PATH, config->hardware_font, "/cp1.fnt"));
-    Video_PrepareFont(&m->video, VIDEO_ALT_FONT_CP0,
-                      TextFormat("%s%s%s", FONT_PATH, config->hardware_font, "/alt_cp0.fnt"));
-    Video_PrepareFont(&m->video, VIDEO_ALT_FONT_CP1,
-                      TextFormat("%s%s%s", FONT_PATH, config->hardware_font, "/alt_cp1.fnt"));
+    Video_PrepareFont(m, &m->video, VIDEO_FONT_BASE_CP0,
+                      TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
+    Video_PrepareFont(m, &m->video, VIDEO_FONT_BASE_CP1,
+                      TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
+    Video_PrepareFont(m, &m->video, VIDEO_ALT_FONT_CP0,
+                      TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
+    Video_PrepareFont(m, &m->video, VIDEO_ALT_FONT_CP1,
+                      TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
 
-    Video_Clear(m, &m->video, 0x20000004, 0, VIDEO_CLEAR_FLAG_FB | VIDEO_CLEAR_FLAG_TB);
+    m->video.framebuffer.view =
+        Bus_GetView(m, TALEA_FRAMEBUFFER_ADDR,
+                    m->video.framebuffer.w * m->video.framebuffer.h * m->video.framebuffer.stride,
+                    BUS_ACCESS_READ | BUS_ACCESS_WRITE);
+
+    if (!m->video.framebuffer.view.ptr ||
+        m->video.framebuffer.view.length !=
+            m->video.framebuffer.w * m->video.framebuffer.h * m->video.framebuffer.stride) {
+        TALEA_LOG_WARNING(
+            "Could not acquire memory view at %06x for framebuffer on reset. Consider relocating it\n",
+            TALEA_FRAMEBUFFER_ADDR);
+        m->video.error = VIDEO_ERROR_DMA;
+    }
+
+    m->video.textbuffer.view =
+        Bus_GetView(m, TALEA_CHARBUFFER_ADDR,
+                    m->video.textbuffer.w * m->video.textbuffer.h * m->video.textbuffer.stride,
+                    BUS_ACCESS_READ | BUS_ACCESS_WRITE);
+    if (!m->video.textbuffer.view.ptr ||
+        m->video.textbuffer.view.length !=
+            m->video.textbuffer.w * m->video.textbuffer.h * m->video.textbuffer.stride) {
+        TALEA_LOG_WARNING(
+            "Could not acquire memory view at %06x for textbuffer on reset. Consider relocating it\n",
+            TALEA_CHARBUFFER_ADDR);
+        m->video.error = VIDEO_ERROR_DMA;
+    }
+
     SetTextureFilter(m->video.renderer.pixels, TEXTURE_FILTER_POINT);
     Video_RendererInit(&m->video, SHADERS_PATH("mode_text_mono.fs"));
 }

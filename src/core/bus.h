@@ -39,18 +39,6 @@ u32  Machine_ReadMain32Physical(TaleaMachine *m, u32 paddr);
 void Machine_WriteMain32(TaleaMachine *m, u32 addr, u32 val);
 void Machine_WriteMain32Physical(TaleaMachine *m, u32 paddr, u32 value);
 
-    enum MemoryViewAccess {
-        BUS_ACCESS_READ  = 1 << 0,
-        BUS_ACCESS_WRITE = 1 << 1,
-    };
-
-typedef struct TaleaMemoryView {
-    uint8_t              *ptr;          // Pointer to the actual start of the requested block
-    uint32_t              guest_addr;   // The address in the Talea address space
-    size_t                length;       // How many bytes the device is allowed to touch
-    enum MemoryViewAccess access_flags; // R, W, R/W
-} TaleaMemoryView;
-
 void Bus_Reset(TaleaMachine *m);
 void Bus_LoadFirmware(TaleaMachine *m, u8 *firmware, size_t firmware_size);
 

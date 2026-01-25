@@ -7,17 +7,10 @@ _start:
 
     cli
 
-#       3. Set stack pointer to the top of memory - 64 K. We query the SYSTEM 
-#          DEVICE at port MEMSIZE/FLASH. Reading from it gives amount of memory
-#          in MB ( 1024*1024 bytes).
+#       3. Set stack pointer to the top of the BIOS data section (0x10000)
 
-    lbud    x2, 0xF0(x0)
-    muli    x2, x2, 1024
-    muli    x2, x2, 1024
-    li x5, 64*1024
-    sub x2, x2, x5 # we subtract the ROM size (64KB)
-    trace x2, x0, x0, x0
-    
+    li x2, 0x10000
+
 #       4. Initialize the IVT.
 
     li      x11, 0xf800
