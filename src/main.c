@@ -4,11 +4,11 @@
  *
  ******************************************************************************/
 
+#include "core/bus.h" // Should move from here
 #include "frontend/config.h"
 #include "frontend/frontend.h"
 #include "raylib.h"
 #include "talea.h"
-#include "core/bus.h" // Should move from here
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,36 +46,34 @@ void Machine_Init(TaleaMachine *m, TaleaConfig *conf)
 
     if (is_restart) {
         Frontend_StopSynth();
-        OPLL_delete(m->synth.opll);
+        OPLL_delete(m->audio.opll);
     }
 
-    m->synth.opll = OPLL_new(SYNTH_MSX_CLK, 44100);
+    m->audio.opll = OPLL_new(AUDIO_OPLL_MSX_CLK, 44100);
     Frontend_StartSynth();
 
-    m->synth.master_volume = 100;
+    m->audio.masterVolume = 100;
 
     m->sys = (DeviceSystem){
-        .frequency     = 0,
-        .unixtime_mode = false,
-        .counter_mode  = false,
-        .uptime        = 0,
+        .frequency    = 0,
+        .unixtimeMode = false,
+        .calendarMode = true,
+        .millisMode   = false,
+        .microsMode   = false,
+        .uptime       = 0,
+        .seed         = time(NULL),
     };
 
-    // Register devices
-    const int device_registry[5] = {
-        ID_TERMINAL, ID_VIDEO, ID_STORAGE, ID_AUDIO, ID_MOUSE,
-    };
-
-    Bus_RegisterDevices(m, device_registry, 0, 4);
+    Bus_RegisterDevices(m);
 
     if (mapped_file_path) {
         int sz   = 0;
         u8 *data = LoadFileData(mapped_file_path, &sz);
-     
+
         if (data) {
-            sz = MIN(sz, TALEA_MAIN_MEM_SZ - TALEA_MAPPED_FILE_ADDR);
-            TaleaMemoryView view = Bus_GetView(m, TALEA_MAPPED_FILE_ADDR, sz, BUS_ACCESS_WRITE);
-            size_t written = Bus_WriteBlock(m, data, &view, sz);
+            sz                      = MIN(sz, TALEA_MAIN_MEM_SZ - TALEA_MAPPED_FILE_ADDR);
+            TaleaMemoryView view    = Bus_GetView(m, TALEA_MAPPED_FILE_ADDR, sz, BUS_ACCESS_WRITE);
+            size_t          written = Bus_WriteBlock(m, data, &view, sz);
             if (written != sz) {
                 TALEA_LOG_ERROR("Could not load mapped file at 0x%x\n", TALEA_MAPPED_FILE_ADDR);
             }
@@ -94,9 +92,9 @@ void Machine_LoadFirmware(TaleaMachine *m, const char *path)
     firmware_size = -1;
     firmware      = LoadFileData(path, &firmware_size);
 
-    if (firmware == NULL || firmware_size < 1 || firmware_size > TALEA_MAX_FIRMWARE_SIZE) {
+    if (firmware == NULL || firmware_size < 1 || firmware_size > TALEA_ROM_SIZE) {
         TALEA_LOG_ERROR("Error, firmware file is too big or not valid (size: %d, max: %d)\n",
-                        firmware_size, TALEA_MAX_FIRMWARE_SIZE);
+                        firmware_size, TALEA_ROM_SIZE);
         exit(1);
     }
 
@@ -109,7 +107,7 @@ void Machine_LoadFirmware(TaleaMachine *m, const char *path)
 void Machine_Deinit(TaleaMachine *m, TaleaConfig *config)
 {
     Frontend_StopSynth();
-    OPLL_delete(m->synth.opll);
+    OPLL_delete(m->audio.opll);
     // Storage_UnloadResources(m);
 
     m = NULL; // Do we null the pointer or not
@@ -117,7 +115,7 @@ void Machine_Deinit(TaleaMachine *m, TaleaConfig *config)
 
 void Machine_RunFrame(TaleaMachine *m, TaleaConfig *config)
 {
-    m->cpu.frequency = (10 * HZ) * config->frequency;
+    m->cpu.frequency = (10 * SIRIUS_BASE_FREQ_HZ) * config->frequency;
     u32 cycle_quota  = m->cpu.frequency / FPS;
 
     if (config->dynamic_cycles) {
@@ -131,8 +129,8 @@ void Machine_RunFrame(TaleaMachine *m, TaleaConfig *config)
 }
 
 static TaleaMachine talea     = { 0 };
-Tps                *TpsDrives = talea.storage.tps_drives; // To access in other threads
-Hcs                *HcsDrive  = &talea.storage.hcs;       // To access in other threads
+StorageTps         *TpsDrives = talea.storage.tpsDrives; // To access in other threads
+StorageHcs         *HcsDrive  = &talea.storage.hcs;      // To access in other threads
 
 int main(int argc, char **argv)
 {
@@ -152,7 +150,7 @@ int main(int argc, char **argv)
     bool success = NetworkInit(); // TODO: check config for serial and modem
                                   // enable, and if it fails, log the error and
                                   // continue offline
-    Synth_Init(&talea);
+    Audio_Reset(&talea, false);
     Frontend_InitWindow(&config);
     Machine_Init(&talea, &config);
 
@@ -168,7 +166,7 @@ int main(int argc, char **argv)
             Frontend_PollInput(&talea, &config);
             if (!Frontend_GuiIsOpen()) {
                 Video_Update(&talea);
-                Synth_Update(&talea);
+                Audio_Update(&talea);
             }
             Serial_Update(&talea);
         }

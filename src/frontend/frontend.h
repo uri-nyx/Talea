@@ -2,7 +2,8 @@
 #define FRONTEND_H
 
 #include "config.h"
-#include "talea.h"
+#include "machine_description.h"
+#include "types.h"
 
 #include "gui_window_file_dialog.h"
 #include "raylib.h"
@@ -12,6 +13,8 @@
 #else // PLATFORM_ANDROID, PLATFORM_WEB
 #define WINDOW_SCALE_DPI (Vector2){ 1.0f, 1.0f }
 #endif
+
+struct TaleMachine;
 
 struct FrontendWindowCtx {
     int             gameScreenWidth;
@@ -79,9 +82,9 @@ struct FrontendState {
 };
 
 void Frontend_InitWindow(TaleaConfig *config);
-void Frontend_PollInput(TaleaMachine *m, TaleaConfig *config);
-void Frontend_SetupFrame(TaleaMachine *m, TaleaConfig *config);
-void Frontend_RenderFrame(TaleaMachine *m, TaleaConfig *config);
+void Frontend_PollInput(struct TaleaMachine *m, TaleaConfig *config);
+void Frontend_SetupFrame(struct TaleaMachine *m, TaleaConfig *config);
+void Frontend_RenderFrame(struct TaleaMachine *m, TaleaConfig *config);
 void Frontend_Deinit(TaleaConfig *config);
 
 void Frontend_SetActiveFont(u8 font);

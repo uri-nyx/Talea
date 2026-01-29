@@ -44,7 +44,7 @@ void main()
     bool transparent = (attr & 4u) != 0u;
 
     bool inside_bounding_box = true;
-    bool isUnderlinePixel    = underline && (localUV.y > 0.85 && localUV.y < 0.92);
+    bool isUnderlinePixel    = underline && (localUV.y > 0.85 && localUV.y < 0.95);
     if (oblique) {
         localUV.x += (localUV.y - 0.7) * 0.25;
         if (localUV.x < 0.15 || localUV.x > 1.15) inside_bounding_box = false;

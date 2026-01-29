@@ -7,132 +7,74 @@
 #include "frontend/frontend.h"
 #include "palettes.h"
 #include "talea.h"
+#include "video.h"
 
-#include "testfont.h"
+#define ASSEMBLE_CSR(v)                                                  \
+    (((v)->queueFull << 7) | ((v)->rop << 4) | ((v)->cursorBlink << 3) | \
+     ((v)->cursorEnable << 2) | 0 | (v)->vblankEnable)
 
-// PORTS
-
-#define P_VIDEO_COMMAND (DEV_VIDEO_BASE + 0)
-#define P_VIDEO_GPU0    (DEV_VIDEO_BASE + 1)
-#define P_VIDEO_GPU1    (DEV_VIDEO_BASE + 2)
-#define P_VIDEO_GPU2    (DEV_VIDEO_BASE + 3)
-#define P_VIDEO_GPU3    (DEV_VIDEO_BASE + 4)
-#define P_VIDEO_GPU4    (DEV_VIDEO_BASE + 5)
-#define P_VIDEO_GPU5    (DEV_VIDEO_BASE + 6)
-#define P_VIDEO_GPU6    (DEV_VIDEO_BASE + 7)
-#define P_VIDEO_GPU7    (DEV_VIDEO_BASE + 8)
-#define P_VIDEO_GPU8    (DEV_VIDEO_BASE + 9)
-#define P_VIDEO_GPU9    (DEV_VIDEO_BASE + 10)
-#define P_VIDEO_GPU10   (DEV_VIDEO_BASE + 11)
-#define P_VIDEO_CUR_X   (DEV_VIDEO_BASE + 12)
-#define P_VIDEO_CUR_Y   (DEV_VIDEO_BASE + 13)
-#define P_VIDEO_CSR     (DEV_VIDEO_BASE + 14)
-#define P_VIDEO_ERROR   (DEV_VIDEO_BASE + 15)
-
-// clang-format off
-
-
-enum VideoCommand {
-    COMMAND_NOP,
-    COMMAND_END_DRAWING,
-    COMMAND_BEGIN_DRAWING,
-
-    // Immediate commands
-    COMMAND_SYS_INFO,
-    COMMAND_BUFFER_INFO,
-
-    // Queued commands
-    COMMAND_CLEAR,
-    COMMAND_SET_MODE,
-    COMMAND_SET_ADDR,
-    COMMAND_LOAD,
-    COMMAND_BLIT,
-    COMMAND_STRETCH_BLIT,
-    COMMAND_PATTERN_FILL,
-
-    // GPU commands (queued)
-    COMMAND_DRAW_RECT,
-    COMMAND_DRAW_LINE,
-    COMMAND_DRAW_CIRCLE,
-    COMMAND_DRAW_TRI,
-    COMMAND_DRAW_BATCH,
-    COMMAND_FILL_SPAN,
-    COMMAND_FILL_VSPAN,
-
-    COMMAND_SET_CSR, // queued for use in blits
-    COMMAND_BIND_CTX,
-    COMMAND_GET_MARKER,
-};
-
-// clang-format on
-
-#define ASSEMBLE_CSR(v)                                                    \
-    (((v)->queue_full << 7) | ((v)->rop << 4) | ((v)->cursor_blink << 3) | \
-     ((v)->cursor_enable << 2) | 0 | (v)->vblank_enable)
-
-static inline get_bit_xy(const u8 *bitmap, u8 char_index, u8 x, u8 y, u8 char_w, u8 char_h)
+static inline getBitXY(const u8 *bitmap, u8 charIndex, u8 x, u8 y, u8 charW, u8 charH)
 {
-    size_t bytes_per_row = (char_w + 7) / 8;
-    size_t glyph_start   = char_index * (bytes_per_row * char_h);
-    size_t row_start     = glyph_start + (y * bytes_per_row);
-    return (bitmap[row_start + (x / 8)] >> (7 - (x % 8))) & 1;
+    size_t bytesPerRow = (charW + 7) / 8;
+    size_t glyphStart  = charIndex * (bytesPerRow * charH);
+    size_t rowStart    = glyphStart + (y * bytesPerRow);
+    return (bitmap[rowStart + (x / 8)] >> (7 - (x % 8))) & 1;
 }
 
-static Image Video_Load1BitFont(const u8 *data, u8 char_w, u8 char_h, size_t nchars,
-                                u8 starting_char, u8 unknown_char)
+static Image Video_Load1BitFont(const u8 *data, u8 charW, u8 charH, size_t nchars, u8 startingGlyph,
+                                u8 defaultGlyph)
 {
     // data is 1 BIT per pixel, aligned by row: 0 is blank 1 is filled
 
-    size_t atlas_w = (u32)char_w, atlas_h = (u32)char_h * 256; // always 256 chars
-    size_t bytes_per_row   = ((u32)char_w + 7) / 8;
-    size_t bytes_per_glyph = bytes_per_row * char_h;
-    Image  atlas           = GenImageColor(atlas_w, atlas_h, BLANK);
-    Color *pixels          = atlas.data;
+    size_t atlasW = (u32)charW, atlasH = (u32)charH * 256; // always 256 chars
+    size_t bytesPerRow   = ((u32)charW + 7) / 8;
+    size_t bytesPerGlyph = bytesPerRow * charH;
+    Image  atlas         = GenImageColor(atlasW, atlasH, BLANK);
+    Color *pixels        = atlas.data;
 
-    u8 *unknown_bits = malloc(bytes_per_glyph);
-    if (unknown_bits == NULL) {
-        TALEA_LOG_ERROR("Malloc failed allocating unknown_bits!\n");
+    u8 *defaultBits = malloc(bytesPerGlyph);
+    if (defaultBits == NULL) {
+        TALEA_LOG_ERROR("Malloc failed allocating defaultBits!\n");
         return (Image){ 0 };
     }
 
-    memcpy(unknown_bits, &data[(unknown_char * bytes_per_glyph)], bytes_per_glyph);
+    memcpy(defaultBits, &data[(defaultGlyph * bytesPerGlyph)], bytesPerGlyph);
 
     // populate the atlas
-    for (size_t row = 0; row < atlas_h; row++) {
-        size_t current_glyph = row / char_h;
-        for (size_t col = 0; col < atlas_w; col++) {
+    for (size_t row = 0; row < atlasH; row++) {
+        size_t currentGlyph = row / charH;
+        for (size_t col = 0; col < atlasW; col++) {
             u8 bit = 0;
-            if (current_glyph < starting_char || current_glyph >= nchars)
-                bit = get_bit_xy(unknown_bits, 0, col, row % char_h, char_w, char_h);
+            if (currentGlyph < startingGlyph || currentGlyph >= nchars)
+                bit = getBitXY(defaultBits, 0, col, row % charH, charW, charH);
             else
-                bit = get_bit_xy(data, current_glyph - starting_char, col, row % char_h, char_w,
-                                 char_h);
-            pixels[(row * atlas_w) + col] = bit ? WHITE : BLANK;
+                bit = getBitXY(data, currentGlyph - startingGlyph, col, row % charH, charW, charH);
+            pixels[(row * atlasW) + col] = bit ? WHITE : BLANK;
         }
     }
 
     // we pass firstChar as 0 because we have already accounted for that
     bool success = ExportImage(atlas, "testfont.png");
     if (!success) TALEA_LOG_TRACE("COULD NOT SAVE THE PIC\n");
-    free(unknown_bits);
+    free(defaultBits);
     return atlas;
 }
 
-u8 Video_ReadHandler(TaleaMachine *m, u16 addr)
+u8 Video_Read(TaleaMachine *m, u8 port)
 {
     DeviceVideo *v = &m->video;
 
-    switch (addr) {
-    case P_VIDEO_COMMAND: return v->last_executed_command;
+    switch (port & 0xf) {
+    case P_VIDEO_COMMAND: return v->lastExecutedCommand;
     // TODO: Ensure we do indexes everywhere
-    case P_VIDEO_CUR_X: return v->cursor_cell_index % v->textbuffer.w;
-    case P_VIDEO_CUR_Y: return v->cursor_cell_index / v->textbuffer.w;
+    case P_VIDEO_CUR_X: return v->cursorCellIndex % v->textbuffer.w;
+    case P_VIDEO_CUR_Y: return v->cursorCellIndex / v->textbuffer.w;
     case P_VIDEO_CSR: {
         v->csr = ASSEMBLE_CSR(v);
         return v->csr;
     }
     case P_VIDEO_ERROR: return v->error;
-    default: return v->ports[addr & 0xf];
+    default: return v->ports[port & 0xf];
     }
 }
 
@@ -165,48 +107,48 @@ typedef struct {
 
 bool Video_PrepareFont(TaleaMachine *m, DeviceVideo *v, enum VideoFontID id, const char *path)
 {
-    u8     char_w, char_h, starting_char, unknown_char;
-    size_t number_of_chars; // MAX 256!
-    u8    *glyph_data     = NULL;
-    int    texture_column = 0;
+    u8     charW, charH, startingGlyph, defaultGlyph;
+    size_t nchars; // MAX 256!
+    u8    *glyphData  = NULL;
+    int    textureCol = 0;
 
     int sz;
-    u8 *font_file = LoadFileData(path, &sz);
+    u8 *fontFile = LoadFileData(path, &sz);
 
-    if (((u32 *)font_file)[0] == PSF2_FONT_MAGIC) {
-        number_of_chars = ((u32 *)font_file)[4];
-        char_h          = ((u32 *)font_file)[6];
-        char_w          = ((u32 *)font_file)[7];
-        starting_char   = 0;
-        unknown_char    = '?';
-        glyph_data      = font_file + ((u32 *)font_file)[2];
+    if (((u32 *)fontFile)[0] == PSF2_FONT_MAGIC) {
+        nchars        = ((u32 *)fontFile)[4];
+        charH         = ((u32 *)fontFile)[6];
+        charW         = ((u32 *)fontFile)[7];
+        startingGlyph = 0;
+        defaultGlyph  = '?';
+        glyphData     = fontFile + ((u32 *)fontFile)[2];
 
-        size_t bytes_per_row   = ((u32)char_w + 7) / 8;
-        size_t bytes_per_glyph = bytes_per_row * char_h;
-        if (bytes_per_glyph != ((u32 *)font_file)[5]) {
+        size_t bytesPerRow   = ((u32)charW + 7) / 8;
+        size_t bytesPerGlyph = bytesPerRow * charH;
+        if (bytesPerGlyph != ((u32 *)fontFile)[5]) {
             TALEA_LOG_ERROR("Font %s indicates unexpected bytes per glyph\n", path);
             return false;
         }
-    } else if (((u16 *)font_file)[0] == PSF1_FONT_MAGIC) {
-        char_w          = 8;
-        char_h          = font_file[3];
-        starting_char   = 0;
-        unknown_char    = '?';
-        glyph_data      = font_file + 4;
-        number_of_chars = (font_file[2] & 1) ? 512 : 256;
+    } else if (((u16 *)fontFile)[0] == PSF1_FONT_MAGIC) {
+        charW         = 8;
+        charH         = fontFile[3];
+        startingGlyph = 0;
+        defaultGlyph  = '?';
+        glyphData     = fontFile + 4;
+        nchars        = (fontFile[2] & 1) ? 512 : 256;
     } else {
         TALEA_LOG_ERROR("We only support PSF1 and a subset of PSF2 (%s)\n", path);
         return false;
     }
 
-    if (number_of_chars > 256) {
+    if (nchars > 256) {
         TALEA_LOG_WARNING(
             "Cannot load font with more than 256 glyphs. only first 256 glyphs loaded!(%s)\n",
             path);
-        number_of_chars = 256;
+        nchars = 256;
     }
 
-    if (char_w < 4 || char_h < 4) {
+    if (charW < 4 || charH < 4) {
         TALEA_LOG_ERROR("This font (%s) is very little! Make it bigger than 4x4\n", path);
         return false;
     }
@@ -214,7 +156,7 @@ bool Video_PrepareFont(TaleaMachine *m, DeviceVideo *v, enum VideoFontID id, con
     // CHECK AGAINST BASE_CP0 (if not itself)
     // Reject or proceed update master texture
     if (id != VIDEO_FONT_BASE_CP0) {
-        if (char_w != v->font.char_w || char_h != v->font.char_h) {
+        if (charW != v->font.charW || charH != v->font.charH) {
             TALEA_LOG_ERROR(
                 "Fonts have to have all the same witdht and height. Try to load this one (%s) as BASE CP0!\n",
                 path);
@@ -222,9 +164,9 @@ bool Video_PrepareFont(TaleaMachine *m, DeviceVideo *v, enum VideoFontID id, con
         }
 
         switch (id) {
-        case VIDEO_FONT_BASE_CP1: texture_column = char_w * 1; break;
-        case VIDEO_ALT_FONT_CP0: texture_column = char_w * 2; break;
-        case VIDEO_ALT_FONT_CP1: texture_column = char_w * 3; break;
+        case VIDEO_FONT_BASE_CP1: textureCol = charW * 1; break;
+        case VIDEO_ALT_FONT_CP0: textureCol = charW * 2; break;
+        case VIDEO_ALT_FONT_CP1: textureCol = charW * 3; break;
         default: TALEA_LOG_TRACE("Malformed font id (should be 1..3) %d\n", id); return false;
         }
 
@@ -235,8 +177,8 @@ bool Video_PrepareFont(TaleaMachine *m, DeviceVideo *v, enum VideoFontID id, con
         // wipe texture.
         UnloadRenderTexture(v->font.atlas);
 
-        v->textbuffer.w      = v->framebuffer.w / char_w;
-        v->textbuffer.h      = v->framebuffer.h / char_h;
+        v->textbuffer.w      = v->framebuffer.w / charW;
+        v->textbuffer.h      = v->framebuffer.h / charH;
         v->textbuffer.stride = v->mode == VIDEO_MODE_TEXT_MONO ? 1 : 4;
         v->textbuffer.view   = Bus_GetView(m, v->textbuffer.view.guest_addr,
                                            v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride,
@@ -247,48 +189,48 @@ bool Video_PrepareFont(TaleaMachine *m, DeviceVideo *v, enum VideoFontID id, con
             return false;
         }
 
-        v->font.char_w = char_w;
-        v->font.char_h = char_h;
-        v->font.atlas  = LoadRenderTexture(char_w * VIDEO_FONT_IDS, char_h * 256);
+        v->font.charW = charW;
+        v->font.charH = charH;
+        v->font.atlas = LoadRenderTexture(charW * VIDEO_FONT_IDS, charH * 256);
         SetTextureFilter(v->font.atlas.texture, TEXTURE_FILTER_POINT);
         SetTextureWrap(v->font.atlas.texture, TEXTURE_WRAP_CLAMP);
 
-        UnloadRenderTexture(v->renderer.characters_texture);
-        v->renderer.characters_texture = LoadRenderTexture(v->textbuffer.w, v->textbuffer.h);
-        SetTextureFilter(v->renderer.characters_texture.texture, TEXTURE_FILTER_POINT);
+        UnloadRenderTexture(v->renderer.charactersTexture);
+        v->renderer.charactersTexture = LoadRenderTexture(v->textbuffer.w, v->textbuffer.h);
+        SetTextureFilter(v->renderer.charactersTexture.texture, TEXTURE_FILTER_POINT);
 
         free(v->renderer.charsFake);
         v->renderer.charsFake = malloc((size_t)v->textbuffer.w * v->textbuffer.h * sizeof(Color));
 
-        texture_column = 0;
+        textureCol = 0;
     }
 
-    Image sub_atlas = Video_Load1BitFont(glyph_data, char_w, char_h, number_of_chars, starting_char,
-                                         unknown_char);
+    Image subAtlas =
+        Video_Load1BitFont(glyphData, charW, charH, nchars, startingGlyph, defaultGlyph);
 
-    if (!sub_atlas.data || sub_atlas.height == 0 || sub_atlas.width == 0) {
+    if (!subAtlas.data || subAtlas.height == 0 || subAtlas.width == 0) {
         TALEA_LOG_ERROR("Failed to load font as cp0: %s\n", path);
         return false;
     }
 
     // update the master texture
     BeginTextureMode(v->font.atlas);
-    Texture2D sub_atlas_texture = LoadTextureFromImage(sub_atlas);
-    DrawTexture(sub_atlas_texture, texture_column, 0, WHITE);
+    Texture2D subAtlasTexture = LoadTextureFromImage(subAtlas);
+    DrawTexture(subAtlasTexture, textureCol, 0, WHITE);
     EndTextureMode();
-    UnloadTexture(sub_atlas_texture);
-    UnloadImage(sub_atlas);
+    UnloadTexture(subAtlasTexture);
+    UnloadImage(subAtlas);
 
-    TALEA_LOG_TRACE("Loaded font '%s' w: %d, h:%d, tb:%dx%d chars \n", path, char_w, char_h,
+    TALEA_LOG_TRACE("Loaded font '%s' w: %d, h:%d, tb:%dx%d chars \n", path, charW, charH,
                     v->textbuffer.w, v->textbuffer.h);
     return true;
 }
 
 bool Video_PrepareFontFromMemory(TaleaMachine *m, DeviceVideo *v, enum VideoFontID id, u8 *data,
-                                 u8 char_w, u8 char_h, size_t nchars, u8 starting_char,
-                                 u8 unknown_char)
+                                 u8 charW, u8 charH, size_t nchars, u8 startingGlyph,
+                                 u8 defaultGlyph)
 {
-    int texture_column = 0;
+    int textureCol = 0;
 
     if (nchars > 256) {
         TALEA_LOG_WARNING(
@@ -297,7 +239,7 @@ bool Video_PrepareFontFromMemory(TaleaMachine *m, DeviceVideo *v, enum VideoFont
         nchars = 256;
     }
 
-    if (char_w < 4 || char_h < 4) {
+    if (charW < 4 || charH < 4) {
         TALEA_LOG_ERROR("This memory font (%d) is very little! Make it bigger than 4x4\n", id);
         return false;
     }
@@ -305,7 +247,7 @@ bool Video_PrepareFontFromMemory(TaleaMachine *m, DeviceVideo *v, enum VideoFont
     // CHECK AGAINST BASE_CP0 (if not itself)
     // Reject or proceed update master texture
     if (id != VIDEO_FONT_BASE_CP0) {
-        if (char_w != v->font.char_w || char_h != v->font.char_h) {
+        if (charW != v->font.charW || charH != v->font.charH) {
             TALEA_LOG_ERROR(
                 "Fonts have to have all the same witdht and height. Try to load this one (%d) as BASE CP0!\n",
                 id);
@@ -313,9 +255,9 @@ bool Video_PrepareFontFromMemory(TaleaMachine *m, DeviceVideo *v, enum VideoFont
         }
 
         switch (id) {
-        case VIDEO_FONT_BASE_CP1: texture_column = char_w * 1; break;
-        case VIDEO_ALT_FONT_CP0: texture_column = char_w * 2; break;
-        case VIDEO_ALT_FONT_CP1: texture_column = char_w * 3; break;
+        case VIDEO_FONT_BASE_CP1: textureCol = charW * 1; break;
+        case VIDEO_ALT_FONT_CP0: textureCol = charW * 2; break;
+        case VIDEO_ALT_FONT_CP1: textureCol = charW * 3; break;
         default: TALEA_LOG_TRACE("Malformed font id (should be 1..3) %d\n", id); return false;
         }
 
@@ -326,8 +268,8 @@ bool Video_PrepareFontFromMemory(TaleaMachine *m, DeviceVideo *v, enum VideoFont
         // wipe texture.
         UnloadRenderTexture(v->font.atlas);
 
-        v->textbuffer.w      = v->framebuffer.w / char_w;
-        v->textbuffer.h      = v->framebuffer.h / char_h;
+        v->textbuffer.w      = v->framebuffer.w / charW;
+        v->textbuffer.h      = v->framebuffer.h / charH;
         v->textbuffer.stride = v->mode == VIDEO_MODE_TEXT_MONO ? 1 : 4;
         v->textbuffer.view   = Bus_GetView(m, v->textbuffer.view.guest_addr,
                                            v->textbuffer.h * v->textbuffer.w * v->textbuffer.stride,
@@ -338,38 +280,38 @@ bool Video_PrepareFontFromMemory(TaleaMachine *m, DeviceVideo *v, enum VideoFont
             return false;
         }
 
-        v->font.char_w = char_w;
-        v->font.char_h = char_h;
-        v->font.atlas  = LoadRenderTexture(char_w * VIDEO_FONT_IDS, char_h * 256);
+        v->font.charW = charW;
+        v->font.charH = charH;
+        v->font.atlas = LoadRenderTexture(charW * VIDEO_FONT_IDS, charH * 256);
         SetTextureFilter(v->font.atlas.texture, TEXTURE_FILTER_POINT);
         SetTextureWrap(v->font.atlas.texture, TEXTURE_WRAP_CLAMP);
 
-        UnloadRenderTexture(v->renderer.characters_texture);
-        v->renderer.characters_texture = LoadRenderTexture(v->textbuffer.w, v->textbuffer.h);
-        SetTextureFilter(v->renderer.characters_texture.texture, TEXTURE_FILTER_POINT);
+        UnloadRenderTexture(v->renderer.charactersTexture);
+        v->renderer.charactersTexture = LoadRenderTexture(v->textbuffer.w, v->textbuffer.h);
+        SetTextureFilter(v->renderer.charactersTexture.texture, TEXTURE_FILTER_POINT);
 
         free(v->renderer.charsFake);
         v->renderer.charsFake = malloc((size_t)v->textbuffer.w * v->textbuffer.h * sizeof(Color));
 
-        texture_column = 0;
+        textureCol = 0;
     }
 
-    Image sub_atlas = Video_Load1BitFont(data, char_w, char_h, nchars, starting_char, unknown_char);
+    Image subAtlas = Video_Load1BitFont(data, charW, charH, nchars, startingGlyph, defaultGlyph);
 
-    if (!sub_atlas.data || sub_atlas.height == 0 || sub_atlas.width == 0) {
+    if (!subAtlas.data || subAtlas.height == 0 || subAtlas.width == 0) {
         TALEA_LOG_ERROR("Failed to load memory font as cp0\n");
         return false;
     }
 
     // update the master texture
     BeginTextureMode(v->font.atlas);
-    Texture2D sub_atlas_texture = LoadTextureFromImage(sub_atlas);
-    DrawTexture(sub_atlas_texture, texture_column, 0, WHITE);
+    Texture2D subAtlasTexture = LoadTextureFromImage(subAtlas);
+    DrawTexture(subAtlasTexture, textureCol, 0, WHITE);
     EndTextureMode();
-    UnloadTexture(sub_atlas_texture);
-    UnloadImage(sub_atlas);
+    UnloadTexture(subAtlasTexture);
+    UnloadImage(subAtlas);
 
-    TALEA_LOG_TRACE("Loaded font from memory: w: %d, h:%d, tb:%dx%d chars \n", char_w, char_h,
+    TALEA_LOG_TRACE("Loaded font from memory: w: %d, h:%d, tb:%dx%d chars \n", charW, charH,
                     v->textbuffer.w, v->textbuffer.h);
     return true;
 }
@@ -379,32 +321,32 @@ void Video_RendererInit(DeviceVideo *v, const char *path)
     // clang-format off
 
     v->renderer.shader          = LoadShader(VERTEX_SHADER, path);
-    v->renderer.fb_shader          = LoadShader(VERTEX_SHADER, SHADERS_PATH("fb_pixels.fs"));
+    v->renderer.fbShader          = LoadShader(VERTEX_SHADER, SHADERS_PATH("fb_pixels.fs"));
     
-    v->renderer.cursor_cell_idx_loc = GetShaderLocation(v->renderer.shader, "cursorIndex");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "cursorIndex", v->renderer.cursor_cell_idx_loc);
-    v->renderer.csr_loc   = GetShaderLocation(v->renderer.shader, "csr");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "csr", v->renderer.csr_loc);
-    v->renderer.chars_loc       = GetShaderLocation(v->renderer.shader, "characters");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "characters", v->renderer.chars_loc);
-    v->renderer.fonts_loc = GetShaderLocation(v->renderer.shader, "font_atlas");
-    v->renderer.palette_loc     = GetShaderLocation(v->renderer.shader, "palette");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "palette", v->renderer.palette_loc);
-    v->renderer.time_loc        = GetShaderLocation(v->renderer.shader, "uTime");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "uTime", v->renderer.time_loc);
-    v->renderer.char_size_loc    = GetShaderLocation(v->renderer.shader, "charSize");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "charSize", v->renderer.char_size_loc);
-    v->renderer.texture_size_loc = GetShaderLocation(v->renderer.shader, "mainTextureSize");
-    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "mainTextureSize", v->renderer.texture_size_loc);
+    v->renderer.cursorCellIdxLoc = GetShaderLocation(v->renderer.shader, "cursorIndex");
+    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "cursorIndex", v->renderer.cursorCellIdxLoc);
+    v->renderer.csrLoc   = GetShaderLocation(v->renderer.shader, "csr");
+    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "csr", v->renderer.csrLoc);
+    v->renderer.charsLoc       = GetShaderLocation(v->renderer.shader, "characters");
+    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "characters", v->renderer.charsLoc);
+    v->renderer.fontsLoc = GetShaderLocation(v->renderer.shader, "font_atlas");
+    v->renderer.paletteLoc     = GetShaderLocation(v->renderer.shader, "palette");
+    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "palette", v->renderer.paletteLoc);
+    v->renderer.timeLoc        = GetShaderLocation(v->renderer.shader, "uTime");
+    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "uTime", v->renderer.timeLoc);
+    v->renderer.charSizeLoc    = GetShaderLocation(v->renderer.shader, "charSize");
+    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "charSize", v->renderer.charSizeLoc);
+    v->renderer.textureSizeLoc = GetShaderLocation(v->renderer.shader, "mainTextureSize");
+    TALEA_LOG_ERROR("Shader location for %s: %d\n",  "mainTextureSize", v->renderer.textureSizeLoc);
     TALEA_LOG_ERROR("Shader location for texture0: %d\n",  GetShaderLocation(v->renderer.shader, "texture0"));
 
-    SetShaderValue(v->renderer.shader, v->renderer.cursor_cell_idx_loc, &v->cursor_cell_index, SHADER_UNIFORM_INT);
-    SetShaderValue(v->renderer.shader, v->renderer.csr_loc, &v->csr, SHADER_UNIFORM_INT);
-    SetShaderValueV(v->renderer.shader, v->renderer.palette_loc, v->renderer.shaderPalette, SHADER_UNIFORM_IVEC4, 256);
+    SetShaderValue(v->renderer.shader, v->renderer.cursorCellIdxLoc, &v->cursorCellIndex, SHADER_UNIFORM_INT);
+    SetShaderValue(v->renderer.shader, v->renderer.csrLoc, &v->csr, SHADER_UNIFORM_INT);
+    SetShaderValueV(v->renderer.shader, v->renderer.paletteLoc, v->renderer.shaderPalette, SHADER_UNIFORM_IVEC4, 256);
 
-    v->renderer.fb_loc = GetShaderLocation(v->renderer.fb_shader, "pixels");
-    v->renderer.fb_palette_loc = GetShaderLocation(v->renderer.fb_shader, "palette");
-    SetShaderValueV(v->renderer.fb_shader, v->renderer.fb_palette_loc, v->renderer.shaderPalette, SHADER_UNIFORM_IVEC4, 256);
+    v->renderer.fbLoc = GetShaderLocation(v->renderer.fbShader, "pixels");
+    v->renderer.fbPaletteLoc = GetShaderLocation(v->renderer.fbShader, "palette");
+    SetShaderValueV(v->renderer.fbShader, v->renderer.fbPaletteLoc, v->renderer.shaderPalette, SHADER_UNIFORM_IVEC4, 256);
 
     // clang-format on
 }
@@ -457,14 +399,15 @@ static inline void TextMode_AssembleCharacters(TaleaMachine *m)
     DeviceVideo *v = &m->video;
 
     if (v->mode == VIDEO_MODE_TEXT_COLOR || v->mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
-        for (size_t i = 0, k = 0; i < v->textbuffer.w * v->textbuffer.h; i++, k += 4) {
+        /*for (size_t i = 0, k = 0; i < v->textbuffer.w * v->textbuffer.h; i++, k += 4) {
             v->renderer.charsFake[i] = (Color){
                 v->textbuffer.view.ptr[k],
                 v->textbuffer.view.ptr[k + 1],
                 v->textbuffer.view.ptr[k + 2],
                 v->textbuffer.view.ptr[k + 3],
             };
-        }
+        }*/
+        UpdateTexture(v->renderer.charactersTexture.texture, v->textbuffer.view.ptr);
     } else if (v->mode == VIDEO_MODE_TEXT_MONO) {
         for (size_t i = 0; i < v->textbuffer.w * v->textbuffer.h; i++) {
             v->renderer.charsFake[i] = (Color){
@@ -483,16 +426,16 @@ static inline void Framebuffer_Update(TaleaMachine *m)
     VideoRenderer *r = &m->video.renderer;
 
     UpdateTexture(r->pixels, v->framebuffer.view.ptr);
-    BeginShaderMode(r->fb_shader);
-    SetShaderValueTexture(r->fb_shader, r->fb_loc, r->pixels);
+    BeginShaderMode(r->fbShader);
+    SetShaderValueTexture(r->fbShader, r->fbLoc, r->pixels);
     DrawTexture(r->pixels, 0, 0, WHITE);
     EndShaderMode();
 
     DrawTexturePro(r->framebuffer.texture,
                    (Rectangle){ 0.0, 0.0f, (float)r->framebuffer.texture.width,
                                 (float)r->framebuffer.texture.height },
-                   (Rectangle){ 0.0, 0.0f, (float)r->screen_texture->texture.width,
-                                (float)r->screen_texture->texture.height },
+                   (Rectangle){ 0.0, 0.0f, (float)r->screenTexture->texture.width,
+                                (float)r->screenTexture->texture.height },
                    (Vector2){ 0, 0 }, 0.0f, WHITE);
 }
 
@@ -500,35 +443,35 @@ static inline void TextMode_Render(TaleaMachine *m)
 {
     DeviceVideo *v = &m->video;
 
-    if (v->mode == VIDEO_MODE_TEXT_MONO || v->mode == VIDEO_MODE_TEXT_COLOR ||
-        v->mode == VIDEO_MODE_TEXT_AND_GRAPHIC)
-        UpdateTexture(v->renderer.characters_texture.texture, v->renderer.charsFake);
+    if (v->mode == VIDEO_MODE_TEXT_MONO /* || v->mode == VIDEO_MODE_TEXT_COLOR ||
+        v->mode == VIDEO_MODE_TEXT_AND_GRAPHIC */)
+        UpdateTexture(v->renderer.charactersTexture.texture, v->renderer.charsFake);
 
-    float charSize[2]       = { v->font.char_w, v->font.char_h };
-    int   textureSize[2]    = { v->renderer.screen_texture->texture.width,
-                                v->renderer.screen_texture->texture.height };
-    int   cursor_cell_index = v->cursor_cell_index;
+    float charSize[2]     = { v->font.charW, v->font.charH };
+    int   textureSize[2]  = { v->renderer.screenTexture->texture.width,
+                              v->renderer.screenTexture->texture.height };
+    int   cursorCellIndex = v->cursorCellIndex;
     int   cursorCsr = v->csr = ASSEMBLE_CSR(&m->video);
 
     BeginShaderMode(v->renderer.shader);
 
-    SetShaderValue(v->renderer.shader, v->renderer.cursor_cell_idx_loc, &cursor_cell_index,
+    SetShaderValue(v->renderer.shader, v->renderer.cursorCellIdxLoc, &cursorCellIndex,
                    SHADER_UNIFORM_INT);
-    SetShaderValue(v->renderer.shader, v->renderer.csr_loc, &cursorCsr, SHADER_UNIFORM_INT);
-    SetShaderValue(v->renderer.shader, v->renderer.base_color_loc, &v->renderer.foreground_color,
+    SetShaderValue(v->renderer.shader, v->renderer.csrLoc, &cursorCsr, SHADER_UNIFORM_INT);
+    SetShaderValue(v->renderer.shader, v->renderer.baseColorLoc, &v->renderer.foregroundColor,
                    SHADER_UNIFORM_IVEC4);
-    SetShaderValue(v->renderer.shader, v->renderer.char_size_loc, &charSize, SHADER_UNIFORM_VEC2);
-    SetShaderValue(v->renderer.shader, v->renderer.texture_size_loc, &textureSize,
+    SetShaderValue(v->renderer.shader, v->renderer.charSizeLoc, &charSize, SHADER_UNIFORM_VEC2);
+    SetShaderValue(v->renderer.shader, v->renderer.textureSizeLoc, &textureSize,
                    SHADER_UNIFORM_IVEC2);
-    SetShaderValueTexture(v->renderer.shader, v->renderer.fonts_loc, v->font.atlas.texture);
-    SetShaderValueTexture(v->renderer.shader, v->renderer.chars_loc,
-                          v->renderer.characters_texture.texture);
+    SetShaderValueTexture(v->renderer.shader, v->renderer.fontsLoc, v->font.atlas.texture);
+    SetShaderValueTexture(v->renderer.shader, v->renderer.charsLoc,
+                          v->renderer.charactersTexture.texture);
 
     if (!IsShaderValid(v->renderer.shader))
         TALEA_LOG_ERROR("On UpdateVideo: Shader is not valid\n");
 
     // Drawing BLANK texture, all magic happens on shader
-    DrawTexture(v->renderer.screen_texture->texture, 0, 0, BLANK);
+    DrawTexture(v->renderer.screenTexture->texture, 0, 0, BLANK);
     EndShaderMode(); // Disable our custom shader, return to default shader
 }
 
@@ -537,9 +480,9 @@ static struct VideoCmd *Video_PopCommandQueue(TaleaMachine *m)
     DeviceVideo     *v = &m->video;
     struct VideoCmd *res;
 
-    if (v->cmd_queue.head != v->cmd_queue.tail) {
-        res               = &v->cmd_queue.cmd[v->cmd_queue.tail];
-        v->cmd_queue.tail = (v->cmd_queue.tail + 1) % VIDEO_CMD_QUEUE_SIZE;
+    if (v->cmdQueue.head != v->cmdQueue.tail) {
+        res              = &v->cmdQueue.cmd[v->cmdQueue.tail];
+        v->cmdQueue.tail = (v->cmdQueue.tail + 1) % VIDEO_CMD_QUEUE_SIZE;
         return res;
     }
 
@@ -549,15 +492,15 @@ static struct VideoCmd *Video_PopCommandQueue(TaleaMachine *m)
 static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 color, u8 flags)
 {
     // TODO: should acquire a view of the text and framebuffers on initialization AND on every
-    // COMMAND_SET_ADDR
+    // VIDEO_COMMAND_SET_ADDR
     if (v->mode == VIDEO_MODE_TEXT_MONO) {
         Bus_Memset(m, &v->textbuffer.view, ' ', &v->textbuffer.view);
         return;
     }
 
     if (flags & VIDEO_CLEAR_FLAG_TB) {
-        u32 be_pattern = toBe32(pattern);
-        Bus_Memset32(m, &v->textbuffer.view, be_pattern, v->textbuffer.h * v->textbuffer.w);
+        u32 bePattern = toBe32(pattern);
+        Bus_Memset32(m, &v->textbuffer.view, bePattern, v->textbuffer.h * v->textbuffer.w);
     }
 
     if (flags & VIDEO_CLEAR_FLAG_FB) {
@@ -565,7 +508,7 @@ static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 
                    (v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride));
     }
 
-    v->cursor_cell_index = 0;
+    v->cursorCellIndex = 0;
 }
 
 static inline void Video_SetMode(TaleaMachine *m, DeviceVideo *v, u8 mode)
@@ -595,7 +538,7 @@ static inline void Video_SetMode(TaleaMachine *m, DeviceVideo *v, u8 mode)
                                                                           v->framebuffer.stride) {
             TALEA_LOG_WARNING(
                 "Could not acquire memory view at %06x for framebuffer on reset. Consider relocating it\n",
-                TALEA_FRAMEBUFFER_ADDR);
+                VIDEO_FRAMEBUFFER_ADDR);
             v->error = VIDEO_ERROR_DMA;
         }
         Video_RendererInit(v, SHADERS_PATH("mode_text_color.fs"));
@@ -915,28 +858,28 @@ static void Video_DrawFilledCircle(TaleaMachine *m, DeviceVideo *v, struct Buff2
 }
 
 static void Video_DrawCircle(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u8 mode,
-                             u8 color_line, u8 color_fill, i16 xm, i16 ym, i16 r)
+                             u8 colorLine, u8 colorFill, i16 xm, i16 ym, i16 r)
 {
     // from http://members.chello.at/easyfilter/bresenham.html
     // TODO: implement filling
 
     int x = -r, y = 0, err = 2 - 2 * r; /* II. Quadrant */
-    int last_y = -1;
-    int last_x = 1;
-    int fill_r = r - 1;
+    int lastY = -1;
+    int lastX = 1;
+    int fillR = r - 1;
 
     do {
-        Buff2D_SetPixel(m, v, dest, color_line, xm - x, ym + y); /*   I. Quadrant */
-        Buff2D_SetPixel(m, v, dest, color_line, xm - y, ym - x); /*  II. Quadrant */
-        Buff2D_SetPixel(m, v, dest, color_line, xm + x, ym - y); /* III. Quadrant */
-        Buff2D_SetPixel(m, v, dest, color_line, xm + y, ym + x); /*  IV. Quadrant */
+        Buff2D_SetPixel(m, v, dest, colorLine, xm - x, ym + y); /*   I. Quadrant */
+        Buff2D_SetPixel(m, v, dest, colorLine, xm - y, ym - x); /*  II. Quadrant */
+        Buff2D_SetPixel(m, v, dest, colorLine, xm + x, ym - y); /* III. Quadrant */
+        Buff2D_SetPixel(m, v, dest, colorLine, xm + y, ym + x); /*  IV. Quadrant */
         r = err;
         if (r <= y) err += ++y * 2 + 1;           /* e_xy+e_y < 0 */
         if (r > x || err > y) err += ++x * 2 + 1; /* e_xy+e_x > 0 or no 2nd y-step */
     } while (x < 0);
 
-    if (mode & DRAW_MODE_CIRCLE_FILL) {
-        Video_DrawFilledCircle(m, v, dest, color_fill, xm, ym, fill_r);
+    if (mode & VIDEO_DRAW_MODE_CIRCLE_FILL) {
+        Video_DrawFilledCircle(m, v, dest, colorFill, xm, ym, fillR);
     }
 }
 
@@ -1238,14 +1181,14 @@ static inline bool CohenSutherland(struct Buff2D *dest, i16v2 *p0, i16v2 *p1)
 }
 
 typedef struct {
-    u16 strip_id;
-    u16 vx0_id, vx1_id, vx2_id;
+    u16 stripId;
+    u16 vx0Id, vx1Id, vx2Id;
     i32 depth;
 } trifx16;
 
-static trifx16 sorted_triangles[MAX_VERTEX_BUFFER_SZ];
+static trifx16 sortedTriangles[VIDEO_MAX_VERTEX_BUFFER_SZ];
 
-int comp_depht_desc(const void *a, const void *b)
+int compDepthDesc(const void *a, const void *b)
 {
     trifx16 *t0 = a;
     trifx16 *t1 = b;
@@ -1254,29 +1197,29 @@ int comp_depht_desc(const void *a, const void *b)
     return 0;
 }
 
-static vxfx16 vertex_buff[MAX_VERTEX_BUFFER_SZ];
-static vxfx16 v2d[MAX_VERTEX_BUFFER_SZ];
-static i16v2  vscreen[MAX_VERTEX_BUFFER_SZ];
+static vxfx16 vertexBuff[VIDEO_MAX_VERTEX_BUFFER_SZ];
+static vxfx16 v2d[VIDEO_MAX_VERTEX_BUFFER_SZ];
+static i16v2  vscreen[VIDEO_MAX_VERTEX_BUFFER_SZ];
 
 static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *dest, u32 vxbuff,
-                               u16 len, u16 focal, fx16v3 world_offset, i16v3 rotation,
-                               fx16 max_distance, u8 flags)
+                               u16 len, u16 focal, fx16v3 woff, i16v3 rotation, fx16 maxDistance,
+                               u8 flags)
 {
-    bool is_origin_linked = flags &
-                                (VIDEO_BATCH_TYPE1 | VIDEO_BATCH_TYPE0) == VIDEO_BATCH_TYPE_POINT &&
-                            flags & VIDEO_BATCH_MODIFY_TOPOLOGY;
+    bool isOriginLinked = flags &
+                              (VIDEO_BATCH_TYPE1 | VIDEO_BATCH_TYPE0) == VIDEO_BATCH_TYPE_POINT &&
+                          flags & VIDEO_BATCH_MODIFY_TOPOLOGY;
 
     // preparation:
     // 1. calculate rotations
-    double rad_x, rad_y, rad_z;
-    rad_x = ((double)rotation.x / 32768.0) * PI;
-    rad_y = ((double)rotation.y / 32768.0) * PI;
-    rad_z = ((double)rotation.z / 32768.0) * PI;
+    double radX, radY, radZ;
+    radX = ((double)rotation.x / 32768.0) * PI;
+    radY = ((double)rotation.y / 32768.0) * PI;
+    radZ = ((double)rotation.z / 32768.0) * PI;
 
     double sx, sy, sz, cx, cy, cz;
-    sx = sin(rad_x), cx = cos(rad_x);
-    sy = sin(rad_y), cy = cos(rad_y);
-    sz = sin(rad_z), cz = cos(rad_z);
+    sx = sin(radX), cx = cos(radX);
+    sy = sin(radY), cy = cos(radY);
+    sz = sin(radZ), cz = cos(radZ);
 
     double m0f, m1f, m2f;
     double m3f, m4f, m5f;
@@ -1305,13 +1248,13 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
     fx16 m8 = (int)(m8f * 65536);
 
     // 2. clear marker bank
-    memset(v->vertex_markers, 0, sizeof(v->vertex_markers));
-    memset(vertex_buff, 0, sizeof(vertex_buff));
+    memset(v->vertexMarkers, 0, sizeof(v->vertexMarkers));
+    memset(vertexBuff, 0, sizeof(vertexBuff));
     memset(v2d, 0, sizeof(v2d));
 
     // Vertex processing:
     for (size_t i = 0; i < len; i++) {
-        vxfx16 *vx  = &vertex_buff[i];
+        vxfx16 *vx  = &vertexBuff[i];
         vxfx16 *pvx = &v2d[i];     // projected vertex
         i16v2  *svx = &vscreen[i]; // screen coordinates;
 
@@ -1340,18 +1283,18 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
             ry = ((i64)vx->x * m3 + (i64)vx->y * m4 + (i64)vx->z * m5) >> FX16;
             rz = ((i64)vx->x * m6 + (i64)vx->y * m7 + (i64)vx->z * m8) >> FX16;
 
-            if (is_origin_linked) {
+            if (isOriginLinked) {
                 pvx->x = rx + v2d[0].x;
                 pvx->y = ry + v2d[0].y;
                 pvx->z = rz + v2d[0].z;
             } else {
                 // Translate to world offset IF not absolute and not origin linked
-                pvx->x = rx + world_offset.x;
-                pvx->y = ry + world_offset.y;
-                pvx->z = rz + world_offset.z;
+                pvx->x = rx + woff.x;
+                pvx->y = ry + woff.y;
+                pvx->z = rz + woff.z;
             }
         } else {
-            if (is_origin_linked) {
+            if (isOriginLinked) {
                 pvx->x = vx->x + v2d[0].x;
                 pvx->y = vx->y + v2d[0].y;
                 pvx->z = vx->z + v2d[0].z;
@@ -1371,10 +1314,10 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
         // Projection
 
         if (pvx->z < TO_FX16(10)) { // near z clipping
-            pvx->flags |= VX_HIDE;
+            pvx->flags |= VIDEO_VX_HIDE;
             continue;
-        } else if (pvx->z > max_distance) {
-            pvx->flags |= VX_HIDE;
+        } else if (pvx->z > maxDistance) {
+            pvx->flags |= VIDEO_VX_HIDE;
             continue;
         } else if (flags & VIDEO_BATCH_PERSPECTIVE) {
             pvx->x = ((((i64)pvx->x * (i64)focal) << FX16) / (pvx->z));
@@ -1382,37 +1325,37 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
 
             if (ABS(FROM_FX16(pvx->x)) > (i64)dest->w * 2 ||
                 ABS(FROM_FX16(pvx->y)) > (i64)dest->h * 2) {
-                pvx->flags |= VX_HIDE;
+                pvx->flags |= VIDEO_VX_HIDE;
                 continue;
             }
         }
 
         // Scaling and centering
-        int raw_sx = (dest->w / 2) + FROM_FX16(pvx->x);
-        int raw_sy = (dest->h / 2) - FROM_FX16(pvx->y);
+        int rawSx = (dest->w / 2) + FROM_FX16(pvx->x);
+        int rawSy = (dest->h / 2) - FROM_FX16(pvx->y);
 
         // Safe clamp to avoid i16 wrap-around glitches
-        if (raw_sx < -32000) raw_sx = -32000;
-        if (raw_sx > 32000) raw_sx = 32000;
-        if (raw_sy < -32000) raw_sy = -32000;
-        if (raw_sy > 32000) raw_sy = 32000;
+        if (rawSx < -32000) rawSx = -32000;
+        if (rawSx > 32000) rawSx = 32000;
+        if (rawSy < -32000) rawSy = -32000;
+        if (rawSy > 32000) rawSy = 32000;
 
-        svx->x = raw_sx;
-        svx->y = raw_sy;
+        svx->x = rawSx;
+        svx->y = rawSy;
         /*
         if (i == 0) {
             TALEA_LOG_TRACE("Projected: X: %f, Y: %f\n", (float)pvx->x / 65536.0,
                             (float)pvx->y / 65536.0);
-            TALEA_LOG_TRACE("Screen: X: %d, Y: %d\n", raw_sx, raw_sy);
+            TALEA_LOG_TRACE("Screen: X: %d, Y: %d\n", rawSx, rawSy);
         }
          */
 
         // Marker handling
-        if (pvx->flags & VX_MARK) {
-            u8 id                   = pvx->flags >> 4;
-            v->vertex_markers[id].x = pvx->x;
-            v->vertex_markers[id].y = pvx->y;
-            v->vertex_markers[id].z = pvx->z;
+        if (pvx->flags & VIDEO_VX_MARK) {
+            u8 id                  = pvx->flags >> 4;
+            v->vertexMarkers[id].x = pvx->x;
+            v->vertexMarkers[id].y = pvx->y;
+            v->vertexMarkers[id].z = pvx->z;
         }
     }
 
@@ -1428,17 +1371,17 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
             vxfx16 *pvx = &v2d[i]; // projected vertex
             i16v2  *svx = &vscreen[i];
 
-            if (pvx->flags & VX_HIDE) continue;
+            if (pvx->flags & VIDEO_VX_HIDE) continue;
             if (svx->x < 0 || svx->x >= (i64)dest->w) continue;
             if (svx->y < 0 || svx->y >= (i64)dest->h) continue;
 
             u8 final_color = pvx->color;
-            if ((flags & VIDEO_BATCH_ZSHADING) && !(pvx->flags & VX_BRIGHT)) {
-                i8 shade    = pvx->z >= max_distance ? 0 :
-                              pvx->z <= 0            ? 15 :
-                                                       15 - (i16)(pvx->z << 4) / max_distance;
+            if ((flags & VIDEO_BATCH_ZSHADING) && !(pvx->flags & VIDEO_VX_BRIGHT)) {
+                i8 shade    = pvx->z >= maxDistance ? 0 :
+                              pvx->z <= 0           ? 15 :
+                                                      15 - (i16)(pvx->z << 4) / maxDistance;
                 shade       = shade < 0 ? 0 : shade > 15 ? 15 : shade;
-                final_color = v->color_shades[pvx->color][shade];
+                final_color = v->colorShades[pvx->color][shade];
             }
 
             Buff2D_SetPixel(m, v, dest, final_color, svx->x, svx->y);
@@ -1457,9 +1400,9 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
             vxfx16 *pvx0 = &v2d[v0id];  // projected vertex
             vxfx16 *pvx1 = &v2d[i + 1]; // projected vertex
 
-            if (pvx0->flags & VX_HIDE) continue;
-            if (pvx1->flags & VX_HIDE) continue;
-            if (!is_star && pvx0->flags & VX_END_OF_STRIP) continue;
+            if (pvx0->flags & VIDEO_VX_HIDE) continue;
+            if (pvx1->flags & VIDEO_VX_HIDE) continue;
+            if (!is_star && pvx0->flags & VIDEO_VX_END_OF_STRIP) continue;
 
             i16v2 svx[2];
             svx[0] = vscreen[v0id];
@@ -1469,12 +1412,12 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
             if (!visible) continue;
 
             u8 final_color = (is_star) ? pvx1->color : pvx0->color;
-            if ((flags & VIDEO_BATCH_ZSHADING) && !(pvx0->flags & VX_BRIGHT)) {
-                i8 shade    = pvx0->z >= max_distance ? 0 :
-                              pvx0->z <= 0            ? 15 :
-                                                        15 - (i16)(pvx0->z << 4) / max_distance;
+            if ((flags & VIDEO_BATCH_ZSHADING) && !(pvx0->flags & VIDEO_VX_BRIGHT)) {
+                i8 shade    = pvx0->z >= maxDistance ? 0 :
+                              pvx0->z <= 0           ? 15 :
+                                                       15 - (i16)(pvx0->z << 4) / maxDistance;
                 shade       = shade < 0 ? 0 : shade > 15 ? 15 : shade;
-                final_color = v->color_shades[pvx0->color][shade];
+                final_color = v->colorShades[pvx0->color][shade];
             }
 
             Video_DrawLine(m, v, dest, final_color, svx[0].x, svx[0].y, svx[1].x, svx[1].y);
@@ -1490,7 +1433,7 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
 
         bool   is_fan      = flags & VIDEO_BATCH_MODIFY_TOPOLOGY;
         size_t n_triangles = 0;
-        memset(sorted_triangles, 0, sizeof(sorted_triangles));
+        memset(sortedTriangles, 0, sizeof(sortedTriangles));
 
         size_t step = (primitive == VIDEO_BATCH_TYPE_TRILIST) ? 3 : 1;
 
@@ -1501,55 +1444,56 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
             vxfx16 *pvx2 = &v2d[i + 2]; // projected vertex
 
             if (primitive == VIDEO_BATCH_TYPE_TRISTRIP && !is_fan &&
-                (pvx0->flags & VX_END_OF_STRIP || pvx1->flags & VX_END_OF_STRIP))
+                (pvx0->flags & VIDEO_VX_END_OF_STRIP || pvx1->flags & VIDEO_VX_END_OF_STRIP))
                 continue;
 
-            sorted_triangles[n_triangles].strip_id = i;
-            sorted_triangles[n_triangles].vx0_id   = v0id;
-            sorted_triangles[n_triangles].vx1_id   = i + 1;
-            sorted_triangles[n_triangles].vx2_id   = i + 2;
-            sorted_triangles[n_triangles].depth    = (((i64)pvx0->z + pvx1->z + pvx2->z) / 3);
+            sortedTriangles[n_triangles].stripId = i;
+            sortedTriangles[n_triangles].vx0Id   = v0id;
+            sortedTriangles[n_triangles].vx1Id   = i + 1;
+            sortedTriangles[n_triangles].vx2Id   = i + 2;
+            sortedTriangles[n_triangles].depth   = (((i64)pvx0->z + pvx1->z + pvx2->z) / 3);
 
             n_triangles++;
         }
 
         if (flags & VIDEO_BATCH_DEPTH_SORT) {
-            qsort(sorted_triangles, n_triangles, sizeof(trifx16), comp_depht_desc);
+            qsort(sortedTriangles, n_triangles, sizeof(trifx16), compDepthDesc);
         }
 
         for (size_t i = 0; i < n_triangles; i++) {
-            trifx16 *tri  = &sorted_triangles[i];
-            vxfx16  *pvx0 = &v2d[tri->vx0_id]; // projected vertex
-            vxfx16  *pvx1 = &v2d[tri->vx1_id]; // projected vertex
-            vxfx16  *pvx2 = &v2d[tri->vx2_id]; // projected vertex
+            trifx16 *tri  = &sortedTriangles[i];
+            vxfx16  *pvx0 = &v2d[tri->vx0Id]; // projected vertex
+            vxfx16  *pvx1 = &v2d[tri->vx1Id]; // projected vertex
+            vxfx16  *pvx2 = &v2d[tri->vx2Id]; // projected vertex
 
-            if (pvx0->flags & VX_HIDE || pvx1->flags & VX_HIDE || pvx2->flags & VX_HIDE) {
+            if (pvx0->flags & VIDEO_VX_HIDE || pvx1->flags & VIDEO_VX_HIDE ||
+                pvx2->flags & VIDEO_VX_HIDE) {
                 // TALEA_LOG_TRACE("Hiding tri because flag said so\n");
                 continue;
             }
 
-            i16v2 *svx0 = &vscreen[tri->vx0_id];
-            i16v2 *svx1 = &vscreen[tri->vx1_id];
-            i16v2 *svx2 = &vscreen[tri->vx2_id];
+            i16v2 *svx0 = &vscreen[tri->vx0Id];
+            i16v2 *svx1 = &vscreen[tri->vx1Id];
+            i16v2 *svx2 = &vscreen[tri->vx2Id];
 
             i64 det = (i64)(svx1->x - svx0->x) * (svx2->y - svx0->y) -
                       (i64)(svx1->y - svx0->y) * (svx2->x - svx0->x);
 
-            if (primitive == VIDEO_BATCH_TYPE_TRISTRIP && !is_fan && (tri->strip_id % 2 != 0))
+            if (primitive == VIDEO_BATCH_TYPE_TRISTRIP && !is_fan && (tri->stripId % 2 != 0))
                 det = -det;
 
             if (flags & VIDEO_BATCH_BACKFACE_CULLING && det > 0) continue;
 
             u8 final_shade = pvx0->color;
 
-            if ((flags & VIDEO_BATCH_ZSHADING) && !(pvx0->flags & VX_BRIGHT)) {
+            if ((flags & VIDEO_BATCH_ZSHADING) && !(pvx0->flags & VIDEO_VX_BRIGHT)) {
                 i32 avg_z = tri->depth;
-                i8  shade = avg_z >= max_distance ? 0 :
-                            avg_z <= 0            ? 15 :
-                                                    15 - (i16)(avg_z << 4) / max_distance;
+                i8  shade = avg_z >= maxDistance ? 0 :
+                            avg_z <= 0           ? 15 :
+                                                   15 - (i16)(avg_z << 4) / maxDistance;
                 shade     = shade < 0 ? 0 : shade > 15 ? 15 : shade;
 
-                final_shade = v->color_shades[pvx0->color][shade];
+                final_shade = v->colorShades[pvx0->color][shade];
             }
 
             // if (flags & VIDEO_BATCH_DITHER) NOT IMPLEMENTED
@@ -1570,7 +1514,7 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
 static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCmd *cmd)
 {
     switch (cmd->op) {
-    case COMMAND_CLEAR: {
+    case VIDEO_COMMAND_CLEAR: {
         // TODO: Document
         // Takes 1 word on GPU0-3 for the pattern to clear the textbuffer
         // Takes 1 byte on GPU4 for the color to clear the framebuffer
@@ -1592,7 +1536,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         u8  flags   = cmd->args[0] >> 16;
         Video_Clear(m, v, pattern, color, flags);
     } break;
-    case COMMAND_SET_MODE: {
+    case VIDEO_COMMAND_SET_MODE: {
         // TODO: Document
         // Takes 1 byte on GPU0 for the mode number.
         // If mode does not exist
@@ -1609,7 +1553,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         break;
     }
-    case COMMAND_SET_ADDR: {
+    case VIDEO_COMMAND_SET_ADDR: {
         // TODO: Document
         //  Takes 1 word on GPU0-3 for the framebuffer address
         //  Takes 1 word on GPU4-7 for the textbuffer address
@@ -1652,7 +1596,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         break;
     }
-    case COMMAND_LOAD:
+    case VIDEO_COMMAND_LOAD:
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the type of load
@@ -1696,7 +1640,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         case VIDEO_FONT_BASE_CP1:
         case VIDEO_ALT_FONT_CP1:
         case VIDEO_ALT_FONT_CP0:
-            if (v->font.char_h != ch || v->font.char_w != cw) {
+            if (v->font.charH != ch || v->font.charW != cw) {
                 TALEA_LOG_TRACE(
                     "Attepted to load secondary font slot with different sizes than BASE CP0\n");
                 v->error = VIDEO_ERROR_LOAD;
@@ -1705,9 +1649,9 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         case VIDEO_FONT_BASE_CP0: // maybe this is a bit ugly, but less redundant
         {
-            size_t bytes_per_row   = ((u32)cw + 7) / 8;
-            size_t bytes_per_glyph = bytes_per_row * ch;
-            u8    *data            = Bus_GetDataPointer(m, src_addr, bytes_per_glyph * count);
+            size_t bytesPerRow   = ((u32)cw + 7) / 8;
+            size_t bytesPerGlyph = bytesPerRow * ch;
+            u8    *data          = Bus_GetDataPointer(m, src_addr, bytesPerGlyph * count);
             if (!data) {
                 TALEA_LOG_TRACE("Failed to get pointer to font in data memory\n");
                 v->error = VIDEO_ERROR_DMA;
@@ -1740,12 +1684,12 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
                 v->renderer.shaderPalette[(i * 4) + 3] = data[(k * 4) + 3];
             }
 
-            Video_BuildShadesTable(v->color_shades, v->renderer.shaderPalette, 256);
+            Video_BuildShadesTable(v->colorShades, v->renderer.shaderPalette, 256);
 
             // And set shader uniforms!
-            SetShaderValueV(v->renderer.fb_shader, v->renderer.fb_palette_loc,
+            SetShaderValueV(v->renderer.fbShader, v->renderer.fbPaletteLoc,
                             v->renderer.shaderPalette, SHADER_UNIFORM_IVEC4, 256);
-            SetShaderValueV(v->renderer.shader, v->renderer.palette_loc, v->renderer.shaderPalette,
+            SetShaderValueV(v->renderer.shader, v->renderer.paletteLoc, v->renderer.shaderPalette,
                             SHADER_UNIFORM_IVEC4, 256);
 // sadly dont say anything, because if its used for animation printing would be hell
 #ifdef TALEA_DEBUG_PALETTE_LOAD
@@ -1760,7 +1704,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         }
 
         break;
-    case COMMAND_BLIT: {
+    case VIDEO_COMMAND_BLIT: {
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
@@ -1804,7 +1748,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         break;
     }
-    case COMMAND_STRETCH_BLIT: {
+    case VIDEO_COMMAND_STRETCH_BLIT: {
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0:
@@ -1857,7 +1801,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         break;
     }
 
-    case COMMAND_PATTERN_FILL: {
+    case VIDEO_COMMAND_PATTERN_FILL: {
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0:
@@ -1915,7 +1859,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
     }
 
     // GPU commands (queued)
-    case COMMAND_DRAW_RECT: {
+    case VIDEO_COMMAND_DRAW_RECT: {
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
@@ -1943,7 +1887,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         break;
     }
-    case COMMAND_DRAW_LINE: {
+    case VIDEO_COMMAND_DRAW_LINE: {
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
@@ -1972,7 +1916,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         break;
     }
-    case COMMAND_DRAW_CIRCLE: {
+    case VIDEO_COMMAND_DRAW_CIRCLE: {
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
@@ -1987,22 +1931,22 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         u8             ctx  = cmd->args[0] >> 56;
         struct Buff2D *dest = ctx ? &v->ctx[ctx] : &v->framebuffer;
 
-        u8 color_line = (cmd->args[0] >> 48) & 0xff;
-        u8 color_fill = (cmd->args[0] >> 40) & 0xff;
-        u8 mode       = (cmd->args[0] >> 32) & 0xff;
+        u8 colorLine = (cmd->args[0] >> 48) & 0xff;
+        u8 colorFill = (cmd->args[0] >> 40) & 0xff;
+        u8 mode      = (cmd->args[0] >> 32) & 0xff;
 
         u16 xm = cmd->args[0] >> 16;
         u16 ym = cmd->args[0];
 
         u16 r = cmd->args[1] >> 48;
 
-        // TALEA_LOG_TRACE("Drawing circle color_line: %d, color_fill: %d, xm: %d, ym: %d, r: %d\n",
-        //                color_line, color_fill, xm, ym, r);
-        Video_DrawCircle(m, v, dest, mode, color_line, color_fill, xm, ym, r);
+        // TALEA_LOG_TRACE("Drawing circle colorLine: %d, colorFill: %d, xm: %d, ym: %d, r: %d\n",
+        //                colorLine, colorFill, xm, ym, r);
+        Video_DrawCircle(m, v, dest, mode, colorLine, colorFill, xm, ym, r);
 
         break;
     }
-    case COMMAND_DRAW_TRI: {
+    case VIDEO_COMMAND_DRAW_TRI: {
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
@@ -2036,7 +1980,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         break;
     }
-    case COMMAND_DRAW_BATCH: {
+    case VIDEO_COMMAND_DRAW_BATCH: {
         // TODO: Document
         /**
          * Arg0:
@@ -2075,28 +2019,28 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         // Arg 1:
 
-        fx16v3 world_offset = { 0 };
+        fx16v3 woff = { 0 };
 
-        world_offset.x = cmd->args[1] >> 32;
-        world_offset.y = cmd->args[1];
+        woff.x = cmd->args[1] >> 32;
+        woff.y = cmd->args[1];
 
         // Arg 2:
-        world_offset.z = cmd->args[2] >> 32;
+        woff.z = cmd->args[2] >> 32;
 
         i16v3 rotation = { 0 };
         rotation.x     = cmd->args[2] >> 16;
         rotation.y     = cmd->args[2];
 
         // Arg 3:
-        rotation.z        = cmd->args[3] >> 48;
-        fx16 max_distance = TO_FX16((cmd->args[3] >> 32) & 0xffff);
-        u8   flags        = cmd->args[3] >> 24;
+        rotation.z       = cmd->args[3] >> 48;
+        fx16 maxDistance = TO_FX16((cmd->args[3] >> 32) & 0xffff);
+        u8   flags       = cmd->args[3] >> 24;
 
-        Video_ProcessBatch(m, v, dest, vxbuff, len, f, world_offset, rotation, max_distance, flags);
+        Video_ProcessBatch(m, v, dest, vxbuff, len, f, woff, rotation, maxDistance, flags);
 
         break;
     }
-    case COMMAND_FILL_SPAN: {
+    case VIDEO_COMMAND_FILL_SPAN: {
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
@@ -2117,7 +2061,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         Video_DrawHorizontalLine(m, v, dest, color, x0, x1, y);
         break;
     }
-    case COMMAND_FILL_VSPAN: {
+    case VIDEO_COMMAND_FILL_VSPAN: {
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
@@ -2138,15 +2082,15 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         Video_DrawVerticalLine(m, v, dest, color, x, y0, y1);
         break;
     }
-    case COMMAND_SET_CSR: {
+    case VIDEO_COMMAND_SET_CSR: {
         // TODO: Document
         // Takes 1 byte on GPU0 for the csr.
         u8 value = cmd->args[0] >> 56;
 
-        v->vblank_enable = value & VIDEO_VBLANK_EN;
-        v->cursor_enable = (value & VIDEO_CURSOR_EN) >> 2;
-        v->cursor_blink  = (value & VIDEO_CURSOR_BLINK) >> 3;
-        v->rop           = (value & (VIDEO_ROP2 | VIDEO_ROP1 | VIDEO_ROP0)) >> 4;
+        v->vblankEnable = value & VIDEO_VBLANK_EN;
+        v->cursorEnable = (value & VIDEO_CURSOR_EN) >> 2;
+        v->cursorBlink  = (value & VIDEO_CURSOR_BLINK) >> 3;
+        v->rop          = (value & (VIDEO_ROP2 | VIDEO_ROP1 | VIDEO_ROP0)) >> 4;
 
         v->csr = ASSEMBLE_CSR(v);
 
@@ -2154,7 +2098,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
     }
     default: TALEA_LOG_ERROR("Unknown video command, cmd: %d\n", cmd->op); break;
     }
-    v->last_executed_command = cmd->op;
+    v->lastExecutedCommand = cmd->op;
     return;
 
 too_many_args:
@@ -2186,7 +2130,7 @@ void Video_Update(TaleaMachine *m)
         TextMode_AssembleCharacters(m);
     }
 
-    BeginTextureMode(*m->video.renderer.screen_texture);
+    BeginTextureMode(*m->video.renderer.screenTexture);
     ClearBackground(BLANK);
 
     if (m->video.mode == VIDEO_MODE_GRAPHIC || m->video.mode == VIDEO_MODE_TEXT_AND_GRAPHIC) {
@@ -2200,8 +2144,8 @@ void Video_Update(TaleaMachine *m)
 
     EndTextureMode();
 
-    if (m->video.vblank_enable) {
-        Machine_RaiseInterrupt(m, INT_VIDEO_REFRESH, PRIORITY_VBLANK_INTERRUPT);
+    if (m->video.vblankEnable) {
+        Machine_RaiseInterrupt(m, INT_VIDEO_VBLANK, PRIORITY_VBLANK_INTERRUPT);
     }
 }
 
@@ -2209,21 +2153,21 @@ static void Video_PushCommandQueue(TaleaMachine *m, u8 op, struct VideoCmd *cmd)
 {
     DeviceVideo *v = &m->video;
 
-    u8 next_head = (v->cmd_queue.head + 1) % VIDEO_CMD_QUEUE_SIZE;
-    if (next_head == v->cmd_queue.tail) {
-        v->queue_full = true;
-        v->error      = VIDEO_ERROR_QUEUE_FULL;
-        v->csr        = ASSEMBLE_CSR(v);
+    u8 next_head = (v->cmdQueue.head + 1) % VIDEO_CMD_QUEUE_SIZE;
+    if (next_head == v->cmdQueue.tail) {
+        v->queueFull = true;
+        v->error     = VIDEO_ERROR_QUEUE_FULL;
+        v->csr       = ASSEMBLE_CSR(v);
         return;
     }
 
     // TALEA_LOG_TRACE("Pushing video command: %d, argc: %d\n", op, cmd->argc);
 
-    v->cmd_queue.cmd[v->cmd_queue.head].op   = op;
-    v->cmd_queue.cmd[v->cmd_queue.head].argc = cmd->argc;
-    memcpy(v->cmd_queue.cmd[v->cmd_queue.head].args, cmd->args, sizeof(cmd->args));
+    v->cmdQueue.cmd[v->cmdQueue.head].op   = op;
+    v->cmdQueue.cmd[v->cmdQueue.head].argc = cmd->argc;
+    memcpy(v->cmdQueue.cmd[v->cmdQueue.head].args, cmd->args, sizeof(cmd->args));
 
-    v->cmd_queue.head = next_head;
+    v->cmdQueue.head = next_head;
 }
 
 static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
@@ -2232,14 +2176,14 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
     DeviceVideo *v = &m->video;
 
     switch (value) {
-    case COMMAND_END_DRAWING: v->is_drawing = false; break;
-    case COMMAND_BEGIN_DRAWING: v->is_drawing = true; break;
+    case VIDEO_COMMAND_END_DRAWING: v->isDrawing = false; break;
+    case VIDEO_COMMAND_BEGIN_DRAWING: v->isDrawing = true; break;
 
     // Immediate commands
-    case COMMAND_SYS_INFO:
+    case VIDEO_COMMAND_SYS_INFO:
         // character w, h in pixels
-        v->ports[P_VIDEO_GPU0 & 0xf] = v->font.char_w;
-        v->ports[P_VIDEO_GPU1 & 0xf] = v->font.char_h;
+        v->ports[P_VIDEO_GPU0 & 0xf] = v->font.charW;
+        v->ports[P_VIDEO_GPU1 & 0xf] = v->font.charH;
         // gives important info on the mode
         v->ports[P_VIDEO_GPU2 & 0xf] = v->mode;
         v->ports[P_VIDEO_GPU3 & 0xf] = v->textbuffer.stride;
@@ -2250,10 +2194,10 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         v->ports[P_VIDEO_GPU7 & 0xf] = v->framebuffer.w;
         v->ports[P_VIDEO_GPU8 & 0xf] = v->framebuffer.h >> 8;
         v->ports[P_VIDEO_GPU9 & 0xf] = v->framebuffer.h;
-        v->last_executed_command     = value;
+        v->lastExecutedCommand       = value;
         break;
 
-    case COMMAND_BUFFER_INFO:
+    case VIDEO_COMMAND_BUFFER_INFO:
         v->ports[P_VIDEO_GPU0 & 0xf] = v->textbuffer.view.guest_addr >> 24;
         v->ports[P_VIDEO_GPU1 & 0xf] = v->textbuffer.view.guest_addr >> 16;
         v->ports[P_VIDEO_GPU2 & 0xf] = v->textbuffer.view.guest_addr >> 8;
@@ -2264,10 +2208,10 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         v->ports[P_VIDEO_GPU6 & 0xf] = v->framebuffer.view.guest_addr >> 8;
         v->ports[P_VIDEO_GPU7 & 0xf] = v->framebuffer.view.guest_addr;
 
-        v->last_executed_command = value;
+        v->lastExecutedCommand = value;
         break;
 
-    case COMMAND_BIND_CTX: {
+    case VIDEO_COMMAND_BIND_CTX: {
         // TODO: document
         // Binds a 2D buffer (address, w, h) to a context slot
         // Takes 1 byte of context slot in GPU0
@@ -2276,14 +2220,14 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         // Takes 1 halfword in GPU6-7 for the buffer h
         // Cannot bind slot 0!
 
-        u8 slot = v->current_cmd.args[0] >> 56;
+        u8 slot = v->currentCmd.args[0] >> 56;
 
         if (slot == 0) return;
 
-        u32 addr = (v->current_cmd.args[0] >> 32) & 0x00ffffff;
+        u32 addr = (v->currentCmd.args[0] >> 32) & 0x00ffffff;
 
-        u16 w = v->current_cmd.args[0] >> 16;
-        u16 h = v->current_cmd.args[0];
+        u16 w = v->currentCmd.args[0] >> 16;
+        u16 h = v->currentCmd.args[0];
 
         TaleaMemoryView view = Bus_GetView(m, addr, w * h, BUS_ACCESS_READ | BUS_ACCESS_WRITE);
         if (!view.ptr || view.length != w * h) {
@@ -2297,16 +2241,16 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         v->ctx[slot].h      = h;
         v->ctx[slot].stride = 1;
 
-        v->last_executed_command = value;
+        v->lastExecutedCommand = value;
         break;
     }
-    case COMMAND_GET_MARKER: {
+    case VIDEO_COMMAND_GET_MARKER: {
         // TODO: document
         // returns the specified marker screen coordinates
         // Takes 1 byte of marker id in GPU0
 
-        u8     id     = v->current_cmd.args[0] >> 56;
-        i16v3 *marker = &v->vertex_markers[id & 0xf];
+        u8     id     = v->currentCmd.args[0] >> 56;
+        i16v3 *marker = &v->vertexMarkers[id & 0xf];
 
         v->ports[P_VIDEO_GPU0 & 0xf] = marker->x >> 8;
         v->ports[P_VIDEO_GPU1 & 0xf] = marker->x;
@@ -2317,46 +2261,46 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         v->ports[P_VIDEO_GPU4 & 0xf] = marker->z >> 8;
         v->ports[P_VIDEO_GPU5 & 0xf] = marker->z;
 
-        v->last_executed_command = value;
+        v->lastExecutedCommand = value;
 
         break;
     }
 
     // check if the target buffer is not the framebuffer
-    case COMMAND_BLIT:
-    case COMMAND_STRETCH_BLIT:
-    case COMMAND_PATTERN_FILL:
-    case COMMAND_DRAW_RECT:
-    case COMMAND_DRAW_LINE:
-    case COMMAND_DRAW_CIRCLE:
-    case COMMAND_DRAW_TRI:
-    case COMMAND_DRAW_BATCH:
-    case COMMAND_FILL_SPAN: {
+    case VIDEO_COMMAND_BLIT:
+    case VIDEO_COMMAND_STRETCH_BLIT:
+    case VIDEO_COMMAND_PATTERN_FILL:
+    case VIDEO_COMMAND_DRAW_RECT:
+    case VIDEO_COMMAND_DRAW_LINE:
+    case VIDEO_COMMAND_DRAW_CIRCLE:
+    case VIDEO_COMMAND_DRAW_TRI:
+    case VIDEO_COMMAND_DRAW_BATCH:
+    case VIDEO_COMMAND_FILL_SPAN: {
         // This is very ugly
-        u8 ctx = v->current_cmd.args[0] >> 56;
-        if (value == COMMAND_STRETCH_BLIT || value == COMMAND_PATTERN_FILL) ctx &= 0x1f;
+        u8 ctx = v->currentCmd.args[0] >> 56;
+        if (value == VIDEO_COMMAND_STRETCH_BLIT || value == VIDEO_COMMAND_PATTERN_FILL) ctx &= 0x1f;
 
         if (ctx != 0) {
-            v->current_cmd.op = value;
-            Video_ExecuteCommand(m, v, &v->current_cmd);
+            v->currentCmd.op = value;
+            Video_ExecuteCommand(m, v, &v->currentCmd);
         } else {
-            Video_PushCommandQueue(m, value, &v->current_cmd);
+            Video_PushCommandQueue(m, value, &v->currentCmd);
         }
         break;
     }
 
-    default: Video_PushCommandQueue(m, value, &v->current_cmd);
+    default: Video_PushCommandQueue(m, value, &v->currentCmd);
     }
 
     // TODO: doocument that writing ANY command, even not queued resets the argument list
-    v->current_cmd.argc = 0;
+    v->currentCmd.argc = 0;
     return VIDEO_NO_ERROR;
 }
 
-void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
+void Video_Write(TaleaMachine *m, u8 port, u8 value)
 {
     DeviceVideo *v = &m->video;
-    switch (addr) {
+    switch (port & 0xf) {
     case P_VIDEO_COMMAND: {
         v->error = Video_ProcessCommand(m, value);
         break;
@@ -2367,11 +2311,11 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         if (w == 0) break; // Prevent div by zero
 
         // Ensure current index is within total bounds before extracting Y
-        if (v->cursor_cell_index >= w * h) v->cursor_cell_index = 0;
+        if (v->cursorCellIndex >= w * h) v->cursorCellIndex = 0;
 
-        u32 y                = v->cursor_cell_index / w;
-        u32 new_x            = value % w; // Clamp input X to width
-        v->cursor_cell_index = (y * w) + new_x;
+        u32 y              = v->cursorCellIndex / w;
+        u32 new_x          = value % w; // Clamp input X to width
+        v->cursorCellIndex = (y * w) + new_x;
         // TALEA_LOG_TRACE("Set cursor X to: %d (Y: %d)\n", value, y);
         break;
     }
@@ -2380,19 +2324,19 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         u32 h = v->textbuffer.h;
         if (w == 0) break;
 
-        if (v->cursor_cell_index >= w * h) v->cursor_cell_index = 0;
+        if (v->cursorCellIndex >= w * h) v->cursorCellIndex = 0;
 
-        u32 x                = v->cursor_cell_index % w;
-        u32 new_y            = value % h; // Clamp input Y to height
-        v->cursor_cell_index = (new_y * w) + x;
+        u32 x              = v->cursorCellIndex % w;
+        u32 new_y          = value % h; // Clamp input Y to height
+        v->cursorCellIndex = (new_y * w) + x;
         // TALEA_LOG_TRACE("Set cursor Y to: %d (X: %d)\n", value, x);
         break;
     }
     case P_VIDEO_CSR: {
-        v->vblank_enable = value & VIDEO_VBLANK_EN;
-        v->cursor_enable = (value & VIDEO_CURSOR_EN) >> 2;
-        v->cursor_blink  = (value & VIDEO_CURSOR_BLINK) >> 3;
-        v->rop           = (value & (VIDEO_ROP2 | VIDEO_ROP1 | VIDEO_ROP0)) >> 4;
+        v->vblankEnable = value & VIDEO_VBLANK_EN;
+        v->cursorEnable = (value & VIDEO_CURSOR_EN) >> 2;
+        v->cursorBlink  = (value & VIDEO_CURSOR_BLINK) >> 3;
+        v->rop          = (value & (VIDEO_ROP2 | VIDEO_ROP1 | VIDEO_ROP0)) >> 4;
 
         v->csr = ASSEMBLE_CSR(v);
 
@@ -2403,7 +2347,7 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
         break;
     }
     case P_VIDEO_GPU7: {
-        if (v->is_drawing) {
+        if (v->isDrawing) {
             // FIXME: Why is this not filling arg with the values, and instead with zeroes?
             u64 arg;
             arg = ((u64)v->ports[P_VIDEO_GPU0 & 0xf]) << 56;
@@ -2414,18 +2358,18 @@ void Video_WriteHandler(TaleaMachine *m, u16 addr, u8 value)
             arg |= ((u64)v->ports[P_VIDEO_GPU5 & 0xf]) << 16;
             arg |= ((u64)v->ports[P_VIDEO_GPU6 & 0xf]) << 8;
             arg |= value;
-            if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS)
-                v->current_cmd.args[v->current_cmd.argc] = arg;
-            // TALEA_LOG_TRACE("Queueing arg%d: (%016llx) %016llx\n", v->current_cmd.argc, arg,
-            //               v->current_cmd.args[v->current_cmd.argc]);
+            if (v->currentCmd.argc < VIDEO_CMD_MAX_ARGS)
+                v->currentCmd.args[v->currentCmd.argc] = arg;
+            // TALEA_LOG_TRACE("Queueing arg%d: (%016llx) %016llx\n", v->currentCmd.argc, arg,
+            //               v->currentCmd.args[v->currentCmd.argc]);
             memset(&v->ports[P_VIDEO_GPU0 & 0xf], 0, 8);
-            if (v->current_cmd.argc < VIDEO_CMD_MAX_ARGS) v->current_cmd.argc++;
+            if (v->currentCmd.argc < VIDEO_CMD_MAX_ARGS) v->currentCmd.argc++;
         }
 
         break;
     }
     case P_VIDEO_ERROR: break;
-    default: v->ports[addr & 0xf] = value;
+    default: v->ports[port & 0xf] = value;
     }
 }
 
@@ -2438,17 +2382,17 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
     struct FrontendState *state = Frontend_GetState();
 
     m->video = (DeviceVideo){
-        .mode                  = VIDEO_MODE_TEXT_MONO,
-        .error                 = VIDEO_NO_ERROR,
-        .rop                   = VIDEO_CONFIG_ROP_COPY,
-        .last_executed_command = COMMAND_NOP,
+        .mode                = VIDEO_MODE_TEXT_MONO,
+        .error               = VIDEO_NO_ERROR,
+        .rop                 = VIDEO_CONFIG_ROP_COPY,
+        .lastExecutedCommand = VIDEO_COMMAND_NOP,
 
-        .transparency  = 0,
-        .is_drawing    = false,
-        .vblank_enable = false,
-        .cursor_enable = true,
-        .cursor_blink  = true,
-        .queue_full    = false,
+        .transparency = 0,
+        .isDrawing    = false,
+        .vblankEnable = false,
+        .cursorEnable = true,
+        .cursorBlink  = true,
+        .queueFull    = false,
 
         .framebuffer.w      = TALEA_SCREEN_WIDTH,
         .framebuffer.h      = TALEA_SCREEN_HEIGHT,
@@ -2456,7 +2400,7 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
         .textbuffer.w       = 80,
         .textbuffer.h       = 30,
         .textbuffer.stride  = 4,
-        .cursor_cell_index  = 0,
+        .cursorCellIndex    = 0,
         .renderer =
             (VideoRenderer){
                 .framebuffer = LoadRenderTexture(TALEA_SCREEN_WIDTH, TALEA_SCREEN_HEIGHT),
@@ -2466,9 +2410,9 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
                                                   .height  = TALEA_SCREEN_HEIGHT,
                                                   .mipmaps = 1,
                                                   .format  = PIXELFORMAT_UNCOMPRESSED_GRAYSCALE }),
-                .background_color = BLACK,
-                .foreground_color = GOLD,
-                .screen_texture   = &state->window.screenTexture,
+                .backgroundColor = BLACK,
+                .foregroundColor = GOLD,
+                .screenTexture   = &state->window.screenTexture,
             },
     };
 
@@ -2476,7 +2420,7 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
     v->csr         = ASSEMBLE_CSR(v);
 
     memcpy(&m->video.renderer.shaderPalette, Palette_Default_Aurora, sizeof(u32) * 4 * (256));
-    Video_BuildShadesTable(&m->video.color_shades, &m->video.renderer.shaderPalette, 256);
+    Video_BuildShadesTable(&m->video.colorShades, &m->video.renderer.shaderPalette, 256);
 
     Video_PrepareFont(m, &m->video, VIDEO_FONT_BASE_CP0,
                       TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
@@ -2488,7 +2432,7 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
                       TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
 
     m->video.framebuffer.view =
-        Bus_GetView(m, TALEA_FRAMEBUFFER_ADDR,
+        Bus_GetView(m, VIDEO_FRAMEBUFFER_ADDR,
                     m->video.framebuffer.w * m->video.framebuffer.h * m->video.framebuffer.stride,
                     BUS_ACCESS_READ | BUS_ACCESS_WRITE);
 
@@ -2497,12 +2441,12 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
             m->video.framebuffer.w * m->video.framebuffer.h * m->video.framebuffer.stride) {
         TALEA_LOG_WARNING(
             "Could not acquire memory view at %06x for framebuffer on reset. Consider relocating it\n",
-            TALEA_FRAMEBUFFER_ADDR);
+            VIDEO_FRAMEBUFFER_ADDR);
         m->video.error = VIDEO_ERROR_DMA;
     }
 
     m->video.textbuffer.view =
-        Bus_GetView(m, TALEA_CHARBUFFER_ADDR,
+        Bus_GetView(m, VIDEO_TEXTBUFFER_ADDR,
                     m->video.textbuffer.w * m->video.textbuffer.h * m->video.textbuffer.stride,
                     BUS_ACCESS_READ | BUS_ACCESS_WRITE);
     if (!m->video.textbuffer.view.ptr ||
@@ -2510,7 +2454,7 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
             m->video.textbuffer.w * m->video.textbuffer.h * m->video.textbuffer.stride) {
         TALEA_LOG_WARNING(
             "Could not acquire memory view at %06x for textbuffer on reset. Consider relocating it\n",
-            TALEA_CHARBUFFER_ADDR);
+            VIDEO_TEXTBUFFER_ADDR);
         m->video.error = VIDEO_ERROR_DMA;
     }
 

@@ -7,35 +7,50 @@
     <ClCompile Include="src\frontend\frontend.c">
       <Filter>frontend</Filter>
     </ClCompile>
-    <ClCompile Include="src\devices\audio.c">
-      <Filter>devices</Filter>
-    </ClCompile>
-    <ClCompile Include="src\devices\emu2413.c">
-      <Filter>devices</Filter>
-    </ClCompile>
     <ClCompile Include="src\core\bus.c">
       <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="src\devices\sock.c">
-      <Filter>devices</Filter>
-    </ClCompile>
-    <ClCompile Include="src\devices\storage.c">
-      <Filter>devices</Filter>
-    </ClCompile>
-    <ClCompile Include="src\devices\terminal.c">
-      <Filter>devices</Filter>
-    </ClCompile>
-    <ClCompile Include="src\devices\mouse.c">
-      <Filter>devices</Filter>
     </ClCompile>
     <ClCompile Include="src\core\system.c">
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="src\main.c" />
-    <ClCompile Include="src\devices\video.c">
-      <Filter>devices</Filter>
+    <ClCompile Include="src\devices\mouse\mouse.c">
+      <Filter>devices\mouse</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\cpu-new.c">
+    <ClCompile Include="src\devices\audio\audio.c">
+      <Filter>devices\audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\audio\emu2413.c">
+      <Filter>devices\audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\storage\hcs.c">
+      <Filter>devices\storage</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\storage\storage.c">
+      <Filter>devices\storage</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\storage\tps.c">
+      <Filter>devices\storage</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\video\video.c">
+      <Filter>devices\video</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\terminal\keyboard.c">
+      <Filter>devices\terminal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\terminal\modem.c">
+      <Filter>devices\terminal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\terminal\serial.c">
+      <Filter>devices\terminal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\terminal\terminal.c">
+      <Filter>devices\terminal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\terminal\timer.c">
+      <Filter>devices\terminal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\cpu.c">
       <Filter>core</Filter>
     </ClCompile>
   </ItemGroup>
@@ -71,15 +86,34 @@
     <ClInclude Include="src\frontend\frontend.h">
       <Filter>frontend</Filter>
     </ClInclude>
-    <ClInclude Include="src\devices\audio.h">
-      <Filter>devices</Filter>
-    </ClInclude>
     <ClInclude Include="src\core\bus.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="include\need-from-raylib.h" />
     <ClInclude Include="src\core\cpu.h">
       <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\testfont.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\mouse\mouse.h">
+      <Filter>devices\mouse</Filter>
+    </ClInclude>
+    <ClInclude Include="include\types.h" />
+    <ClInclude Include="src\devices\audio\audio.h">
+      <Filter>devices\audio</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\storage\storage.h">
+      <Filter>devices\storage</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\video\video.h">
+      <Filter>devices\video</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\terminal\net_compat.h">
+      <Filter>devices\terminal</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\terminal\terminal.h">
+      <Filter>devices\terminal</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -94,6 +128,21 @@
     </Filter>
     <Filter Include="external">
       <UniqueIdentifier>{894356a8-6942-4503-a0fe-5607b3ef94b0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="devices\mouse">
+      <UniqueIdentifier>{990f0366-5a46-41bd-a2fa-be33589f78c5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="devices\audio">
+      <UniqueIdentifier>{0a2ebd78-79e3-463a-a4a6-27b7fd78e70c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="devices\storage">
+      <UniqueIdentifier>{ab219873-a428-4f85-814d-a36bf6e9708f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="devices\video">
+      <UniqueIdentifier>{67234914-4e42-4374-8d6a-1801eba54286}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="devices\terminal">
+      <UniqueIdentifier>{8e9596a8-ebe3-4170-87ad-e94389264077}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

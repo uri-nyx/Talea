@@ -3,12 +3,19 @@
 
 #include "core/bus.h"
 #include "core/cpu.h"
+#include "machine_description.h"
 #include "talea.h"
 
 // #define DEBUG_LOG_INSTRUCTION_EXEC
 
 #ifdef DEBUG_LOG_INSTRUCTION_EXEC
-#define EXEC_LOG(s) TALEA_LOG_TRACE("[EXEC LOG]: " s "\t\t at 0x%x\n", cpu->pc - 4)
+#define EXEC_LOG(s)                                                                                \
+    do {                                                                                           \
+        if ((strcmp(s, "Restore") == 0) || (strcmp(s, "Save") == 0) || (strcmp(s, "Sysret") == 0)) \
+            TALEA_LOG_TRACE("[EXEC LOG]: " s "\t\t at 0x%x, retired: %d, ra: 0x%08x\n",            \
+                            cpu->pc - 4, cpu->instructionsRetired, GPR_GET(m, x1));                \
+                                                                                                   \
+    } while (0);
 #else
 #define EXEC_LOG(s) (void)(s)
 #endif
@@ -44,6 +51,7 @@ static void instr_SsReg(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 
     m->cpu.status = GPR_GET(m, r1);
     SetUsermode(m);
 }
+
 static void instr_Sysret(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
                          u16 imm_15, u32 imm_20)
 {
@@ -57,10 +65,13 @@ static void instr_Sysret(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8
         EXEC_LOG("STI");
         SR_SET_INTERRUPT(m->cpu.status, 1);
     } else {
-        m->cpu.status = PopW(m);
-        SET_PC(m, PopW(m));
-        SetUsermode(m);
         EXEC_LOG("Sysret");
+        m->cpu.status = PopW(m);
+        u32 pc        = PopW(m);
+        SET_PC(m, pc);
+        SetUsermode(m);
+        m->cpu.isProcessingException = false;
+        // TALEA_LOG_TRACE("\tTo: %06x\n", pc);
     };
 }
 
@@ -83,14 +94,6 @@ static void instr_Copy(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
     bool src_is_data = (imm_15 & 1);
     bool dst_is_data = (imm_15 & 2);
     bool is_backward = (imm_15 & 4); // TODO: docimument this ( and put in the assembler )
-
-    if (src_is_data) {
-        TALEA_LOG_TRACE("Copying FROM %04x in DATA!\n", src_addr);
-    }
-
-    if (dst_is_data) {
-        TALEA_LOG_TRACE("Copying TO %04x in DATA!\n", dest_addr);
-    }
 
     if (dst_is_data || src_is_data) {
         REQUIRE_SUPERVISOR
@@ -344,36 +347,77 @@ static void instr_Push(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
     Machine_WriteMain32(m, GPR_GET(m, r2), GPR_GET(m, r1));
     ON_FAULT_RETURN
 }
+
 static void instr_Save(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
                        u16 imm_15, u32 imm_20)
 {
     EXEC_LOG("Save");
-    {
-        u32 addr = GPR_GET(m, r3);
+    REQUIRE_SUPERVISOR
 
-        for (size_t d = r1; d <= r2; d++) {
-            addr -= 4; // Pushes them
-            Machine_WriteMain32(m, addr, GPR_GET(m, d));
-            ON_FAULT_RETURN
+    // TODO: document new functionality. And add four register, because the instruction encoding
+    // allows it
+    u32 reg1 = GPR_GET(m, r1);
+    u32 reg2 = GPR_GET(m, r2);
+    u32 reg3 = GPR_GET(m, r3);
+
+    // TALEA_LOG_TRACE("Saving, cwp: %d, spill: %d\n", cpu->cwp, cpu->spilledWindows);
+
+    if (m->cpu.cwp < 7) {
+        m->cpu.cwp++;
+    } else if (m->cpu.spilledWindows < 7) {
+        u32 spill_base = TALEA_DATA_FIRMWARE_RES + (m->cpu.spilledWindows * 32 * 4);
+
+        for (size_t i = 0; i < 32; i++) {
+            u32 reg = GPR_GET(m, i);
+            Machine_WriteData32(m, spill_base + (i * 4), reg);
         }
 
-        GPR_SET(m, r3, addr);
+        m->cpu.spilledWindows++;
+    } else {
+        m->cpu.exception = EXCEPTION_OVERSPILL;
+        m->cpu.faultAddr = GET_PC(m);
+        return;
     }
+
+    GPR_SET(m, r1, reg1);
+    GPR_SET(m, r2, reg2);
+    GPR_SET(m, r3, reg3);
 }
 static void instr_Restore(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
                           u16 imm_15, u32 imm_20)
 {
-    {
-        EXEC_LOG("Restore");
-        u32 addr = GPR_GET(m, r3);
-        for (u32 r = r2; r >= r1; r -= 1) {
-            GPR_SET(m, r, Machine_ReadMain32(m, addr));
-            ON_FAULT_RETURN
-            addr += 4; // Pops them
+    EXEC_LOG("Restore");
+    REQUIRE_SUPERVISOR
+
+    // TODO: document new functionality AND THAT IS DANGEROUS TO OVERWRITE THE WINDOW. And add four
+    // register, because the instruction encoding allows it
+    u32 reg1 = GPR_GET(m, r1);
+    u32 reg2 = GPR_GET(m, r2);
+    u32 reg3 = GPR_GET(m, r3);
+
+    // TALEA_LOG_TRACE("Restoring, cwp: %d, spill: %d\n", cpu->cwp, cpu->spilledWindows);
+
+    if (m->cpu.spilledWindows > 0) {
+        m->cpu.spilledWindows--;
+        u32 spill_base = TALEA_DATA_FIRMWARE_RES + (m->cpu.spilledWindows * 32 * 4);
+
+        for (size_t i = 0; i < 32; i++) {
+            u32 reg = Machine_ReadData32(m, spill_base + (i * 4));
+            GPR_SET(m, i, reg);
         }
-        GPR_SET(m, r3, addr);
+    } else if (m->cpu.cwp > 0) {
+        m->cpu.cwp--;
+    } else {
+        m->cpu.exception = EXCEPTION_UNDERSPILL;
+        m->cpu.faultAddr = GET_PC(m);
+        return;
     }
+
+    GPR_SET(m, r1, reg1);
+    GPR_SET(m, r2, reg2);
+    GPR_SET(m, r3, reg3);
 }
+
 static void instr_Exch(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
                        u16 imm_15, u32 imm_20)
 {

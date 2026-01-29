@@ -10,7 +10,7 @@
 #define TALEA_MAGIC_ARM_SEQUENCE     0xA5
 #define TALEA_MAGIC_TRIGGER_SEQUENCE 0x5A
 
-#define DEVICE_SYSTEM 0xf0
+#define DEVICE_SYSTEM 0x110
 #define DEVICE_MAP    0x100
 
 /* Official IDs registered by the House of Talea*/
@@ -422,23 +422,60 @@ enum AudioCsr {
     AUDIO_CSR_GATE       = 1 << 6, // changes mode to release note inmediately
 };
 
+
+enum {
+    TALEA_SYSTEM_CALENDAR_MODE,
+    TALEA_SYSTEM_UNIXTIME_MODE,
+    TALEA_SYSTEM_MICROS_MODE,
+    TALEA_SYSTEM_MILLIS_MODE,
+};
+
+enum {
+    TALEA_SYSTEM_WIN_OP_LOAD,
+    TALEA_SYSTEM_WIN_OP_STORE,
+};
+
 /* SYSTEM DEVICE PORTS */
 enum PortsSystem {
-    PORTS_SYSTEM_MEMSIZE = 0x00,
-    PORTS_SYSTEM_CLOCK   = 0x01,
-    PORTS_SYSTEM_INT     = 0x02,
-    PORTS_SYSTEM_POWER   = 0x03,
-    PORTS_SYSTEM_YEAR    = 0x04,
-    PORTS_SYSTEM_MONTH   = 0x05,
-    PORTS_SYSTEM_DAY     = 0x06,
-    PORTS_SYSTEM_HOUR    = 0x07,
-    PORTS_SYSTEM_MINUTE  = 0x08,
-    PORTS_SYSTEM_SECOND  = 0x09,
-    PORTS_SYSTEM_MILLIS  = 0x0a,
-    PORTS_SYSTEM_COUNTER = 0x0b,
-    PORTS_SYSTEM_DEVNUM  = 0x0c,
-    PORTS_SYSTEM_ARCHID  = 0x0d,
-    PORTS_SYSTEM_VENDOR  = 0x0e
+    /* Identity */
+    REG_SYSTEM_ARCH_ID = DEVICE_SYSTEM,
+    REG_SYSTEM_VENDOR_ID,
+    REG_SYSTEM_VERSION,       // The system version as [7:4] Major [3:0] Minor
+    REG_SYSTEM_MEMSIZE_FLASH, // The memory size as a multiple of 64KB - 1
+    REG_SYSTEM_CLOCK,         // The clock frequency
+    REG_SYSTEM_DEVICE_NUM,    // The number of device slots used
+
+    /* Entropy */
+    REG_SYSTEM_RNG, // A random byte
+
+    /* Power */
+    REG_SYSTEM_POWER, // Poweroff register
+
+    /* Time */
+    REG_SYSTEM_YEAR,
+    REG_SYSTEM_MONTH,
+    REG_SYSTEM_DAY,
+    REG_SYSTEM_HOUR,
+    REG_SYSTEM_MINUTE,
+    REG_SYSTEM_SECOND,
+    REG_SYSTEM_MILLIS,
+    REG_SYSTEM_COUNTER,
+
+    /* Exceptions */
+    REG_SYSTEM_EXCEPTION,  // Last or current exception raised
+    REG_SYSTEM_FAULT_ADDR, // Last address where an exception originated
+
+    /* CPU State */
+    REG_SYSTEM_CYCLES_INSTRET = REG_SYSTEM_FAULT_ADDR + 4, // number of cycñes/ instructions
+                                                           // executed
+
+    /* Context Windowing */
+    REG_SYSTEM_CWP = REG_SYSTEM_CYCLES_INSTRET + 8,
+    REG_SYSTEM_WIN_SPILLED,
+    REG_SYSTEM_WIN_SEL,
+    REG_SYSTEM_WIN_OP,
+    REG_SYSTEM_WIN_BUFF,
 };
+
 
 #endif /* DEVICES_H */

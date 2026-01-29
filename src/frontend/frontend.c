@@ -1,6 +1,8 @@
+#include "devices/audio/audio.h"
+#include "devices/mouse/mouse.h"
+#include "devices/terminal/terminal.h"
 #include "frontend.h"
 #include "config.h"
-#include "devices/audio.h"
 #include "talea.h"
 
 #define RAYGUI_IMPLEMENTATION
@@ -126,10 +128,10 @@ void Frontend_InitWindow(TaleaConfig *config)
     SetSoundVolume(state.sfx.tpsEjectSfx, 0.2f);
     SetMusicVolume(state.sfx.loopSound, 0.5f);
 
-    SetAudioStreamCallback(state.synth.SynthStream, Synth_OPLL);
+    SetAudioStreamCallback(state.synth.SynthStream, Audio_OPLL);
     PlayAudioStream(state.synth.SynthStream);
 
-    SetAudioStreamCallback(state.synth.PCMStream, Synth_PCM);
+    SetAudioStreamCallback(state.synth.PCMStream, Audio_PCM);
     PlayAudioStream(state.synth.PCMStream);
 
     SetTextureFilter(state.window.screenTexture.texture, TEXTURE_FILTER_POINT);
@@ -146,45 +148,45 @@ static u16 GetPressedModifiers()
     u16 mod = 0;
 
     if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
-        mod |= SHIFT;
+        mod |= TERMINAL_SHIFT;
     } else {
-        mod &= ~SHIFT;
+        mod &= ~TERMINAL_SHIFT;
     }
 
     if (IsKeyDown(KEY_RIGHT_ALT)) {
-        mod |= RALT;
+        mod |= TERMINAL_RALT;
     } else {
-        mod &= ~RALT;
+        mod &= ~TERMINAL_RALT;
     }
 
     if (IsKeyDown(KEY_LEFT_ALT)) {
-        mod |= LALT;
+        mod |= TERMINAL_LALT;
     } else {
-        mod &= ~LALT;
+        mod &= ~TERMINAL_LALT;
     }
 
     if (IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER)) {
-        mod |= RGUI;
+        mod |= TERMINAL_RGUI;
     } else {
-        mod &= ~RGUI;
+        mod &= ~TERMINAL_RGUI;
     }
 
     if (IsKeyDown(KEY_CAPS_LOCK)) {
-        mod |= CAPSLOCK;
+        mod |= TERMINAL_CAPSLOCK;
     } else {
-        mod &= ~CAPSLOCK;
+        mod &= ~TERMINAL_CAPSLOCK;
     }
 
     if (IsKeyDown(KEY_SCROLL_LOCK)) {
-        mod |= SCROLLLOCK;
+        mod |= TERMINAL_SCROLLLOCK;
     } else {
-        mod &= ~SCROLLLOCK;
+        mod &= ~TERMINAL_SCROLLLOCK;
     }
 
     if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) {
-        mod |= CONTROL;
+        mod |= TERMINAL_CONTROL;
     } else {
-        mod &= ~CONTROL;
+        mod &= ~TERMINAL_CONTROL;
     }
 
     return mod;
@@ -238,7 +240,7 @@ static void Frontend_PollKeyboard(TaleaMachine *m, TaleaConfig *config)
         }
         prev_key = key;
 
-        if (mod & CONTROL && key >= KEY_A && key <= KEY_RIGHT_BRACKET) {
+        if (mod & TERMINAL_CONTROL && key >= KEY_A && key <= KEY_RIGHT_BRACKET) {
             chr = key & 0x1f;
         }
 
@@ -286,24 +288,24 @@ static void Frontend_PollMouse(TaleaMachine *m, TaleaConfig *config)
 
     u16 hx              = mouse->hotspot >> 4;
     u16 hy              = mouse->hotspot & 0xf;
-    mouse->render_pos.x = positionMouse.x - hx;
-    mouse->render_pos.y = positionMouse.y - hy;
+    mouse->renderPos.x = positionMouse.x - hx;
+    mouse->renderPos.y = positionMouse.y - hy;
 
     if (inside_viewport) {
         if (mouse->visible && mouse->custom) {
-            mouse->render_custom_cursor = true;
+            mouse->renderCustomCursor = true;
             if (!IsCursorHidden()) HideCursor();
 
         } else if (mouse->visible) {
             if (IsCursorHidden()) ShowCursor();
-            mouse->render_custom_cursor = false;
+            mouse->renderCustomCursor = false;
         } else {
             if (!IsCursorHidden()) HideCursor();
-            mouse->render_custom_cursor = false;
+            mouse->renderCustomCursor = false;
         }
     } else {
         if (IsCursorHidden()) ShowCursor();
-        mouse->render_custom_cursor = false;
+        mouse->renderCustomCursor = false;
     }
 
     static uint8_t last_state = 0;
@@ -337,7 +339,7 @@ void  Frontend_SetupFrame(TaleaMachine *m, TaleaConfig *config)
 {
     config->frequency = state.ui.frequencyMultiplier;
     u_time            = (float)GetTime();
-    SetShaderValue(m->video.renderer.shader, m->video.renderer.time_loc, &u_time,
+    SetShaderValue(m->video.renderer.shader, m->video.renderer.timeLoc, &u_time,
                    SHADER_UNIFORM_FLOAT);
     SetShaderValue(state.crt.shader, state.crt.time_loc, &u_time, SHADER_UNIFORM_FLOAT);
 
@@ -429,18 +431,18 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
                   GuiIconText(ICON_FILE_SAVE_CLASSIC, "Load TPS A"))) {
         state.ui.fileDialogState.windowActive = true;
         state.ui.isTpsDialog                  = true;
-        tpsToLoad                             = TPS_ID_A; // <-
+        tpsToLoad                             = STORAGE_TPS_ID_A; // <-
     }
 
     if (GuiButton((Rectangle){ 170, 20, 140, 30 },
                   GuiIconText(ICON_FILE_SAVE_CLASSIC, "Load TPS B"))) {
         state.ui.fileDialogState.windowActive = true;
         state.ui.isTpsDialog                  = true;
-        tpsToLoad                             = TPS_ID_B;
+        tpsToLoad                             = STORAGE_TPS_ID_B;
     }
 
     if (GuiButton((Rectangle){ 20, 60, 140, 30 }, GuiIconText(ICON_CROSS, "Eject TPS A"))) {
-        bool success = Storage_EjectTps(TPS_ID_A);
+        bool success = Storage_EjectTps(STORAGE_TPS_ID_A);
         if (!success) {
             TALEA_LOG_ERROR("Failed to eject tps A\n");
         } else {
@@ -449,7 +451,7 @@ static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
     }
 
     if (GuiButton((Rectangle){ 170, 60, 140, 30 }, GuiIconText(ICON_CROSS, "Eject TPS B"))) {
-        bool success = Storage_EjectTps(TPS_ID_B);
+        bool success = Storage_EjectTps(STORAGE_TPS_ID_B);
         if (!success) {
             TALEA_LOG_ERROR("Failed to eject tps B\n");
         } else {
@@ -547,8 +549,8 @@ end:
                 80,
             (int)state.ui.button_row - 25);
 
-    if (m->mouse.render_custom_cursor) {
-        DrawTextureV(m->mouse.sprite_texture, m->mouse.render_pos, WHITE);
+    if (m->mouse.renderCustomCursor) {
+        DrawTextureV(m->mouse.spriteTexture, m->mouse.renderPos, WHITE);
     }
 
     EndDrawing();

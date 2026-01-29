@@ -13,20 +13,47 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+static const char *ExceptionNames[] = {
+    [EXCEPTION_RESET]                     = "EXCEPTION_RESET",
+    [EXCEPTION_BUS_ERROR]                 = "EXCEPTION_BUS_ERROR",
+    [EXCEPTION_ADDRESS_ERROR]             = "EXCEPTION_ADDRESS_ERROR",
+    [EXCEPTION_ILLEGAL_INSTRUCTION_TALEA] = "EXCEPTION_ILLEGAL_INSTRUCTION",
+    [EXCEPTION_DIVISION_ZERO]             = "EXCEPTION_DIVISION_ZERO",
+    [EXCEPTION_PRIVILEGE_VIOLATION]       = "EXCEPTION_PRIVILEGE_VIOLATION",
+    [EXCEPTION_PAGE_FAULT]                = "EXCEPTION_PAGE_FAULT",
+    [EXCEPTION_ACCESS_VIOLATION_TALEA]    = "EXCEPTION_ACCESS_VIOLATION",
+    [EXCEPTION_DEBUG_STEP]                = "EXCEPTION_DEBUG_STEP",
+    [EXCEPTION_OVERSPILL]                 = "EXCEPTION_OVERSPILL",
+    [EXCEPTION_UNDERSPILL]                = "EXCEPTION_UNDERSPILL",
+
+    [INT_SER_RX]         = "INT_SER_RX",
+    [INT_KBD_CHAR]       = "INT_KBD_CHAR",
+    [INT_KBD_SCAN]       = "INT_KBD_SCAN",
+    [INT_TPS_FINISH]     = "INT_TPS_FINISH",
+    [INT_HCS_FINISH]     = "INT_HCS_FINISH",
+    [INT_TIMER_TIMEOUT]  = "INT_TIMER_TIMEOUT",
+    [INT_TIMER_INTERVAL] = "INT_TIMER_INTERVAL",
+    [INT_VIDEO_VBLANK]   = "INT_VIDEO_VBLANK",
+    [INT_MOUSE_PRESSED]  = "INT_MOUSE_PRESSED",
+    [INT_TPS_EJECTED]    = "INT_TPS_EJECTED",
+    [INT_TPS_INSERTED]   = "INT_TPS_INSERTED",
+    [INT_AUDIO_NOTE_END] = "INT_AUDIO_NOTE_END",
+};
+
 static inline u32 sext(u32 n, u8 bits)
 {
-    i32 shift = 32 - bits;
-    return (i32)(n << shift) >> shift;
+    int mask = 1U << (bits - 1);
+    return (n ^ mask) - mask;
 }
 
 static inline Register GPR_GET(TaleaMachine *m, u8 reg)
 {
-    return (reg == 0) ? 0 : m->cpu.gpr[reg];
+    return (reg == 0) ? 0 : m->cpu.gpr[(m->cpu.cwp * 32) + reg];
 }
 
 static inline void GPR_SET(TaleaMachine *m, u8 reg, u32 value)
 {
-    m->cpu.gpr[reg] = (reg == 0) ? 0 : value;
+    m->cpu.gpr[(m->cpu.cwp * 32) + reg] = (reg == 0) ? 0 : value;
 }
 
 static inline void SET_PC(TaleaMachine *m, u32 value)
@@ -51,146 +78,295 @@ static inline void SetSupervisor(TaleaMachine *m)
     if (SR_GET_SUPERVISOR(m->cpu.status)) return;
 
     SR_SET_SUPERVISOR(m->cpu.status, 1U);
-    m->cpu.usp     = m->cpu.gpr[x2];
-    m->cpu.gpr[x2] = m->cpu.ssp;
+    m->cpu.usp = GPR_GET(m, x2);
+    GPR_SET(m, x2, m->cpu.ssp);
 }
 
 static inline void PushW(TaleaMachine *m, u32 word)
 {
-    m->cpu.gpr[x2] -= 4;
-    Machine_WriteMain32(m, m->cpu.gpr[x2], word);
+    u32 sp = GPR_GET(m, x2);
+    GPR_SET(m, x2, sp - 4);
+    Machine_WriteMain32(m, sp - 4, word);
+    ON_FAULT_RETURN_M
 }
 
 static inline u32 PopW(TaleaMachine *m)
 {
-    u32 word = Machine_ReadMain32(m, m->cpu.gpr[x2]);
-    m->cpu.gpr[x2] += 4;
+    CpuState *cpu  = &m->cpu;
+    u32       sp   = GPR_GET(m, x2);
+    u32       word = Machine_ReadMain32(m, sp);
+    ON_FAULT_RETURN0
+    GPR_SET(m, x2, sp + 4);
     return word;
 }
 
-// #define DEBUG_LOG_EXCEPTIONS
-// #define DEBUG_LOG_INTERRUPTS
+//#define DEBUG_LOG_EXCEPTIONS
+//#define DEBUG_LOG_INTERRUPTS
 
 static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 {
+    CpuState *cpu = &m->cpu;
+
+    // double fault
+    if (cpu->isProcessingException && !is_interrupt) {
+        TALEA_LOG_ERROR("CPU Halted: double fault\n");
+        m->cpu.poweroff = true;
+        return;
+    }
+
     if (is_interrupt && !SR_GET_INTERRUPT(m->cpu.status)) return;
 
+    // m->cpu.isProcessingException = !is_interrupt;
     m->cpu.exception = vector;
 
     // normal exception
 
-    const u32 pc   = GET_PC(m);
-    const u32 stat = m->cpu.status;
+    u32 pc         = GET_PC(m);
+    pc             = is_interrupt ? pc : pc - 4;
+    const u32 stat = cpu->status;
     m->cpu.status &= ~CPU_STATUS_DEBUG_STEP;
     SetSupervisor(m);
     PushW(m, pc);
     PushW(m, stat);
 
-    if (vector == EXCEPTION_BUS_ERROR || vector == EXCEPTION_ADDRESS_ERROR ||
-        vector == EXCEPTION_PAGE_FAULT) {
-        // FAULT
-        PushW(m, Machine_ReadMain32(m, GET_PC(m) - 4));
-
-#ifdef DEBUG_LOG_EXCEPTIONS
-        TALEA_LOG_TRACE("FAULT: %u\n", vector);
-#endif
-    }
-
+    /*
     if (is_interrupt) {
-        SR_SET_PRIORITY(m->cpu.status, m->cpu.current_ipl);
+        SR_SET_PRIORITY(m->cpu.status, m->cpu.currentIpl);
     }
+    */
 
-#if TALEA_IVT_FIXED
-    const u32 handler_addr = Machine_ReadData32(m, TALEA_IVT_BASE + ((u16)vector << 2));
-    SET_PC(m, handler_addr);
+    const u32 handler_addr = Machine_ReadData32(m, TALEA_DATA_IVT_BASE + ((u16)vector << 2));
+    SET_PC(m, handler_addr); // This has to set the virtual pc if mmu enabled
 
 #ifdef DEBUG_LOG_EXCEPTIONS
-    TALEA_LOG_TRACE("Exception 0x%x, jumping to 0x%08x\n", vector, handler_addr);
+    TALEA_LOG_TRACE(
+        "%s %s (0x%x), jumping from 0x%06x to 0x%06x, fault at: 0x%06x, cwp: %d, spilled: %d\n",
+        is_interrupt ? "Interrupt" : "Exception", ExceptionNames[vector], vector,
+        is_interrupt ? pc - 4 : pc, handler_addr, cpu->faultAddr, cpu->cwp, cpu->spilledWindows);
 #endif
 
-#else
-#error "Use fixed IVT for now please"
-#endif
-
+    m->cpu.exception = EXCEPTION_NONE;
     m->cpu.cycles += CYCLES_EXCEPTION;
 }
 
 void Machine_RaiseInterrupt(TaleaMachine *m, u8 vector, u8 priority)
 {
-    m->cpu.pending_interrupts[priority] = vector;
+    m->cpu.pendingInterrupts[priority] = vector;
 
 #ifdef DEBUG_LOG_INTERRUPTS
-    TALEA_LOG_TRACE("Interrupt: 0x%x, priority: %u, pending: %u, cpu: %u\n", vector, priority,
-                    m->cpu.highest_pending_interrupt, SR_GET_PRIORITY(m->cpu.status));
+    TALEA_LOG_TRACE("Raised interrupt: %s (0x%x), priority: %u, pending: %u, cpu: %u\n",
+                    ExceptionNames[vector], vector, priority, m->cpu.highestPendingInterrupt,
+                    SR_GET_PRIORITY(m->cpu.status));
 #endif
 
-    if (priority > m->cpu.highest_pending_interrupt) m->cpu.highest_pending_interrupt = priority;
+    if (priority > m->cpu.highestPendingInterrupt) m->cpu.highestPendingInterrupt = priority;
 }
 
 static bool CheckInterrupts(TaleaMachine *m)
 {
     // It is ugly, but naive, to check this here in this way
-    if (m->storage.current_tps->just_inserted) {
+    if (m->storage.currentTps->justInserted) {
         puts("Raise TPS INSERTED \n");
-        m->storage.current_tps->just_inserted = false;
+        m->storage.currentTps->justInserted = false;
         Machine_RaiseInterrupt(m, INT_TPS_INSERTED, PRIORITY_STORAGE_INTERRUPT);
     }
 
-    if (m->storage.current_tps->just_ejected) {
+    if (m->storage.currentTps->justEjected) {
         puts("Raise TPS Ejected \n");
-        m->storage.current_tps->just_ejected = true;
+        m->storage.currentTps->justEjected = false;
         Machine_RaiseInterrupt(m, INT_TPS_EJECTED, PRIORITY_STORAGE_INTERRUPT);
     }
 
-    if (m->storage.current_tps->real_status & STOR_STATUS_DONE) {
-        m->storage.current_tps->real_status &= ~STOR_STATUS_DONE;
+    u8 old_tps_status = atomic_fetch_and(&m->storage.currentTps->status, ~STORAGE_STATUS_DONE);
+    if (old_tps_status & STORAGE_STATUS_DONE) {
         puts("Raise TPS FINISH\n");
         Machine_RaiseInterrupt(m, INT_TPS_FINISH, PRIORITY_STORAGE_INTERRUPT);
     }
 
-    if (m->storage.hcs.real_status & STOR_STATUS_DONE) {
-        m->storage.hcs.real_status &= ~STOR_STATUS_DONE;
+    u8 old_hcs_status = atomic_fetch_and(&m->storage.hcs.status, ~STORAGE_STATUS_DONE);
+    if (old_tps_status & STORAGE_STATUS_DONE) {
         Machine_RaiseInterrupt(m, INT_HCS_FINISH, PRIORITY_STORAGE_INTERRUPT);
     }
 
-    m->cpu.pending_ipl = m->cpu.highest_pending_interrupt;
-    u8 pending         = m->cpu.pending_ipl;
-    u8 current         = m->cpu.current_ipl;
+    m->cpu.pendingIpl = m->cpu.highestPendingInterrupt;
+    u8 pending        = m->cpu.pendingIpl;
+    u8 current        = m->cpu.currentIpl;
 
-    if ((m->cpu.pending_ipl != 0) &&
+    if ((m->cpu.pendingIpl != 0) &&
         (pending > SR_GET_PRIORITY(m->cpu.status) || ((pending == 7) && (pending >= current)))) {
-        m->cpu.current_ipl = m->cpu.pending_ipl;
+        m->cpu.currentIpl = m->cpu.pendingIpl;
         // acknowledge interrupt, maybe fail here
-        u8 vector = m->cpu.pending_interrupts[m->cpu.current_ipl];
-        m->cpu.pending_interrupts[m->cpu.current_ipl] = 0;
-        while (m->cpu.highest_pending_interrupt > 0 &&
-               !m->cpu.pending_interrupts[m->cpu.highest_pending_interrupt]) {
-            m->cpu.highest_pending_interrupt -= 1;
+        u8 vector                                   = m->cpu.pendingInterrupts[m->cpu.currentIpl];
+        m->cpu.pendingInterrupts[m->cpu.currentIpl] = 0;
+        while (m->cpu.highestPendingInterrupt > 0 &&
+               !m->cpu.pendingInterrupts[m->cpu.highestPendingInterrupt]) {
+            m->cpu.highestPendingInterrupt -= 1;
         }
 
-        Exception(m, vector, false);
+        Exception(m, vector, true);
         return true;
     }
 
-    if (pending < current) m->cpu.current_ipl = m->cpu.pending_ipl;
+    if (pending < current) m->cpu.currentIpl = m->cpu.pendingIpl;
     return false;
 }
-
-#ifdef DEBUG_LOG_INSTRUCTION_EXEC
-#define EXEC_LOG(s)                                                                           \
-    TALEA_LOG_TRACE("[EXEC LOG]: " s "\t\t (0x%8x: %u) at 0x%x\n", instruction, group_opcode, \
-                    cpu.pc - 4)
-#else
-#define EXEC_LOG(s) (void)(s)
-#endif
 
 /* fetch, decode, execute cycle */
 // TODO: we aren't setting dirty bits nor accounting for the x flag with MMU.
 // It's too slow anyways, we have to change implementation
 
+#if TALEA_WITH_MMU
+
+static void MMU_FlushTLB(TaleaMachine *m)
+{
+    memset(m->cpu.tlb, 0, sizeof(m->cpu.tlb));
+}
+
+static inline bool MMU_VerifyPerms(u16 perm, enum MemAccessType access_type, bool is_supervisor)
+{
+    if (!is_supervisor && !(perm & PTE_U)) return false;
+
+    switch (access_type) {
+    case ACCESS_READ: return perm & PTE_R;
+    case ACCESS_WRITE: return perm & PTE_W;
+    case ACCESS_EXEC: return perm & PTE_X;
+
+    default: return false;
+    }
+}
+
+u32 MMU_TranslateAddr(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type)
+{
+    CpuState *cpu    = &m->cpu;
+    u32       vpn    = vaddr >> 12;
+    TLBEntry *cached = &cpu->tlb[vpn];
+
+    if (cached->valid) {
+        if (!MMU_VerifyPerms(cached->perm, access_type, SR_GET_SUPERVISOR(cpu->status))) {
+            m->cpu.faultAddr = vaddr;
+            m->cpu.exception = EXCEPTION_ACCESS_VIOLATION_TALEA;
+            return 0;
+        }
+
+        if (access_type != ACCESS_WRITE || (cached->perm & PTE_D)) {
+            return cached->phys | (vaddr & 0xFFF);
+        }
+    }
+
+    u32 phys = MMU_WalkPageTable(m, vaddr, access_type);
+    if (m->cpu.exception != EXCEPTION_NONE) return 0;
+
+    cached->phys  = phys & 0xFFF000;
+    cached->perm  = phys & 0xFF;
+    cached->valid = true;
+
+    return phys | (vaddr & 0xFFF);
+}
+
+static u32 MMU_WalkPageTable(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type)
+{
+    u32 vpn1 = (vaddr >> 22) & 0x3FF;
+    u32 vpn0 = (vaddr >> 12) & 0x3FF;
+
+    u16 root = SR_GET_PDT(m->cpu.status);
+    u32 pte1 = Machine_ReadData32(m, root + (vpn1 * 4));
+
+    if (!(pte1 & PTE_V)) {
+        m->cpu.faultAddr = vaddr;
+        m->cpu.exception = EXCEPTION_PAGE_FAULT;
+        return 0;
+    }
+
+    u32 leaf      = pte1 & 0xFFF000;
+    u32 pte0_addr = leaf + (vpn0 * 4);
+    u32 pte0      = Machine_ReadMain32Physical(m, pte0_addr);
+
+    if (!(pte0 & PTE_V)) {
+        m->cpu.faultAddr = vaddr;
+        m->cpu.exception = EXCEPTION_PAGE_FAULT;
+        return 0;
+    }
+
+    u32 new_pte0 = pte0 | PTE_A;
+    if (access_type == ACCESS_WRITE) {
+        new_pte0 |= PTE_D;
+    }
+
+    if (new_pte0 != pte0) {
+        Machine_WriteMain32Physical(m, pte0_addr, new_pte0);
+    }
+
+    return new_pte0;
+}
+
+static bool MMU_ValidateWriteAccessRange(TaleaMachine *m, u32 vaddr, size_t size)
+{
+    if (size > 0 && (vaddr > (0xFFFFFFFFU - size + 1))) {
+        m->cpu.exception = EXCEPTION_ACCESS_VIOLATION_TALEA;
+        m->cpu.faultAddr = vaddr;
+        return false;
+    }
+
+    if (!SR_GET_MMU(m->cpu.status)) {
+        return (vaddr + size) <= TALEA_MAIN_MEM_SZ;
+    }
+
+    size_t end_addr = vaddr + size;
+
+    size_t current = vaddr;
+    while (current < end_addr) {
+        u32 paddr = MMU_TranslateAddr(m, current, ACCESS_WRITE);
+
+        if (m->cpu.exception != EXCEPTION_NONE) {
+            return false;
+        }
+
+        size_t next_page = (current & 0xFFFFF000) + 0x1000;
+
+        if (next_page > end_addr) break;
+        current = next_page;
+    }
+
+    return true;
+}
+
+static bool MMU_ValidateReadAccessRange(TaleaMachine *m, u32 vaddr, size_t size)
+{
+    if (size > 0 && (vaddr > (0xFFFFFFFFU - size + 1))) {
+        m->cpu.exception = EXCEPTION_ACCESS_VIOLATION_TALEA;
+        m->cpu.faultAddr = vaddr;
+        return false;
+    }
+
+    if (!SR_GET_MMU(m->cpu.status)) {
+        return (vaddr + size) <= TALEA_MAIN_MEM_SZ;
+    }
+
+    size_t end_addr = vaddr + size;
+
+    size_t current = vaddr;
+    while (current < end_addr) {
+        u32 paddr = MMU_TranslateAddr(m, current, ACCESS_READ);
+
+        if (m->cpu.exception != EXCEPTION_NONE) {
+            return false;
+        }
+
+        size_t next_page = (current & 0xFFFFF000) + 0x1000;
+
+        if (next_page > end_addr) break;
+        current = next_page;
+    }
+
+    return true;
+}
+#endif
+
 static inline u32 Fetch(TaleaMachine *m)
 {
+    CpuState *cpu         = &m->cpu;
     const u32 instruction = Machine_ReadMain32(m, GET_PC(m));
+    ON_FAULT_RETURN0
     SET_PC(m, GET_PC(m) + 4);
     return instruction;
 }
@@ -198,585 +374,170 @@ static inline u32 Fetch(TaleaMachine *m)
 static inline void SetUsermode(TaleaMachine *m)
 {
     if (!SR_GET_SUPERVISOR(m->cpu.status)) {
-        m->cpu.ssp     = m->cpu.gpr[x2];
-        m->cpu.gpr[x2] = m->cpu.usp;
+        m->cpu.ssp = GPR_GET(m, x2);
+        GPR_SET(m, x2, m->cpu.usp);
     }
 }
 
-static int Execute(TaleaMachine *m)
+// I know this is not othodox, but keeps the file less cluttered
+#include "instructions.c"
+
+static const InstructionHandler InstructionDispatchTable[8][16] = {
+
+ [SYS] = {
+    [0]                = NULL,
+    [1]                = NULL,
+    [CODE_Syscall]     = instr_Syscall,
+    [CODE_GsReg]       = instr_GsReg,
+    [CODE_SsReg]       = instr_SsReg,
+    [CODE_Sysret]      = instr_Sysret,
+    [CODE_Trace]       = instr_Trace,
+    [CODE_MmuToggle]   = NULL, // MmuToggle,
+    [CODE_MmuMap]      = NULL, // MmuMap,
+    [CODE_MmuUnmap]    = NULL, // MmuUnmap,
+    [CODE_MmuStat]     = NULL, // MmuStat,
+    [CODE_MmuSetPT]    = NULL, // MmuSetPT,
+    [CODE_MmuUpdate]   = NULL, // MmuUpdate,
+    [CODE_UmodeToggle] = NULL, // UmodeToggle,
+    [CODE_MmuSwitch]   = NULL, // MmuSwitch,
+    [CODE_MmuGetPT]    = NULL, // MmuGetPT,
+},
+
+ [MEM] = {
+    [CODE_Copy] = instr_Copy,       [CODE_Swap] = instr_Swap, [CODE_Fill] = instr_Fill,
+    [CODE_Through] = instr_Through, [CODE_From] = instr_From, [CODE_Popb] = instr_Popb,
+    [CODE_Poph] = instr_Poph,       [CODE_Pop] = instr_Pop,   [CODE_Pushb] = instr_Pushb,
+    [CODE_Pushh] = instr_Pushh,     [CODE_Push] = instr_Push, [CODE_Save] = instr_Save,
+    [CODE_Restore] = instr_Restore, [CODE_Exch] = instr_Exch, [CODE_Slt] = instr_Slt,
+    [CODE_Sltu] = instr_Sltu,
+},
+
+
+[    JU] = { [CODE_Jal] = instr_Jal, [CODE_Lui] = instr_Lui, [CODE_Auipc] = instr_Auipc },
+
+ [BRANCH] = {
+    [CODE_Beq] = instr_Beq, [CODE_Bne] = instr_Bne,   [CODE_Blt] = instr_Blt,
+    [CODE_Bge] = instr_Bge, [CODE_Bltu] = instr_Bltu, [CODE_Bgeu] = instr_Bgeu,
+},
+
+ [LOAD] = {
+    [CODE_Jalr] = instr_Jalr, [CODE_Lb] = instr_Lb, [CODE_Lbu] = instr_Lbu, [CODE_Lbd] = instr_Lbd,
+    [CODE_Lbud] = instr_Lbud, [CODE_Lh] = instr_Lh, [CODE_Lhu] = instr_Lhu, [CODE_Lhd] = instr_Lhd,
+    [CODE_Lhud] = instr_Lhud, [CODE_Lw] = instr_Lw, [CODE_Lwd] = instr_Lwd,
+},
+
+ [ALUI] = {
+    [CODE_Muli] = instr_Muli,   [CODE_Mulih] = instr_Mulih, [CODE_Idivi] = instr_Idivi,
+    [CODE_Addi] = instr_Addi,   [CODE_Subi] = instr_Subi,   [CODE_Ori] = instr_Ori,
+    [CODE_Andi] = instr_Andi,   [CODE_Xori] = instr_Xori,   [CODE_ShiRa] = instr_ShiRa,
+    [CODE_ShiRl] = instr_ShiRl, [CODE_ShiLl] = instr_ShiLl, [CODE_Slti] = instr_Slti,
+    [CODE_Sltiu] = instr_Sltiu,
+},
+
+ [ALUR] = {
+    [CODE_Add]      = instr_Add,
+    [CODE_Sub]      = instr_Sub,
+    [CODE_Idiv]     = instr_Idiv,
+    [CODE_Mul]      = instr_Mul,
+    [CODE_Or]       = instr_Or,
+    [CODE_And]      = instr_And,
+    [CODE_Xor]      = instr_Xor,
+    [CODE_Not]      = instr_Not,
+    [CODE_Ctz]      = instr_Ctz,
+    [CODE_Clz]      = instr_Clz,
+    [CODE_Popcount] = instr_Popcount,
+    [CODE_ShRa]     = instr_ShRa,
+    [CODE_ShRl]     = instr_ShRl,
+    [CODE_ShLl]     = instr_ShLl,
+    [CODE_Ror]      = instr_Ror,
+    [CODE_Rol]      = instr_Rol,
+},
+
+ [STORE] = {
+    [CODE_Sb] = instr_Sb,   [CODE_Sbd] = instr_Sbd, [CODE_Sh] = instr_Sh,
+    [CODE_Shd] = instr_Shd, [CODE_Sw] = instr_Sw,   [CODE_Swd] = instr_Swd,
+},
+
+
+};
+
+static const u8 InstructionCost[8] = {
+    [SYS] = CYCLES_SYS,   [MEM] = CYCLES_MEM,   [JU] = CYCLES_JU,     [BRANCH] = CYCLES_BRANCH,
+    [LOAD] = CYCLES_LOAD, [ALUI] = CYCLES_ALUI, [ALUR] = CYCLES_ALUR, [STORE] = CYCLES_STORE,
+};
+
+static bool Execute(TaleaMachine *m)
 {
-/*-----------------*/
+    u32 instruction = Fetch(m);
+    if (m->cpu.exception != EXCEPTION_NONE) return true;
+
+    // clang-format off
+    const u8  /*u3*/   group  = (instruction >> GROUP_SHIFT) & 0b111;
+    const u8  /*u8*/   opcode = ((instruction & OPCODE_MASK) >> OPCODE_SHIFT) & 0xf;
+    const u8  /*u5*/   r1     = ((instruction & R1_MASK) >> R1_SHIFT) & 0x1f;
+    const u8  /*u5*/   r2     = ((instruction & R2_MASK) >> R2_SHIFT) & 0x1f;
+    const u8  /*u5*/   r3     = ((instruction & R3_MASK) >> R3_SHIFT) & 0x1f;
+    const u8  /*u5*/   r4     = ((instruction & R4_MASK) >> R4_SHIFT) & 0x1f;
+    const u8  /*u8*/   vector = instruction & VECTOR_MASK;
+    const u16 /*u15*/  imm_15 = (instruction & IMM15_MASK) & 0x7fff;
+    const u32 /*u20*/  imm_20 = (instruction & IMM20_MASK) & 0xfffff;
+    // clang-format on
+
+    InstructionHandler *group_table = InstructionDispatchTable[group];
+
+    if (group_table != NULL) {
+        // This is guaranteed to be != NULL
+        InstructionHandler op_func = group_table[opcode];
+
+        if (op_func != NULL) {
+            op_func(m, &m->cpu, r1, r2, r3, r4, vector, imm_15, imm_20);
+        } else {
+            m->cpu.exception = EXCEPTION_ILLEGAL_INSTRUCTION_TALEA;
+        }
+    } else {
+        m->cpu.exception = EXCEPTION_ILLEGAL_INSTRUCTION_TALEA;
+    }
+
+#ifdef DEBUG_LOG_EXCEPTIONS
+    if (m->cpu.exception == EXCEPTION_ILLEGAL_INSTRUCTION_TALEA) {
+        TALEA_LOG_TRACE("ILLEGAL INSTRUCTION REPORT: (0x%08x)\n", instruction);
+        TALEA_LOG_TRACE("\tgroup: %01x, opcode: %02x\n", group, opcode);
+        TALEA_LOG_TRACE("\tr1: %d, r2: %d, r3: %d, r4: %d\n", r1, r2, r3, r4);
+        TALEA_LOG_TRACE("\tvector: %02x, imm15: %04x, imm20: %05x\n", vector, imm_15, imm_20);
+    }
+#endif
+
+    if (m->cpu.exception != EXCEPTION_NONE) {
+        m->cpu.cycles += CYCLES_EXCEPTION;
+        return true;
+    }
+
+    m->cpu.cycles += InstructionCost[group];
+    return false;
+}
+
 #define REQUIRE_SUPERVISOR                                \
     if (!SR_GET_SUPERVISOR(m->cpu.status)) {              \
         m->cpu.exception = EXCEPTION_PRIVILEGE_VIOLATION; \
-        exception        = 1;                             \
-        break;                                            \
-    }                                                     \
-    /*-----------------*/
-
-    int       exception      = 0;
-    u32       instruction    = Fetch(m);
-    const u8  group /*u3*/   = (instruction >> GROUP_SHIFHT) & 0b111;
-    const u8  opcode /*u8*/  = ((instruction & OPCODE_MASK) >> OPCODE_SHIFT) & 0xf;
-    const u8  r1 /*u5*/      = ((instruction & R1_MASK) >> R1_SHIFT) & 0x1f;
-    const u8  r2 /*u5*/      = ((instruction & R2_MASK) >> R2_SHIFT) & 0x1f;
-    const u8  r3 /*u5*/      = ((instruction & R3_MASK) >> R3_SHIFT) & 0x1f;
-    const u8  r4 /*u5*/      = ((instruction & R4_MASK) >> R4_SHIFT) & 0x1f;
-    const u8  vector /*u8*/  = instruction & VECTOR_MASK;
-    const u16 imm_15 /*u15*/ = (instruction & IMM15_MASK) & 0x7fff;
-    const u32 imm_20 /*u20*/ = (instruction & IMM20_MASK) & 0xfffff;
-    u32       temp           = { 0 };
-
-    const u32 group_opcode /*u7*/ = ((group << 4) | opcode) & 0x7f;
-    switch (group_opcode) {
-    case Syscall:
-        EXEC_LOG("Syscall");
-        if (r1 == x0) {
-            Exception(m, vector, 0);
-        } else {
-            Exception(m, GPR_GET(m, r1), 0);
-        }
-        break;
-    case GsReg:
-        EXEC_LOG("GsReg");
-        GPR_SET(m, r1, m->cpu.status);
-        break;
-    case SsReg:
-        EXEC_LOG("SsReg");
-        REQUIRE_SUPERVISOR;
-        m->cpu.status = GPR_GET(m, r1);
-        SetUsermode(m);
-        break;
-    case Sysret: {
-        REQUIRE_SUPERVISOR;
-        if (r1 == 1) {
-            // CLEAR INTERRUPT
-            EXEC_LOG("CLI");
-            SR_CLEAR_INTERRUPT(m->cpu.status);
-        } else if (r1 == 2) {
-            // SET INTERRUPT
-            EXEC_LOG("STI");
-            SR_SET_INTERRUPT(m->cpu.status, 1);
-        } else {
-            m->cpu.status = PopW(m);
-            SET_PC(m, PopW(m));
-            SetUsermode(m);
-            EXEC_LOG("Sysret");
-        };
-        break;
+        return;                                           \
     }
-    case Trace:
-        EXEC_LOG("Trace");
-        trace(m, r1, r2, r3, r4);
-        break;
-    case Copy:
-        EXEC_LOG("Copy");
-        {
-            if (((imm_15 & 1) != 0) || ((imm_15 & 2) != 0)) {
-                REQUIRE_SUPERVISOR;
-            }
-            
-            // src in data or main
-            u8 *src = ((imm_15 & 1) != 0) ? &m->data_memory[GPR_GET(m, r1) & 0xffff] :
-                                            &m->main_memory[GPR_GET(m, r1) & 0xffffff];
-
-            size_t srcSize = MIN(GPR_GET(m, r3) & 0xffffff,
-                                 (((imm_15 & 1) != 0) ? TALEA_DATA_MEM_SZ : TALEA_MAIN_MEM_SZ));
-
-            // dst in data or main
-            u8 *dst     = ((imm_15 & 2) != 0) ? &m->data_memory[GPR_GET(m, r2) & 0xffff] :
-                                                &m->main_memory[GPR_GET(m, r2) & 0xffffff];
-            int dstSize = ((imm_15 & 2) != 0) ?
-                              GPR_GET(m, r3) & 0xffffff + (GPR_GET(m, r2) & 0xffff) :
-                              GPR_GET(m, r3) & 0xffffff + (GPR_GET(m, r2) & 0xffffff);
-
-            if ((imm_15 & 2) != 0 && dstSize > TALEA_DATA_MEM_SZ) break;
-            if ((imm_15 & 2) == 0 && dstSize > TALEA_MAIN_MEM_SZ) break;
-
-            memcpy(dst, src, srcSize);
-            break;
-        }
-    case Swap: {
-        EXEC_LOG("Swap");
-
-        size_t size = GPR_GET(m, r3) & 0xffffff;
-
-        u32 addr_a = GPR_GET(m, r1);
-        u32 addr_b = GPR_GET(m, r2);
-
-        if (SR_GET_MMU(m->cpu.status)) {
-            if (!mmuValidateWriteAccessRange(m, addr_a, size)) {
-                cpu->acces_violation_offender = addr_a;
-                Exception(m, EXCEPTION_ACCESS_VIOLATION_TALEA, false);
-            }
-
-            if (!mmuValidateWriteAccessRange(m, addr_b, size)) {
-                cpu->acces_violation_offender = addr_b;
-                Exception(m, EXCEPTION_ACCESS_VIOLATION_TALEA, false);
-            }
-        }
-
-        size_t offset = 0;
-        while (size >= 4) {
-            u32 a = Machine_ReadMain32(m, addr_a + offset);
-            u32 b = Machine_ReadMain32(m, addr_b + offset);
-
-            Machine_WriteMain32(m, addr_a + offset, b);
-            Machine_WriteMain32(m, addr_b + offset, a);
-
-            offset += 4;
-            size -= 4;
-        }
-
-        while (size > 0) {
-            u8 a = Machine_ReadMain8(m, addr_a + offset);
-            u8 b = Machine_ReadMain8(m, addr_b + offset);
-
-            Machine_WriteMain8(m, addr_a + offset, b);
-            Machine_WriteMain8(m, addr_b + offset, a);
-
-            offset += 1;
-            size -= 1;
-        }
-
-        break;
-    }
-    case Fill: {
-        EXEC_LOG("Fill");
-        u8 *dest = &m->main_memory[GPR_GET(m, r1) & 0xffffff];
-        u32 len  = GPR_GET(m, r2);
-
-        if ((imm_15 & 4) != 0) {
-            if (len * 4 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) break;
-            for (u32 a = 0; a < len; a++) ((u32 *)dest)[a] = GPR_GET(m, r3);
-        } else if ((imm_15 & 2) != 0) {
-            if (len * 3 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) break;
-            for (u32 b = 0; b < (len * 3); b += 3) {
-                dest[b]     = GPR_GET(m, r3) >> 16;
-                dest[b + 1] = GPR_GET(m, r3) >> 8;
-                dest[b + 2] = GPR_GET(m, r3);
-            }
-        } else if ((imm_15 & 1) != 0) {
-            if (len * 2 > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) break;
-
-            for (u16 c = 0; c < len; c++) ((u16 *)dest)[c] = GPR_GET(m, r3);
-        } else {
-            if (len > TALEA_MAIN_MEM_SZ - (GPR_GET(m, r1) & 0xffffff)) break;
-
-            memset(dest, GPR_GET(m, r3), len);
-        }
-        break;
-    }
-    case Through:
-        EXEC_LOG("Through");
-        Machine_WriteMain32(m, Machine_ReadMain32(m, GPR_GET(m, r2)), GPR_GET(m, r1));
-        break;
-    case From:
-        EXEC_LOG("From");
-        GPR_SET(m, r1, Machine_ReadMain32(m, Machine_ReadMain32(m, GPR_GET(m, r2))));
-        break;
-    case Popb:
-        EXEC_LOG("Popb");
-        GPR_SET(m, r1, Machine_ReadMain8(m, GPR_GET(m, r2)));
-        GPR_SET(m, r2, GPR_GET(m, r2) + 1);
-        break;
-    case Poph:
-        EXEC_LOG("Poph");
-        GPR_SET(m, r1, Machine_ReadMain16(m, GPR_GET(m, r2)));
-        GPR_SET(m, r2, GPR_GET(m, r2) + 2);
-        break;
-    case Pop:
-        EXEC_LOG("Pop");
-        GPR_SET(m, r1, Machine_ReadMain32(m, GPR_GET(m, r2)));
-        GPR_SET(m, r2, GPR_GET(m, r2) + 4);
-        break;
-    case Pushb:
-        EXEC_LOG("Pushb");
-        GPR_SET(m, r2, GPR_GET(m, r2) - 1);
-        Machine_WriteMain8(m, GPR_GET(m, r2), GPR_GET(m, r1));
-        break;
-    case Pushh:
-        EXEC_LOG("Pushh");
-        GPR_SET(m, r2, GPR_GET(m, r2) - 2);
-        Machine_WriteMain16(m, GPR_GET(m, r2), GPR_GET(m, r1));
-        break;
-    case Push:
-        EXEC_LOG("Push");
-        GPR_SET(m, r2, GPR_GET(m, r2) - 4);
-        Machine_WriteMain32(m, GPR_GET(m, r2), GPR_GET(m, r1));
-        break;
-    case Save:
-        EXEC_LOG("Save");
-        {
-            u32 addr = GPR_GET(m, r3);
-
-            for (size_t d = r1; d <= r2; d++) {
-                addr -= 4; // Pushes them
-                Machine_WriteMain32(m, addr, GPR_GET(m, d));
-            }
-
-            GPR_SET(m, r3, addr);
-            break;
-        }
-    case Restore: {
-        EXEC_LOG("Restore");
-        u32 addr = GPR_GET(m, r3);
-        for (u32 r = r2; r >= r1; r -= 1) {
-            GPR_SET(m, r, Machine_ReadMain32(m, addr));
-            addr += 4; // Pops them
-        }
-        GPR_SET(m, r3, addr);
-        break;
-    }
-    case Exch:
-        EXEC_LOG("Exch");
-        temp = GPR_GET(m, r1);
-        GPR_SET(m, r1, GPR_GET(m, r2));
-        GPR_SET(m, r2, temp);
-        break;
-    case Slt:
-        EXEC_LOG("Slt");
-        GPR_SET(m, r1, (int32_t)GPR_GET(m, r2) < (int32_t)GPR_GET(m, r3));
-        break;
-    case Sltu:
-        EXEC_LOG("Sltu");
-        GPR_SET(m, r1, GPR_GET(m, r2) < GPR_GET(m, r3));
-        break;
-    case Jal:
-        EXEC_LOG("Jal");
-        const u32 pc = GET_PC(m);
-        GPR_SET(m, r1, pc);
-        const u32 offset = sext(imm_20 << 2, 22);
-        SET_PC(m, (pc - 4) + offset);
-        break;
-    case Lui:
-        EXEC_LOG("Lui");
-        GPR_SET(m, r1, imm_20 << 12);
-        break;
-    case Auipc:
-        EXEC_LOG("Auipc");
-        GPR_SET(m, r1, (imm_20 << 12) + (GET_PC(m) - 4));
-        break;
-    case Beq:
-        EXEC_LOG("Beq");
-        if (GPR_GET(m, r1) == GPR_GET(m, r2)) {
-            SET_PC(m, (GET_PC(m) - 4) + sext((u32)imm_15 << 2, 17));
-        }
-        break;
-    case Bne:
-        EXEC_LOG("Bne");
-        if (GPR_GET(m, r1) != GPR_GET(m, r2)) {
-            SET_PC(m, (GET_PC(m) - 4) + sext((u32)imm_15 << 2, 17));
-        }
-        break;
-    case Blt:
-        EXEC_LOG("Blt");
-        if ((int32_t)GPR_GET(m, r1) < (int32_t)GPR_GET(m, r2)) {
-            SET_PC(m, (GET_PC(m) - 4) + sext((u32)imm_15 << 2, 17));
-        }
-        break;
-    case Bge:
-        EXEC_LOG("Bge");
-        if ((int32_t)GPR_GET(m, r1) >= (int32_t)GPR_GET(m, r2)) {
-            SET_PC(m, (GET_PC(m) - 4) + sext((u32)imm_15 << 2, 17));
-        }
-        break;
-    case Bltu:
-        EXEC_LOG("Bltu");
-        if (GPR_GET(m, r1) < GPR_GET(m, r2)) {
-            SET_PC(m, (GET_PC(m) - 4) + sext((u32)imm_15 << 2, 17));
-        }
-        break;
-    case Bgeu:
-        EXEC_LOG("Bgeu");
-        if (GPR_GET(m, r1) >= GPR_GET(m, r2)) {
-            SET_PC(m, (GET_PC(m) - 4) + sext((u32)imm_15 << 2, 17));
-        }
-        break;
-    case Jalr:
-        EXEC_LOG("Jalr");
-        temp = GPR_GET(m, r2) + sext((u32)imm_15 << 2, 17);
-        GPR_SET(m, r1, GET_PC(m));
-        SET_PC(m, temp);
-        break;
-    case Lb:
-        EXEC_LOG("Lb");
-        GPR_SET(m, r1, sext(Machine_ReadMain8(m, GPR_GET(m, r2) + sext(imm_15, 15)), 8));
-        break;
-    case Lbu:
-        EXEC_LOG("Lbu");
-        GPR_SET(m, r1, Machine_ReadMain8(m, GPR_GET(m, r2) + sext(imm_15, 15)));
-        break;
-    case Lbd:
-        EXEC_LOG("Lbd");
-        REQUIRE_SUPERVISOR
-        GPR_SET(m, r1, sext(Machine_ReadData8(m, GPR_GET(m, r2) + sext(imm_15, 15)), 8));
-        break;
-    case Lbud:
-        EXEC_LOG("Lbud");
-        REQUIRE_SUPERVISOR
-        GPR_SET(m, r1, Machine_ReadData8(m, GPR_GET(m, r2) + sext(imm_15, 15)));
-        break;
-    case Lh:
-        EXEC_LOG("Lh");
-        GPR_SET(m, r1, sext(Machine_ReadMain16(m, GPR_GET(m, r2) + sext(imm_15, 15)), 16));
-        break;
-    case Lhu:
-        EXEC_LOG("Lhu");
-        GPR_SET(m, r1, Machine_ReadMain16(m, GPR_GET(m, r2) + sext(imm_15, 15)));
-        break;
-    case Lhd:
-        EXEC_LOG("Lhd");
-        REQUIRE_SUPERVISOR
-        GPR_SET(m, r1, sext(Machine_ReadData16(m, GPR_GET(m, r2) + sext(imm_15, 15)), 16));
-        break;
-    case Lhud:
-        EXEC_LOG("Lhud");
-        REQUIRE_SUPERVISOR
-        GPR_SET(m, r1, Machine_ReadData16(m, GPR_GET(m, r2) + sext(imm_15, 15)));
-        break;
-    case Lw:
-        EXEC_LOG("Lw");
-        GPR_SET(m, r1, Machine_ReadMain32(m, GPR_GET(m, r2) + sext(imm_15, 15)));
-        break;
-    case Lwd:
-        EXEC_LOG("Lwd");
-        REQUIRE_SUPERVISOR
-        GPR_SET(m, r1, Machine_ReadData32(m, GPR_GET(m, r2) + sext(imm_15, 15)));
-        break;
-    case Muli:
-        EXEC_LOG("Muli");
-        GPR_SET(m, r1, GPR_GET(m, r2) * sext(imm_15, 15));
-        break;
-    case Mulih:
-        EXEC_LOG("Mulih");
-        GPR_SET(m, r1, (uint64_t)(GPR_GET(m, r2) * sext(imm_15, 15)) >> 32);
-        break;
-    case Idivi:
-        EXEC_LOG("Idivi");
-        if (imm_15 == 0) {
-            m->cpu.exception = EXCEPTION_DIVISION_ZERO;
-            exception        = 1;
-            break;
-        }
-        GPR_SET(m, r1, GPR_GET(m, r2) / sext(imm_15, 15));
-        break;
-    case Addi:
-        EXEC_LOG("Addi");
-        GPR_SET(m, r1, GPR_GET(m, r2) + sext(imm_15, 15));
-        break;
-    case Subi:
-        EXEC_LOG("Subi");
-        GPR_SET(m, r1, GPR_GET(m, r2) - sext(imm_15, 15));
-        break;
-    case Ori:
-        EXEC_LOG("Ori");
-        GPR_SET(m, r1, GPR_GET(m, r2) | imm_15);
-        break;
-    case Andi:
-        EXEC_LOG("Andi");
-        GPR_SET(m, r1, GPR_GET(m, r2) & imm_15);
-        break;
-    case Xori:
-        EXEC_LOG("Xori");
-        GPR_SET(m, r1, GPR_GET(m, r2) ^ imm_15);
-        break;
-    case ShiRa:
-        EXEC_LOG("ShiRa");
-        GPR_SET(m, r1, (int32_t)GPR_GET(m, r2) >> (imm_15 % 32));
-        break;
-    case ShiRl:
-        EXEC_LOG("ShiRl");
-        GPR_SET(m, r1, GPR_GET(m, r2) >> (imm_15 % 32));
-        break;
-    case ShiLl:
-        EXEC_LOG("ShiLl");
-        GPR_SET(m, r1, GPR_GET(m, r2) << (imm_15 % 32));
-        break;
-    case Slti:
-        EXEC_LOG("Slti");
-        GPR_SET(m, r1, (int32_t)GPR_GET(m, r2) < (int32_t)sext(imm_15, 15));
-        break;
-    case Sltiu:
-        EXEC_LOG("Sltiu");
-        GPR_SET(m, r1, GPR_GET(m, r2) < imm_15);
-        break;
-    case Add:
-        EXEC_LOG("Add");
-        GPR_SET(m, r1, GPR_GET(m, r2) + GPR_GET(m, r3));
-        break;
-    case Sub:
-        EXEC_LOG("Sub");
-        GPR_SET(m, r1, GPR_GET(m, r2) - GPR_GET(m, r3));
-        break;
-    case Idiv:
-        EXEC_LOG("Idiv");
-        if (GPR_GET(m, r4) == 0) {
-            m->cpu.exception = EXCEPTION_DIVISION_ZERO;
-            exception        = 1;
-            break;
-        }
-
-        if ((vector & 1) == 0) {
-            GPR_SET(m, r1, (int32_t)GPR_GET(m, r3) / (int32_t)GPR_GET(m, r4));
-            GPR_SET(m, r2, (int32_t)GPR_GET(m, r3) % (int32_t)GPR_GET(m, r4));
-        } else {
-            GPR_SET(m, r1, GPR_GET(m, r3) / GPR_GET(m, r4));
-            GPR_SET(m, r2, GPR_GET(m, r3) % GPR_GET(m, r4));
-        }
-        break;
-    case Mul: {
-        EXEC_LOG("Mul");
-        if ((vector & 1) == 0) {
-            // IMULU
-            const u64 value = (u64)GPR_GET(m, r3) * (u64)GPR_GET(m, r4);
-            // TODO:Document this implementation
-            GPR_SET(m, r1, value >> 32);
-            GPR_SET(m, r2, value);
-        } else {
-            const int64_t value = (int64_t)GPR_GET(m, r3) * (int64_t)GPR_GET(m, r4);
-            // TODO: Document this implementation
-            GPR_SET(m, r1, value >> 32);
-            GPR_SET(m, r2, value);
-        }
-    } break;
-    case Or:
-        EXEC_LOG("Or");
-        GPR_SET(m, r1, GPR_GET(m, r2) | GPR_GET(m, r3));
-        break;
-    case And:
-        EXEC_LOG("And");
-        GPR_SET(m, r1, GPR_GET(m, r2) & GPR_GET(m, r3));
-        break;
-    case Xor:
-        EXEC_LOG("Xor");
-        GPR_SET(m, r1, GPR_GET(m, r2) ^ GPR_GET(m, r3));
-        break;
-    case Not:
-        EXEC_LOG("Not");
-        GPR_SET(m, r1, ~GPR_GET(m, r2));
-        break;
-#ifdef __GNUC__
-    case Ctz:
-        EXEC_LOG("Ctz");
-        GPR_SET(m, r1, __builtin_ctz(GPR_GET(m, r2)));
-        break;
-    case Clz:
-        EXEC_LOG("Clz");
-        GPR_SET(m, r1, __builtin_clz(GPR_GET(m, r2)));
-        break;
-    case Popcount:
-        EXEC_LOG("Popcount");
-        GPR_SET(m, r1, __builtin_popcount(GPR_GET(m, r2)));
-        break;
-#else
-    case Ctz: {
-        EXEC_LOG("Ctz");
-        u32 v = GPR_GET(m, r2); // 32-bit word input to count zero bits on right
-        u32 c = 32;             // c will be the number of zero bits on the right
-        v &= -(signed)(v);
-        if (v) c--;
-        if (v & 0x0000FFFF) c -= 16;
-        if (v & 0x00FF00FF) c -= 8;
-        if (v & 0x0F0F0F0F) c -= 4;
-        if (v & 0x33333333) c -= 2;
-        if (v & 0x55555555) c -= 1;
-        GPR_SET(m, r1, c);
-        break;
-    }
-    case Clz:
-        EXEC_LOG("Clz");
-        GPR_SET(m, r1, __lzcnt(GPR_GET(m, r2)));
-        break;
-    case Popcount:
-        EXEC_LOG("Popcount");
-        GPR_SET(m, r1, __popcnt(GPR_GET(m, r2)));
-        break;
-#endif
-    case ShRa:
-        EXEC_LOG("ShRa");
-        GPR_SET(m, r1, (int32_t)GPR_GET(m, r2) >> (GPR_GET(m, r3) % 32));
-        break;
-    case ShRl:
-        EXEC_LOG("ShRl");
-        GPR_SET(m, r1, GPR_GET(m, r2) >> (GPR_GET(m, r3) % 32));
-        break;
-    case ShLl:
-        EXEC_LOG("ShLl");
-        GPR_SET(m, r1, GPR_GET(m, r2) << (GPR_GET(m, r3) % 32));
-        break;
-    case Ror:
-        EXEC_LOG("Ror");
-        GPR_SET(m, r1, GPR_GET(m, r2) * (GPR_GET(m, r3) % 32)); // FIXME not
-                                                                // implemente)d
-        printf("ROR: NOT IMPLEMENTED\n");
-        break;
-    case Rol:
-        EXEC_LOG("Rol");
-        GPR_SET(m, r1, GPR_GET(m, r2) * (GPR_GET(m, r3) % 32)); // FIXME: not
-                                                                // implemente)d
-        printf("ROL: NOT IMPLEMENTED\n");
-
-        break;
-    case Sb:
-        EXEC_LOG("Sb");
-        Machine_WriteMain8(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
-        break;
-    case Sbd:
-        EXEC_LOG("Sbd");
-        REQUIRE_SUPERVISOR;
-        Machine_WriteData8(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
-        break;
-    case Sh:
-        EXEC_LOG("Sh");
-        Machine_WriteMain16(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
-        break;
-    case Shd:
-        EXEC_LOG("Shd");
-        REQUIRE_SUPERVISOR;
-        Machine_WriteData16(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
-        break;
-    case Sw:
-        EXEC_LOG("Sw");
-        Machine_WriteMain32(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
-        break;
-    case Swd:
-        EXEC_LOG("Swd");
-        REQUIRE_SUPERVISOR;
-        Machine_WriteData32(m, GPR_GET(m, r2) + sext(imm_15, 15), GPR_GET(m, r1));
-        break;
-    default: EXEC_LOG("no instruction"); break;
-    }
-
-    switch (group) {
-    case SYS: m->cpu.cycles += (CYCLES_SYS); break;
-    case MEM: m->cpu.cycles += (CYCLES_MEM); break;
-    case JU: m->cpu.cycles += (CYCLES_JU); break;
-    case BRANCH: m->cpu.cycles += (CYCLES_BRANCH); break;
-    case LOAD: m->cpu.cycles += (CYCLES_LOAD); break;
-    case ALUI: m->cpu.cycles += (CYCLES_ALUI); break;
-    case ALUR: m->cpu.cycles += (CYCLES_ALUR); break;
-    case STORE: m->cpu.cycles += (CYCLES_STORE); break;
-    default: break;
-    }
-
-    return exception;
-}
 
 void Cpu_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
 {
     m->cpu = (CpuState){
         // Register file
-        .pc        = TALEA_FIRMWARE_ADDRESS, // TODO: really think about this approach...
-        .virtualPc = 0,
-        .status    = 0,
-        .gpr       = { 0 },
-        .ssp       = 0,
-        .usp       = 0,
+        .pc     = TALEA_FIRMWARE_ADDRESS,
+        .status = 0,
+        .gpr    = { 0 },
+        .ssp    = 0,
+        .usp    = 0,
         // Clock
-        .frequency = (HZ * 10) * config->frequency,
+        .frequency = (SIRIUS_BASE_FREQ_HZ * 10) * config->frequency,
         .cycles    = 0,
         .ticks     = 0,
+        // Interrupts
+        .exception             = EXCEPTION_NONE,
+        .isProcessingException = false,
         // Control lines
         .poweroff = 0,
         .restart  = 0,
@@ -798,6 +559,7 @@ void Cpu_RunCycles(TaleaMachine *m, u32 cycles)
         bool debug_step    = m->cpu.status & CPU_STATUS_DEBUG_STEP;
         u64  cycles_before = m->cpu.cycles;
         bool exception     = Execute(m);
+        m->cpu.instructionsRetired++;
 
         if (exception) {
             Exception(m, m->cpu.exception, false);

@@ -260,9 +260,319 @@ sin_table:
 	.half	0xfb4b
 	.half	0xfcdd
 	.half	0xfe6e
-	.globl ttty_init
+	.align	4
+Storage_MediumNames:
+	.word	L.3
+	.word	L.4
+	.word	L.5
+	.word	L.6
+	.word	L.7
+	.word	L.8
+	.word	L.9
+	.align	4
+Storage_MediumLookup:
+	.word	0x0
+	.word	0x0
+	.word	0x0
+	.word	0x0
+	.word	0x0
+	.word	0x1
+	.word	0x100
+	.word	0x1
+	.word	0x100
+	.word	0x200
+	.word	0x1
+	.word	0x400
+	.word	0x4
+	.word	0x100
+	.word	0x200
+	.word	0x1
+	.word	0x800
+	.word	0x8
+	.word	0x100
+	.word	0x200
+	.word	0x2
+	.word	0x10000
+	.word	0x1
+	.word	0x10000
+	.word	0x200
+	.word	0x2
+	.word	0x20000
+	.word	0x2
+	.word	0x10000
+	.word	0x200
+	.word	0x2
+	.word	0x40000
+	.word	0x4
+	.word	0x10000
+	.word	0x200
+	.align	4
+Keys_keynames:
+	.word	0x0
+	.word	L.13
+	.word	0x27
+	.word	L.14
+	.word	0x2c
+	.word	L.15
+	.word	0x2d
+	.word	L.16
+	.word	0x2e
+	.word	L.17
+	.word	0x2f
+	.word	L.18
+	.word	0x30
+	.word	L.19
+	.word	0x31
+	.word	L.20
+	.word	0x32
+	.word	L.21
+	.word	0x33
+	.word	L.22
+	.word	0x34
+	.word	L.23
+	.word	0x35
+	.word	L.24
+	.word	0x36
+	.word	L.25
+	.word	0x37
+	.word	L.26
+	.word	0x38
+	.word	L.27
+	.word	0x39
+	.word	L.28
+	.word	0x3b
+	.word	L.29
+	.word	0x3d
+	.word	L.30
+	.word	0x41
+	.word	L.31
+	.word	0x42
+	.word	L.32
+	.word	0x43
+	.word	L.33
+	.word	0x44
+	.word	L.34
+	.word	0x45
+	.word	L.35
+	.word	0x46
+	.word	L.36
+	.word	0x47
+	.word	L.37
+	.word	0x48
+	.word	L.38
+	.word	0x49
+	.word	L.39
+	.word	0x4a
+	.word	L.40
+	.word	0x4b
+	.word	L.41
+	.word	0x4c
+	.word	L.42
+	.word	0x4d
+	.word	L.43
+	.word	0x4e
+	.word	L.44
+	.word	0x4f
+	.word	L.45
+	.word	0x50
+	.word	L.46
+	.word	0x51
+	.word	L.47
+	.word	0x52
+	.word	L.48
+	.word	0x53
+	.word	L.49
+	.word	0x54
+	.word	L.50
+	.word	0x55
+	.word	L.51
+	.word	0x56
+	.word	L.52
+	.word	0x57
+	.word	L.53
+	.word	0x58
+	.word	L.54
+	.word	0x59
+	.word	L.55
+	.word	0x5a
+	.word	L.56
+	.word	0x5b
+	.word	L.57
+	.word	0x5c
+	.word	L.58
+	.word	0x5d
+	.word	L.59
+	.word	0x60
+	.word	L.60
+	.word	0x20
+	.word	L.61
+	.word	0x100
+	.word	L.62
+	.word	0x101
+	.word	L.63
+	.word	0x102
+	.word	L.64
+	.word	0x103
+	.word	L.65
+	.word	0x104
+	.word	L.66
+	.word	0x105
+	.word	L.67
+	.word	0x106
+	.word	L.68
+	.word	0x107
+	.word	L.69
+	.word	0x108
+	.word	L.70
+	.word	0x109
+	.word	L.71
+	.word	0x10a
+	.word	L.72
+	.word	0x10b
+	.word	L.73
+	.word	0x10c
+	.word	L.74
+	.word	0x10d
+	.word	L.75
+	.word	0x118
+	.word	L.76
+	.word	0x119
+	.word	L.77
+	.word	0x11a
+	.word	L.78
+	.word	0x11b
+	.word	L.79
+	.word	0x11c
+	.word	L.80
+	.word	0x122
+	.word	L.81
+	.word	0x123
+	.word	L.82
+	.word	0x124
+	.word	L.83
+	.word	0x125
+	.word	L.84
+	.word	0x126
+	.word	L.85
+	.word	0x127
+	.word	L.86
+	.word	0x128
+	.word	L.87
+	.word	0x129
+	.word	L.88
+	.word	0x12a
+	.word	L.89
+	.word	0x12b
+	.word	L.90
+	.word	0x12c
+	.word	L.91
+	.word	0x12d
+	.word	L.92
+	.word	0x154
+	.word	L.93
+	.word	0x155
+	.word	L.94
+	.word	0x156
+	.word	L.95
+	.word	0x157
+	.word	L.96
+	.word	0x158
+	.word	L.97
+	.word	0x159
+	.word	L.98
+	.word	0x15a
+	.word	L.99
+	.word	0x15b
+	.word	L.100
+	.word	0x15c
+	.word	L.101
+	.word	0x140
+	.word	L.102
+	.word	0x141
+	.word	L.103
+	.word	0x142
+	.word	L.104
+	.word	0x143
+	.word	L.105
+	.word	0x144
+	.word	L.106
+	.word	0x145
+	.word	L.107
+	.word	0x146
+	.word	L.108
+	.word	0x147
+	.word	L.109
+	.word	0x148
+	.word	L.110
+	.word	0x149
+	.word	L.111
+	.word	0x14a
+	.word	L.112
+	.word	0x14b
+	.word	L.113
+	.word	0x14c
+	.word	L.114
+	.word	0x14d
+	.word	L.115
+	.word	0x14e
+	.word	L.116
+	.word	0x14f
+	.word	L.117
+	.word	0x150
+	.word	L.118
+	.word	0xffffffff
+	.word	0x0
+	.align	4
+keys_kname_KEY_UNKNOW:
+	.word	L.119
 	.align 4
 	.text
+	.align	4
+keys_getkeyname:
+	addi x2,x2,-32
+	sw  x8,28(x2)
+	addi  x8,x2,16
+	sw x27,0(x2)
+	mv x27,x0 ; LOADU4
+	j L.124
+L.121:
+	li x30,3
+	shll x30,x27,x30
+	la x29,Keys_keynames
+	add x30,x30,x29
+	lw x30,0(x30)
+	bne x30,x12,L.125
+	li x30,3
+	shll x30,x27,x30
+	la x29,Keys_keynames+4
+	add x30,x30,x29
+	lw x10,0(x30)
+	j L.120
+L.125:
+	li x30,3
+	shll x30,x27,x30
+	la x29,Keys_keynames
+	add x30,x30,x29
+	lw x30,0(x30)
+	li x29,-1
+	bne x30,x29,L.128
+	j L.123
+L.128:
+L.122:
+	li x30,1
+	add x27,x27,x30
+L.124:
+	li x30,107
+	bltu x27,x30,L.121
+L.123:
+	la x10,L.130
+L.120:
+	lw x27,0(x2)
+	lw  x8,28(x2)
+	addi  x2,x2,32
+	jalr x0,0(x1)
+
+	.globl ttty_init
 	.align	4
 ttty_init:
 	addi x2,x2,-32
@@ -275,22 +585,22 @@ ttty_init:
 	shlli x30,x17,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,8
-	ble x30,x29,L.9
+	ble x30,x29,L.136
 	mv x10,x0 ; LOADI4
-	j L.8
-L.9:
+	j L.135
+L.136:
 	sw x13,0(x12)
 	li x30,12
 	add x30,x12,x30
 	andi x29,x14,-129
 	sw x29,0(x30)
 	andi x30,x14,128
-	beq x30,x0,L.12
+	beq x30,x0,L.139
 	li x25,1
-	j L.13
-L.12:
+	j L.140
+L.139:
 	mv x25,x0 ; LOADI4
-L.13:
+L.140:
 	li x30,20
 	add x30,x12,x30
 	mv x29,x25 ; LOADI1
@@ -298,7 +608,7 @@ L.13:
 	li x30,20
 	add x30,x12,x30
 	lb x30,0(x30)
-	beq x30,x0,L.14
+	beq x30,x0,L.141
 	li x30,48
 	add x30,x12,x30
 	sw x0,0(x30)
@@ -311,7 +621,7 @@ L.13:
 	li x30,24
 	add x30,x12,x30
 	sw x0,0(x30)
-L.14:
+L.141:
 	li x30,4
 	add x30,x12,x30
 	sb x15,0(x30)
@@ -347,8 +657,8 @@ L.14:
 	li x29,8
 	sb x29,0(x30)
 	mv x26,x0 ; LOADU1
-	j L.19
-L.16:
+	j L.146
+L.143:
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,56
@@ -357,20 +667,20 @@ L.16:
 	add x30,x30,x27
 	lbu x30,0(x30)
 	sb x30,0(x29)
-L.17:
+L.144:
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	addi x30,x30,1
 	mv x26,x30 ; LOADU1
-L.19:
+L.146:
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	shlli x29,x17,8*(4-1)
 	shrli x29,x29,8*(4-1)
 	addi x29,x29,-1
-	blt x30,x29,L.16
+	blt x30,x29,L.143
 	li x10,1
-L.8:
+L.135:
 	lw x25,0(x2)
 	lw x26,4(x2)
 	lw x27,8(x2)
@@ -388,10 +698,10 @@ ttty_mux_subscribe:
 	add x30,x12,x30
 	lbu x30,0(x30)
 	li x29,4
-	blt x30,x29,L.21
+	blt x30,x29,L.148
 	mv x10,x0 ; LOADI4
-	j L.20
-L.21:
+	j L.147
+L.148:
 	li x30,36
 	add x30,x12,x30
 	lbu x30,0(x30)
@@ -415,7 +725,7 @@ L.21:
 	add x30,x30,x29
 	sw x14,0(x30)
 	li x10,1
-L.20:
+L.147:
 	lw  x8,28(x2)
 	addi  x2,x2,32
 	jalr x0,0(x1)
@@ -429,7 +739,7 @@ ttty_mux_set_priority:
 	li x30,32
 	add x30,x12,x30
 	sw x13,0(x30)
-L.23:
+L.150:
 	lw  x8,28(x2)
 	addi  x2,x2,32
 	jalr x0,0(x1)
@@ -445,7 +755,7 @@ ttty_mux_check_priority:
 	li x29,36
 	add x29,x12,x29
 	lbu x29,0(x29)
-	bge x30,x29,L.25
+	bge x30,x29,L.152
 	shlli x30,x13,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,3
@@ -457,19 +767,19 @@ ttty_mux_check_priority:
 	li x29,32
 	add x29,x12,x29
 	lw x29,0(x29)
-	blt x30,x29,L.28
+	blt x30,x29,L.155
 	li x27,1
-	j L.29
-L.28:
+	j L.156
+L.155:
 	mv x27,x0 ; LOADI4
-L.29:
+L.156:
 	mv x30,x27 ; LOADI1
 	shlli x10,x30,8*(4-1)
 	shrai x10,x10,8*(4-1)
-	j L.24
-L.25:
+	j L.151
+L.152:
 	mv x10,x0 ; LOADI4
-L.24:
+L.151:
 	lw x27,0(x2)
 	lw  x8,28(x2)
 	addi  x2,x2,32
@@ -494,7 +804,7 @@ ttty_update_cursor_pos:
 	add x30,x27,x30
 	lw x31,0(x30)
 	jalr x1, 0(x31)
-L.30:
+L.157:
 	lw x1,24(x2)
 	lw x27,28(x2)
 	lw  x8,60(x2)
@@ -513,30 +823,30 @@ ttty_set_xy:
 	mv x27,x12
 	mv x26,x13
 	mv x25,x14
-	bge x26,x0,L.32
+	bge x26,x0,L.159
 	mv x26,x0 ; LOADI4
-L.32:
+L.159:
 	li x30,4
 	add x30,x27,x30
 	lbu x30,0(x30)
-	blt x26,x30,L.34
+	blt x26,x30,L.161
 	li x30,4
 	add x30,x27,x30
 	lbu x30,0(x30)
 	addi x26,x30,-1
-L.34:
-	bge x25,x0,L.36
+L.161:
+	bge x25,x0,L.163
 	mv x25,x0 ; LOADI4
-L.36:
+L.163:
 	li x30,5
 	add x30,x27,x30
 	lbu x30,0(x30)
-	blt x25,x30,L.38
+	blt x25,x30,L.165
 	li x30,5
 	add x30,x27,x30
 	lbu x30,0(x30)
 	addi x25,x30,-1
-L.38:
+L.165:
 	li x30,6
 	add x30,x27,x30
 	mv x29,x26 ; LOADU4
@@ -547,7 +857,7 @@ L.38:
 	sb x29,0(x30)
 	mv x12,x27 ; LOADP4
 	call ttty_update_cursor_pos
-L.31:
+L.158:
 	lw x1,24(x2)
 	lw x25,28(x2)
 	lw x26,32(x2)
@@ -569,7 +879,7 @@ ttty_scroll_up:
 	li x30,16
 	add x30,x12,x30
 	lw x30,0(x30)
-	beq x30,x0,L.41
+	beq x30,x0,L.168
 	li x30,16
 	add x30,x12,x30
 	lw x25,0(x30)
@@ -592,27 +902,27 @@ ttty_scroll_up:
 	lbu x29,0(x29)
 	imul x0,x23,x30,x29
 	mv x26,x0 ; LOADI4
-	j L.46
-L.43:
+	j L.173
+L.170:
 	add x30,x26,x25
 	add x29,x26,x24
 	add x29,x29,x25
 	lbu x29,0(x29)
 	sb x29,0(x30)
-L.44:
+L.171:
 	addi x26,x26,1
-L.46:
+L.173:
 	sub x30,x23,x24
-	blt x26,x30,L.43
+	blt x26,x30,L.170
 	sub x26,x23,x24
-	j L.50
-L.47:
+	j L.177
+L.174:
 	add x30,x26,x25
 	li x29,32
 	sb x29,0(x30)
 	li x27,1
-	j L.54
-L.51:
+	j L.181
+L.178:
 	add x30,x26,x27
 	add x30,x30,x25
 	addi x29,x27,-1
@@ -621,21 +931,21 @@ L.51:
 	add x29,x29,x28
 	lbu x29,0(x29)
 	sb x29,0(x30)
-L.52:
+L.179:
 	addi x27,x27,1
-L.54:
+L.181:
 	li x30,8
 	add x30,x12,x30
 	lbu x30,0(x30)
-	blt x27,x30,L.51
-L.48:
+	blt x27,x30,L.178
+L.175:
 	li x30,8
 	add x30,x12,x30
 	lbu x30,0(x30)
 	add x26,x26,x30
-L.50:
-	blt x26,x23,L.47
-L.41:
+L.177:
+	blt x26,x23,L.174
+L.168:
 	li x30,7
 	add x30,x12,x30
 	li x29,5
@@ -643,7 +953,7 @@ L.41:
 	lbu x29,0(x29)
 	addi x29,x29,-1
 	sb x29,0(x30)
-L.40:
+L.167:
 	lw x23,0(x2)
 	lw x24,4(x2)
 	lw x25,8(x2)
@@ -681,7 +991,7 @@ ttty_handle_tab:
 	li x29,4
 	add x29,x27,x29
 	lbu x29,0(x29)
-	blt x30,x29,L.56
+	blt x30,x29,L.183
 	li x30,6
 	add x30,x27,x30
 	sb x0,0(x30)
@@ -690,8 +1000,8 @@ ttty_handle_tab:
 	lbu x29,0(x30)
 	addi x29,x29,1
 	sb x29,0(x30)
-	j L.57
-L.56:
+	j L.184
+L.183:
 	li x30,16
 	add x30,x27,x30
 	lw x23,0(x30)
@@ -718,14 +1028,14 @@ L.56:
 	imul x0,x29,x26,x29
 	add x22,x30,x29
 	lw x24,-8+16(x8)
-	j L.61
-L.58:
+	j L.188
+L.185:
 	add x30,x24,x23
 	li x29,32
 	sb x29,0(x30)
 	li x25,1
-	j L.65
-L.62:
+	j L.192
+L.189:
 	add x30,x24,x25
 	add x30,x30,x23
 	li x29,1
@@ -735,38 +1045,38 @@ L.62:
 	add x29,x29,x28
 	lbu x29,0(x29)
 	sb x29,0(x30)
-L.63:
+L.190:
 	li x30,1
 	add x25,x25,x30
-L.65:
+L.192:
 	li x30,8
 	add x30,x27,x30
 	lbu x30,0(x30)
-	bltu x25,x30,L.62
-L.59:
+	bltu x25,x30,L.189
+L.186:
 	li x30,8
 	add x30,x27,x30
 	lbu x30,0(x30)
 	add x24,x24,x30
-L.61:
-	bltu x24,x22,L.58
+L.188:
+	bltu x24,x22,L.185
 	li x30,6
 	add x30,x27,x30
 	lbu x29,0(x30)
 	add x29,x29,x26
 	sb x29,0(x30)
-L.57:
+L.184:
 	li x30,7
 	add x30,x27,x30
 	lbu x30,0(x30)
 	li x29,5
 	add x29,x27,x29
 	lbu x29,0(x29)
-	blt x30,x29,L.66
+	blt x30,x29,L.193
 	mv x12,x27 ; LOADP4
 	call ttty_scroll_up
-L.66:
-L.55:
+L.193:
+L.182:
 	lw x1,24(x2)
 	lw x22,28(x2)
 	lw x23,32(x2)
@@ -776,6 +1086,104 @@ L.55:
 	lw x27,48(x2)
 	lw  x8,76(x2)
 	addi  x2,x2,80
+	jalr x0,0(x1)
+
+	.globl ttty_emit_raw
+	.align	4
+ttty_emit_raw:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x27,28(x2)
+	mv x27,x12
+	sw x13,20(x8)
+	lw x30,4+16(x8)
+	sb x30,4+16(x8)
+	mv x29,x27 ; LOADU4
+	beq x29,x0,L.198
+	li x29,68
+	add x29,x27,x29
+	lw x29,0(x29)
+	bne x29,x0,L.196
+L.198:
+	j L.195
+L.196:
+	li x30,12
+	add x30,x27,x30
+	lw x30,0(x30)
+	bne x30,x0,L.199
+	mv x12,x27 ; LOADP4
+	lbu x13,4+16(x8)
+	li x30,68
+	add x30,x27,x30
+	lw x31,0(x30)
+	jalr x1, 0(x31)
+	j L.195
+L.199:
+	li x30,68
+	add x30,x27,x30
+	lw x30,0(x30)
+	beq x30,x0,L.201
+	li x30,6
+	add x30,x27,x30
+	lbu x30,0(x30)
+	li x29,4
+	add x29,x27,x29
+	lbu x29,0(x29)
+	bge x30,x29,L.201
+	li x30,7
+	add x30,x27,x30
+	lbu x30,0(x30)
+	li x29,5
+	add x29,x27,x29
+	lbu x29,0(x29)
+	bge x30,x29,L.201
+	mv x12,x27 ; LOADP4
+	lbu x13,4+16(x8)
+	li x30,68
+	add x30,x27,x30
+	lw x31,0(x30)
+	jalr x1, 0(x31)
+L.201:
+	li x30,6
+	add x30,x27,x30
+	lbu x29,0(x30)
+	addi x29,x29,1
+	sb x29,0(x30)
+	li x30,6
+	add x30,x27,x30
+	lbu x30,0(x30)
+	li x29,4
+	add x29,x27,x29
+	lbu x29,0(x29)
+	blt x30,x29,L.203
+	li x30,6
+	add x30,x27,x30
+	sb x0,0(x30)
+	li x30,7
+	add x30,x27,x30
+	lbu x29,0(x30)
+	addi x29,x29,1
+	sb x29,0(x30)
+L.203:
+	li x30,7
+	add x30,x27,x30
+	lbu x30,0(x30)
+	li x29,5
+	add x29,x27,x29
+	lbu x29,0(x29)
+	blt x30,x29,L.205
+	mv x12,x27 ; LOADP4
+	call ttty_scroll_up
+L.205:
+	mv x12,x27 ; LOADP4
+	call ttty_update_cursor_pos
+L.195:
+	lw x1,24(x2)
+	lw x27,28(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
 	jalr x0,0(x1)
 
 	.globl ttty_emit
@@ -792,102 +1200,102 @@ ttty_emit:
 	lw x30,4+16(x8)
 	sb x30,4+16(x8)
 	mv x29,x27 ; LOADU4
-	beq x29,x0,L.71
+	beq x29,x0,L.210
 	li x29,68
 	add x29,x27,x29
 	lw x29,0(x29)
-	bne x29,x0,L.69
-L.71:
-	j L.68
-L.69:
+	bne x29,x0,L.208
+L.210:
+	j L.207
+L.208:
 	li x30,12
 	add x30,x27,x30
 	lw x30,0(x30)
-	bne x30,x0,L.72
+	bne x30,x0,L.211
 	mv x12,x27 ; LOADP4
 	lbu x13,4+16(x8)
 	li x30,68
 	add x30,x27,x30
 	lw x31,0(x30)
 	jalr x1, 0(x31)
-	j L.68
-L.72:
+	j L.207
+L.211:
 	lbu x26,4+16(x8)
 	li x30,8
-	blt x26,x30,L.75
+	blt x26,x30,L.214
 	li x30,13
-	bgt x26,x30,L.75
+	bgt x26,x30,L.214
 	li x30,2
 	shll x30,x26,x30
-	la x29,L.88-32
+	la x29,L.227-32
 	add x30,x30,x29
 	lw x30,0(x30)
 	jalr x0,0(x30)
 	.align 4
 	.data
 	.align	4
-L.88:
-	.word	L.83
-	.word	L.86
-	.word	L.77
-	.word	L.75
-	.word	L.87
-	.word	L.81
+L.227:
+	.word	L.222
+	.word	L.225
+	.word	L.216
+	.word	L.214
+	.word	L.226
+	.word	L.220
 	.align 4
 	.text
-L.77:
+L.216:
 	li x30,12
 	add x30,x27,x30
 	lw x30,0(x30)
 	li x29,1
-	bne x30,x29,L.78
+	bne x30,x29,L.217
 	li x30,6
 	add x30,x27,x30
 	sb x0,0(x30)
-L.78:
+L.217:
 	li x30,7
 	add x30,x27,x30
 	lbu x29,0(x30)
 	addi x29,x29,1
 	sb x29,0(x30)
-	j L.80
-L.81:
+	j L.219
+L.220:
 	li x30,6
 	add x30,x27,x30
 	sb x0,0(x30)
-	j L.82
-L.83:
+	j L.221
+L.222:
 	li x30,6
 	add x30,x27,x30
 	lbu x30,0(x30)
-	ble x30,x0,L.84
+	ble x30,x0,L.223
 	li x30,6
 	add x30,x27,x30
 	lbu x29,0(x30)
 	addi x29,x29,-1
 	sb x29,0(x30)
-L.84:
+L.223:
 	li x30,9
 	add x30,x27,x30
 	li x29,1
 	sb x29,0(x30)
-	j L.82
-L.86:
+	j L.221
+L.225:
 	mv x12,x27 ; LOADP4
 	call ttty_handle_tab
-	j L.82
-L.87:
+	j L.221
+L.226:
 	mv x12,x27 ; LOADP4
 	call ttty_clear
-	j L.82
-L.75:
+	j L.221
+L.214:
 	li x30,6
 	add x30,x27,x30
 	lbu x30,0(x30)
 	li x29,4
 	add x29,x27,x29
 	lbu x29,0(x29)
-	blt x30,x29,L.90
+	blt x30,x29,L.229
 	li x30,6
 	add x30,x27,x30
 	sb x0,0(x30)
@@ -896,56 +1304,56 @@ L.75:
 	lbu x29,0(x30)
 	addi x29,x29,1
 	sb x29,0(x30)
-L.90:
-L.80:
+L.229:
+L.219:
 	li x30,7
 	add x30,x27,x30
 	lbu x30,0(x30)
 	li x29,5
 	add x29,x27,x29
 	lbu x29,0(x29)
-	blt x30,x29,L.92
+	blt x30,x29,L.231
 	mv x12,x27 ; LOADP4
 	call ttty_scroll_up
-L.92:
+L.231:
 	lbu x30,4+16(x8)
 	li x29,32
-	blt x30,x29,L.94
+	blt x30,x29,L.233
 	li x30,68
 	add x30,x27,x30
 	lw x30,0(x30)
-	beq x30,x0,L.96
+	beq x30,x0,L.235
 	li x30,6
 	add x30,x27,x30
 	lbu x30,0(x30)
 	li x29,4
 	add x29,x27,x29
 	lbu x29,0(x29)
-	bge x30,x29,L.96
+	bge x30,x29,L.235
 	li x30,7
 	add x30,x27,x30
 	lbu x30,0(x30)
 	li x29,5
 	add x29,x27,x29
 	lbu x29,0(x29)
-	bge x30,x29,L.96
+	bge x30,x29,L.235
 	mv x12,x27 ; LOADP4
 	lbu x13,4+16(x8)
 	li x30,68
 	add x30,x27,x30
 	lw x31,0(x30)
 	jalr x1, 0(x31)
-L.96:
+L.235:
 	li x30,6
 	add x30,x27,x30
 	lbu x29,0(x30)
 	addi x29,x29,1
 	sb x29,0(x30)
-L.94:
-L.82:
+L.233:
+L.221:
 	mv x12,x27 ; LOADP4
 	call ttty_update_cursor_pos
-L.68:
+L.207:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -978,89 +1386,89 @@ ttty_execute_ansi:
 	li x29,4
 	add x25,x30,x29
 	lw x30,0(x25)
-	ble x30,x0,L.100
+	ble x30,x0,L.239
 	li x24,1
-	j L.101
-L.100:
+	j L.240
+L.239:
 	mv x24,x0 ; LOADI4
-L.101:
+L.240:
 	sub x30,x30,x24
 	sw x30,-12+64(x8)
 	li x30,4
 	add x30,x25,x30
 	lw x30,0(x30)
-	ble x30,x0,L.103
+	ble x30,x0,L.242
 	li x23,1
-	j L.104
-L.103:
+	j L.243
+L.242:
 	mv x23,x0 ; LOADI4
-L.104:
+L.243:
 	sub x30,x30,x23
 	sw x30,-16+64(x8)
 	li x30,8
 	add x30,x25,x30
 	lw x30,0(x30)
-	ble x30,x0,L.106
+	ble x30,x0,L.245
 	li x22,1
-	j L.107
-L.106:
+	j L.246
+L.245:
 	mv x22,x0 ; LOADI4
-L.107:
+L.246:
 	sub x30,x30,x22
 	sw x30,-20+64(x8)
 	li x30,12
 	add x30,x25,x30
 	lw x30,0(x30)
-	ble x30,x0,L.109
+	ble x30,x0,L.248
 	li x21,1
-	j L.110
-L.109:
+	j L.249
+L.248:
 	mv x21,x0 ; LOADI4
-L.110:
+L.249:
 	sub x30,x30,x21
 	sw x30,-24+64(x8)
 	lw x30,0(x25)
-	ble x30,x0,L.112
+	ble x30,x0,L.251
 	lw x20,0(x25)
-	j L.113
-L.112:
+	j L.252
+L.251:
 	li x20,1
-L.113:
+L.252:
 	sw x20,-8+64(x8)
 	lw x30,4+64(x8)
 	lw x19,0(x30)
 	li x30,65
-	blt x19,x30,L.115
+	blt x19,x30,L.254
 	li x30,75
-	bgt x19,x30,L.154
+	bgt x19,x30,L.293
 	li x30,2
 	shll x30,x19,x30
-	la x29,L.155-260
+	la x29,L.294-260
 	add x30,x30,x29
 	lw x30,0(x30)
 	jalr x0,0(x30)
 	.align 4
 	.data
 	.align	4
-L.155:
-	.word	L.117
-	.word	L.118
-	.word	L.119
-	.word	L.120
-	.word	L.121
-	.word	L.122
-	.word	L.123
-	.word	L.124
-	.word	L.115
-	.word	L.125
-	.word	L.140
+L.294:
+	.word	L.256
+	.word	L.257
+	.word	L.258
+	.word	L.259
+	.word	L.260
+	.word	L.261
+	.word	L.262
+	.word	L.263
+	.word	L.254
+	.word	L.264
+	.word	L.279
 	.align 4
 	.text
-L.154:
+L.293:
 	li x30,109
-	beq x19,x30,L.115
-	j L.115
-L.117:
+	beq x19,x30,L.254
+	j L.254
+L.256:
 	mv x12,x27 ; LOADP4
 	li x30,6
 	add x30,x27,x30
@@ -1071,8 +1479,8 @@ L.117:
 	lw x29,-8+64(x8)
 	sub x14,x30,x29
 	call ttty_set_xy
-	j L.115
-L.118:
+	j L.254
+L.257:
 	mv x12,x27 ; LOADP4
 	li x30,6
 	add x30,x27,x30
@@ -1083,8 +1491,8 @@ L.118:
 	lw x29,-8+64(x8)
 	add x14,x30,x29
 	call ttty_set_xy
-	j L.115
-L.119:
+	j L.254
+L.258:
 	mv x12,x27 ; LOADP4
 	li x30,6
 	add x30,x27,x30
@@ -1095,8 +1503,8 @@ L.119:
 	add x30,x27,x30
 	lbu x14,0(x30)
 	call ttty_set_xy
-	j L.115
-L.120:
+	j L.254
+L.259:
 	mv x12,x27 ; LOADP4
 	li x30,6
 	add x30,x27,x30
@@ -1107,8 +1515,8 @@ L.120:
 	add x30,x27,x30
 	lbu x14,0(x30)
 	call ttty_set_xy
-	j L.115
-L.121:
+	j L.254
+L.260:
 	mv x12,x27 ; LOADP4
 	mv x13,x0 ; LOADI4
 	li x30,7
@@ -1117,8 +1525,8 @@ L.121:
 	lw x29,-8+64(x8)
 	add x14,x30,x29
 	call ttty_set_xy
-	j L.115
-L.122:
+	j L.254
+L.261:
 	mv x12,x27 ; LOADP4
 	mv x13,x0 ; LOADI4
 	li x30,7
@@ -1127,22 +1535,22 @@ L.122:
 	lw x29,-8+64(x8)
 	sub x14,x30,x29
 	call ttty_set_xy
-	j L.115
-L.123:
+	j L.254
+L.262:
 	mv x12,x27 ; LOADP4
 	lw x13,-12+64(x8)
 	li x30,7
 	add x30,x27,x30
 	lbu x14,0(x30)
 	call ttty_set_xy
-	j L.115
-L.124:
+	j L.254
+L.263:
 	mv x12,x27 ; LOADP4
 	lw x13,-16+64(x8)
 	lw x14,-12+64(x8)
 	call ttty_set_xy
-	j L.115
-L.125:
+	j L.254
+L.264:
 	sw x0,-32+64(x8)
 	mv x18,x0 ; LOADI4
 	li x30,4
@@ -1166,31 +1574,31 @@ L.125:
 	add x30,x30,x29
 	sw x30,-36+64(x8)
 	lw x30,0(x25)
-	bne x30,x0,L.126
+	bne x30,x0,L.265
 	lw x30,-36+64(x8)
 	sw x30,-32+64(x8)
-	j L.127
-L.126:
+	j L.266
+L.265:
 	lw x30,0(x25)
 	li x29,1
-	bne x30,x29,L.128
+	bne x30,x29,L.267
 	lw x30,-36+64(x8)
 	addi x30,x30,1
 	sw x30,-28+64(x8)
-	j L.129
-L.128:
+	j L.268
+L.267:
 	lw x30,0(x25)
 	li x29,2
-	bne x30,x29,L.130
+	bne x30,x29,L.269
 	mv x12,x27 ; LOADP4
 	call ttty_clear
-	j L.115
-L.130:
-L.129:
-L.127:
+	j L.254
+L.269:
+L.268:
+L.266:
 	lw x18,-32+64(x8)
-	j L.135
-L.132:
+	j L.274
+L.271:
 	li x30,8
 	add x30,x27,x30
 	lbu x30,0(x30)
@@ -1203,8 +1611,8 @@ L.132:
 	sb x29,0(x30)
 	li x30,1
 	sw x30,-40+64(x8)
-	j L.139
-L.136:
+	j L.278
+L.275:
 	lw x30,-40+64(x8)
 	lw x29,-44+64(x8)
 	add x29,x29,x30
@@ -1215,23 +1623,23 @@ L.136:
 	add x30,x30,x28
 	lbu x30,0(x30)
 	sb x30,0(x29)
-L.137:
+L.276:
 	lw x30,-40+64(x8)
 	addi x30,x30,1
 	sw x30,-40+64(x8)
-L.139:
+L.278:
 	lw x30,-40+64(x8)
 	li x29,8
 	add x29,x27,x29
 	lbu x29,0(x29)
-	blt x30,x29,L.136
-L.133:
+	blt x30,x29,L.275
+L.272:
 	addi x18,x18,1
-L.135:
+L.274:
 	lw x30,-28+64(x8)
-	blt x18,x30,L.132
-	j L.115
-L.140:
+	blt x18,x30,L.271
+	j L.254
+L.279:
 	li x30,7
 	add x30,x27,x30
 	lbu x30,0(x30)
@@ -1267,22 +1675,22 @@ L.140:
 	lw x30,-40+64(x8)
 	sw x30,-28+64(x8)
 	lw x30,0(x25)
-	bne x30,x0,L.141
+	bne x30,x0,L.280
 	lw x30,-44+64(x8)
 	sw x30,-32+64(x8)
-	j L.142
-L.141:
+	j L.281
+L.280:
 	lw x30,0(x25)
 	li x29,1
-	bne x30,x29,L.143
+	bne x30,x29,L.282
 	lw x30,-44+64(x8)
 	addi x30,x30,1
 	sw x30,-28+64(x8)
-L.143:
-L.142:
+L.282:
+L.281:
 	lw x18,-32+64(x8)
-	j L.148
-L.145:
+	j L.287
+L.284:
 	li x30,8
 	add x30,x27,x30
 	lbu x30,0(x30)
@@ -1295,8 +1703,8 @@ L.145:
 	sb x29,0(x30)
 	li x30,1
 	sw x30,-48+64(x8)
-	j L.152
-L.149:
+	j L.291
+L.288:
 	lw x30,-48+64(x8)
 	lw x29,-52+64(x8)
 	add x29,x29,x30
@@ -1307,23 +1715,23 @@ L.149:
 	add x30,x30,x28
 	lbu x30,0(x30)
 	sb x30,0(x29)
-L.150:
+L.289:
 	lw x30,-48+64(x8)
 	addi x30,x30,1
 	sw x30,-48+64(x8)
-L.152:
+L.291:
 	lw x30,-48+64(x8)
 	li x29,8
 	add x29,x27,x29
 	lbu x29,0(x29)
-	blt x30,x29,L.149
-L.146:
+	blt x30,x29,L.288
+L.285:
 	addi x18,x18,1
-L.148:
+L.287:
 	lw x30,-28+64(x8)
-	blt x18,x30,L.145
-L.115:
-L.98:
+	blt x18,x30,L.284
+L.254:
+L.237:
 	lw x1,24(x2)
 	lw x18,28(x2)
 	lw x19,32(x2)
@@ -1354,12 +1762,12 @@ ttty_putc_ansi:
 	li x29,12
 	add x30,x30,x29
 	lw x30,0(x30)
-	bne x30,x0,L.158
+	bne x30,x0,L.297
 	lw x12,0+32(x8)
 	lbu x13,4+32(x8)
 	call ttty_emit
-	j L.157
-L.158:
+	j L.296
+L.297:
 	lw x30,0+32(x8)
 	li x29,24
 	add x12,x30,x29
@@ -1369,25 +1777,25 @@ L.158:
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.160
+	beq x30,x0,L.299
 	lw x30,-32+32(x8)
-	bne x30,x0,L.162
-	j L.157
-L.162:
+	bne x30,x0,L.301
+	j L.296
+L.301:
 	lw x30,-32+32(x8)
 	li x29,1
-	bne x30,x29,L.164
+	bne x30,x29,L.303
 	lw x12,0+32(x8)
 	lbu x13,4+32(x8)
 	call ttty_emit
-	j L.165
-L.164:
+	j L.304
+L.303:
 	lw x12,0+32(x8)
 	addi x13,x8,-32+32
 	call ttty_execute_ansi
-L.165:
-L.160:
-L.157:
+L.304:
+L.299:
+L.296:
 	lw x1,24(x2)
 	lw  x8,60(x2)
 	addi  x2,x2,64
@@ -1408,17 +1816,17 @@ ttty_putc:
 	li x29,20
 	add x30,x30,x29
 	lb x30,0(x30)
-	beq x30,x0,L.167
+	beq x30,x0,L.306
 	lw x12,0+16(x8)
 	lbu x13,4+16(x8)
 	call ttty_putc_ansi
-	j L.168
-L.167:
+	j L.307
+L.306:
 	lw x12,0+16(x8)
 	lbu x13,4+16(x8)
 	call ttty_emit
-L.168:
-L.166:
+L.307:
+L.305:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -1437,8 +1845,8 @@ ttty_mux_putc:
 	mv x27,x12
 	mv x26,x13
 	mv x25,x0 ; LOADI4
-	j L.173
-L.170:
+	j L.312
+L.309:
 	li x30,32
 	add x30,x27,x30
 	lw x30,0(x30)
@@ -1448,7 +1856,7 @@ L.170:
 	li x28,4
 	add x29,x29,x28
 	lw x29,0(x29)
-	blt x30,x29,L.174
+	blt x30,x29,L.313
 	li x30,3
 	shll x30,x25,x30
 	add x30,x30,x27
@@ -1456,15 +1864,15 @@ L.170:
 	shlli x13,x26,8*(4-1)
 	shrli x13,x13,8*(4-1)
 	call ttty_putc
-L.174:
-L.171:
+L.313:
+L.310:
 	addi x25,x25,1
-L.173:
+L.312:
 	li x30,36
 	add x30,x27,x30
 	lbu x30,0(x30)
-	blt x25,x30,L.170
-L.169:
+	blt x25,x30,L.309
+L.308:
 	lw x1,24(x2)
 	lw x25,28(x2)
 	lw x26,32(x2)
@@ -1484,18 +1892,18 @@ ttty_puts:
 	sw x27,32(x2)
 	mv x27,x12
 	mv x26,x13
-	j L.178
-L.177:
+	j L.317
+L.316:
 	mv x12,x27 ; LOADP4
 	mv x30,x26 ; LOADP4
 	li x29,1
 	add x26,x30,x29
 	lbu x13,0(x30)
 	call ttty_putc
-L.178:
+L.317:
 	lbu x30,0(x26)
-	bne x30,x0,L.177
-L.176:
+	bne x30,x0,L.316
+L.315:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -1516,8 +1924,8 @@ ttty_mux_puts:
 	mv x27,x12
 	mv x26,x13
 	mv x25,x0 ; LOADI4
-	j L.184
-L.181:
+	j L.323
+L.320:
 	li x30,32
 	add x30,x27,x30
 	lw x30,0(x30)
@@ -1527,22 +1935,22 @@ L.181:
 	li x28,4
 	add x29,x29,x28
 	lw x29,0(x29)
-	blt x30,x29,L.185
+	blt x30,x29,L.324
 	li x30,3
 	shll x30,x25,x30
 	add x30,x30,x27
 	lw x12,0(x30)
 	mv x13,x26 ; LOADP4
 	call ttty_puts
-L.185:
-L.182:
+L.324:
+L.321:
 	addi x25,x25,1
-L.184:
+L.323:
 	li x30,36
 	add x30,x27,x30
 	lbu x30,0(x30)
-	blt x25,x30,L.181
-L.180:
+	blt x25,x30,L.320
+L.319:
 	lw x1,24(x2)
 	lw x25,28(x2)
 	lw x26,32(x2)
@@ -1561,14 +1969,14 @@ ttty_clear:
 	sw x26,4(x2)
 	sw x27,8(x2)
 	mv x30,x12 ; LOADU4
-	beq x30,x0,L.190
+	beq x30,x0,L.329
 	li x30,12
 	add x30,x12,x30
 	lw x30,0(x30)
-	bne x30,x0,L.188
-L.190:
-	j L.187
-L.188:
+	bne x30,x0,L.327
+L.329:
+	j L.326
+L.327:
 	li x30,6
 	add x30,x12,x30
 	sb x0,0(x30)
@@ -1579,23 +1987,23 @@ L.188:
 	add x30,x12,x30
 	lw x30,0(x30)
 	li x29,1
-	bne x30,x29,L.191
+	bne x30,x29,L.330
 	li x30,16
 	add x30,x12,x30
 	lw x30,0(x30)
-	beq x30,x0,L.191
+	beq x30,x0,L.330
 	li x30,16
 	add x30,x12,x30
 	lw x25,0(x30)
 	mv x26,x0 ; LOADI4
-	j L.196
-L.193:
+	j L.335
+L.332:
 	add x30,x26,x25
 	li x29,32
 	sb x29,0(x30)
 	li x27,1
-	j L.200
-L.197:
+	j L.339
+L.336:
 	add x30,x26,x27
 	add x30,x30,x25
 	addi x29,x27,-1
@@ -1604,19 +2012,19 @@ L.197:
 	add x29,x29,x28
 	lbu x29,0(x29)
 	sb x29,0(x30)
-L.198:
+L.337:
 	addi x27,x27,1
-L.200:
+L.339:
 	li x30,8
 	add x30,x12,x30
 	lbu x30,0(x30)
-	blt x27,x30,L.197
-L.194:
+	blt x27,x30,L.336
+L.333:
 	li x30,8
 	add x30,x12,x30
 	lbu x30,0(x30)
 	add x26,x26,x30
-L.196:
+L.335:
 	li x30,4
 	add x30,x12,x30
 	lbu x30,0(x30)
@@ -1628,9 +2036,9 @@ L.196:
 	add x29,x12,x29
 	lbu x29,0(x29)
 	imul x0,x30,x30,x29
-	blt x26,x30,L.193
-L.191:
-L.187:
+	blt x26,x30,L.332
+L.330:
+L.326:
 	lw x25,0(x2)
 	lw x26,4(x2)
 	lw x27,8(x2)
@@ -1649,8 +2057,8 @@ ttty_mux_clear:
 	sw x27,32(x2)
 	mv x27,x12
 	mv x26,x0 ; LOADI4
-	j L.205
-L.202:
+	j L.344
+L.341:
 	li x30,32
 	add x30,x27,x30
 	lw x30,0(x30)
@@ -1660,21 +2068,21 @@ L.202:
 	li x28,4
 	add x29,x29,x28
 	lw x29,0(x29)
-	blt x30,x29,L.206
+	blt x30,x29,L.345
 	li x30,3
 	shll x30,x26,x30
 	add x30,x30,x27
 	lw x12,0(x30)
 	call ttty_clear
-L.206:
-L.203:
+L.345:
+L.342:
 	addi x26,x26,1
-L.205:
+L.344:
 	li x30,36
 	add x30,x27,x30
 	lbu x30,0(x30)
-	blt x26,x30,L.202
-L.201:
+	blt x26,x30,L.341
+L.340:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -1689,15 +2097,15 @@ ansi_type:
 	addi  x8,x2,16
 	shlli x30,x13,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.209
+	beq x30,x0,L.348
 	shlli x30,x12,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	ori x10,x30,256
-	j L.208
-L.209:
+	j L.347
+L.348:
 	shlli x10,x12,8*(4-1)
 	shrli x10,x10,8*(4-1)
-L.208:
+L.347:
 	lw  x8,28(x2)
 	addi  x2,x2,32
 	jalr x0,0(x1)
@@ -1721,21 +2129,21 @@ ttty_ansi_parse:
 	lw x30,8+16(x8)
 	sw x0,0(x30)
 	lw x25,0(x27)
-	beq x25,x0,L.215
+	beq x25,x0,L.354
 	li x30,1
-	beq x25,x30,L.218
+	beq x25,x30,L.357
 	li x30,2
-	beq x25,x30,L.225
-	j L.212
-L.215:
+	beq x25,x30,L.364
+	j L.351
+L.354:
 	lbu x30,4+16(x8)
 	li x29,27
-	bne x30,x29,L.216
+	bne x30,x29,L.355
 	li x30,1
 	sw x30,0(x27)
 	mv x10,x0 ; LOADI4
-	j L.211
-L.216:
+	j L.350
+L.355:
 	lw x30,8+16(x8)
 	li x29,1
 	sw x29,0(x30)
@@ -1745,11 +2153,11 @@ L.216:
 	lbu x29,4+16(x8)
 	sb x29,0(x30)
 	li x10,1
-	j L.211
-L.218:
+	j L.350
+L.357:
 	lbu x30,4+16(x8)
 	li x29,91
-	bne x30,x29,L.219
+	bne x30,x29,L.358
 	li x30,2
 	sw x30,0(x27)
 	li x30,20
@@ -1762,8 +2170,8 @@ L.218:
 	add x30,x27,x30
 	sb x0,0(x30)
 	sw x0,-8+16(x8)
-	j L.224
-L.221:
+	j L.363
+L.360:
 	lw x30,-8+16(x8)
 	li x29,2
 	shll x30,x30,x29
@@ -1772,37 +2180,37 @@ L.221:
 	add x29,x29,x28
 	add x30,x30,x29
 	sw x0,0(x30)
-L.222:
+L.361:
 	lw x30,-8+16(x8)
 	li x29,1
 	add x30,x30,x29
 	sw x30,-8+16(x8)
-L.224:
+L.363:
 	lw x30,-8+16(x8)
 	li x29,4
-	bltu x30,x29,L.221
+	bltu x30,x29,L.360
 	mv x10,x0 ; LOADI4
-	j L.211
-L.219:
+	j L.350
+L.358:
 	sw x0,0(x27)
 	mv x10,x0 ; LOADI4
-	j L.211
-L.225:
+	j L.350
+L.364:
 	lbu x30,4+16(x8)
 	li x29,63
-	bne x30,x29,L.226
+	bne x30,x29,L.365
 	li x30,28
 	add x30,x27,x30
 	li x29,1
 	sb x29,0(x30)
 	mv x10,x0 ; LOADI4
-	j L.211
-L.226:
+	j L.350
+L.365:
 	lbu x30,4+16(x8)
 	li x29,48
-	blt x30,x29,L.228
+	blt x30,x29,L.367
 	li x29,57
-	bgt x30,x29,L.228
+	bgt x30,x29,L.367
 	li x30,24
 	add x30,x27,x30
 	li x29,10
@@ -1813,11 +2221,11 @@ L.226:
 	add x29,x29,x28
 	sw x29,0(x30)
 	mv x10,x0 ; LOADI4
-	j L.211
-L.228:
+	j L.350
+L.367:
 	lbu x30,4+16(x8)
 	li x29,59
-	bne x30,x29,L.230
+	bne x30,x29,L.369
 	li x30,20
 	add x30,x27,x30
 	lw x29,0(x30)
@@ -1836,8 +2244,8 @@ L.228:
 	add x30,x27,x30
 	sw x0,0(x30)
 	mv x10,x0 ; LOADI4
-	j L.211
-L.230:
+	j L.350
+L.369:
 	li x30,20
 	add x30,x27,x30
 	lw x29,0(x30)
@@ -1859,8 +2267,8 @@ L.230:
 	lw x30,0(x30)
 	sw x30,0(x29)
 	mv x26,x0 ; LOADI4
-	j L.235
-L.232:
+	j L.374
+L.371:
 	li x30,2
 	shll x30,x26,x30
 	li x29,4
@@ -1871,13 +2279,13 @@ L.232:
 	add x30,x30,x29
 	lw x30,0(x30)
 	sw x30,0(x28)
-L.233:
+L.372:
 	addi x26,x26,1
-L.235:
+L.374:
 	li x30,20
 	add x30,x27,x30
 	lw x30,0(x30)
-	blt x26,x30,L.232
+	blt x26,x30,L.371
 	lbu x12,4+16(x8)
 	li x30,28
 	add x30,x27,x30
@@ -1887,10 +2295,10 @@ L.235:
 	sw x10,0(x29)
 	sw x0,0(x27)
 	li x10,1
-	j L.211
-L.212:
+	j L.350
+L.351:
 	mv x10,x0 ; LOADI4
-L.211:
+L.350:
 	lw x1,24(x2)
 	lw x25,28(x2)
 	lw x26,32(x2)
@@ -1902,10 +2310,10 @@ L.211:
 	.align 4
 	.data
 	.align	4
-L.237:
-	.word	L.238
+L.376:
+	.word	L.377
 	.align	1
-L.265:
+L.404:
 	.byte	0x30
 	.byte	0x31
 	.byte	0x32
@@ -1946,12 +2354,12 @@ ttty_vformat:
 	mv x25,x14
 	mv x24,x15
 	mv x23,x0 ; LOADU1
-	j L.240
-L.239:
+	j L.379
+L.378:
 	shlli x30,x22,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,37
-	bne x30,x29,L.242
+	bne x30,x29,L.381
 	mv x21,x0 ; LOADU1
 	mv x20,x0 ; LOADI1
 	mv x30,x25 ; LOADP4
@@ -1960,30 +2368,30 @@ L.239:
 	lbu x23,0(x30)
 	shlli x30,x23,8*(4-1)
 	shrli x30,x30,8*(4-1)
-	bne x30,x0,L.244
-	j L.236
-L.244:
+	bne x30,x0,L.383
+	j L.375
+L.383:
 	shlli x30,x23,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,48
-	bne x30,x29,L.246
+	bne x30,x29,L.385
 	li x20,1
 	mv x30,x25 ; LOADP4
 	li x29,1
 	add x25,x30,x29
 	lbu x23,0(x30)
-L.246:
+L.385:
 	shlli x30,x23,8*(4-1)
 	shrli x30,x30,8*(4-1)
-	bne x30,x0,L.248
-	j L.236
-L.248:
+	bne x30,x0,L.387
+	j L.375
+L.387:
 	shlli x30,x23,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,48
-	blt x30,x29,L.250
+	blt x30,x29,L.389
 	li x29,57
-	bgt x30,x29,L.250
+	bgt x30,x29,L.389
 	li x30,10
 	shlli x29,x21,8*(4-1)
 	shrli x29,x29,8*(4-1)
@@ -1997,43 +2405,43 @@ L.248:
 	li x29,1
 	add x25,x30,x29
 	lbu x23,0(x30)
-L.250:
+L.389:
 	shlli x30,x23,8*(4-1)
 	shrli x30,x30,8*(4-1)
-	bne x30,x0,L.252
-	j L.236
-L.252:
+	bne x30,x0,L.391
+	j L.375
+L.391:
 	shlli x19,x23,8*(4-1)
 	shrli x19,x19,8*(4-1)
 	li x30,99
-	beq x19,x30,L.263
+	beq x19,x30,L.402
 	li x30,100
-	beq x19,x30,L.278
-	bgt x19,x30,L.305
-L.304:
+	beq x19,x30,L.420
+	bgt x19,x30,L.450
+L.449:
 	li x30,37
-	beq x19,x30,L.303
-	j L.243
-L.305:
+	beq x19,x30,L.448
+	j L.382
+L.450:
 	li x30,115
-	beq x19,x30,L.257
-	blt x19,x30,L.243
-L.306:
+	beq x19,x30,L.396
+	blt x19,x30,L.382
+L.451:
 	li x30,120
-	beq x19,x30,L.264
-	j L.243
-L.257:
+	beq x19,x30,L.403
+	j L.382
+L.396:
 	li x30,4
 	add x24,x24,x30
 	li x30,-4
 	add x30,x24,x30
 	lw x18,0(x30)
 	mv x30,x18 ; LOADU4
-	bne x30,x0,L.261
-	la x30,L.237
+	bne x30,x0,L.400
+	la x30,L.376
 	lw x18,0(x30)
-	j L.261
-L.260:
+	j L.400
+L.399:
 	mv x12,x26 ; LOADP4
 	mv x30,x18 ; LOADP4
 	li x29,1
@@ -2041,11 +2449,11 @@ L.260:
 	lbu x13,0(x30)
 	mv x31,x27 ; LOADP4
 	jalr x1, 0(x31)
-L.261:
+L.400:
 	lbu x30,0(x18)
-	bne x30,x0,L.260
-	j L.243
-L.263:
+	bne x30,x0,L.399
+	j L.382
+L.402:
 	li x30,4
 	add x24,x24,x30
 	li x30,-4
@@ -2056,10 +2464,10 @@ L.263:
 	lbu x13,-5+48(x8)
 	mv x31,x27 ; LOADP4
 	jalr x1, 0(x31)
-	j L.243
-L.264:
+	j L.382
+L.403:
 	addi x30,x8,-42+48
-	la x5,L.265
+	la x5,L.404
 	li	x7,0
 	add	x30,x30,x7
 	li	x7,0
@@ -2073,8 +2481,16 @@ L.264:
 	add x30,x24,x30
 	lw x30,0(x30)
 	sw x30,-8+48(x8)
-	j L.267
-L.266:
+	lw x30,-8+48(x8)
+	bne x30,x0,L.409
+	mv x30,x18 ; LOADI4
+	addi x18,x30,1
+	addi x29,x8,-25+48
+	add x30,x30,x29
+	li x29,48
+	sb x29,0(x30)
+	j L.407
+L.408:
 	mv x30,x18 ; LOADI4
 	addi x18,x30,1
 	addi x29,x8,-25+48
@@ -2090,24 +2506,25 @@ L.266:
 	li x29,4
 	shrl x30,x30,x29
 	sw x30,-8+48(x8)
-L.267:
+L.409:
 	lw x30,-8+48(x8)
-	bne x30,x0,L.266
+	bne x30,x0,L.408
+L.407:
 	mv x30,x18 ; LOADU4
 	sb x30,-9+48(x8)
-	j L.270
-L.269:
+	j L.412
+L.411:
 	mv x12,x26 ; LOADP4
 	shlli x30,x20,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.273
+	beq x30,x0,L.415
 	li x30,48
 	sw x30,-48+48(x8)
-	j L.274
-L.273:
+	j L.416
+L.415:
 	li x30,32
 	sw x30,-48+48(x8)
-L.274:
+L.416:
 	lw x30,-48+48(x8)
 	shlli x13,x30,8*(4-1)
 	shrli x13,x13,8*(4-1)
@@ -2116,13 +2533,13 @@ L.274:
 	lbu x30,-9+48(x8)
 	addi x30,x30,1
 	sb x30,-9+48(x8)
-L.270:
+L.412:
 	lbu x30,-9+48(x8)
 	shlli x29,x21,8*(4-1)
 	shrli x29,x29,8*(4-1)
-	blt x30,x29,L.269
-	j L.276
-L.275:
+	blt x30,x29,L.411
+	j L.418
+L.417:
 	mv x12,x26 ; LOADP4
 	addi x30,x18,-1
 	mv x18,x30 ; LOADI4
@@ -2131,10 +2548,10 @@ L.275:
 	lbu x13,0(x30)
 	mv x31,x27 ; LOADP4
 	jalr x1, 0(x31)
-L.276:
-	bgt x18,x0,L.275
-	j L.243
-L.278:
+L.418:
+	bgt x18,x0,L.417
+	j L.382
+L.420:
 	mv x18,x0 ; LOADI4
 	li x30,4
 	add x24,x24,x30
@@ -2144,26 +2561,35 @@ L.278:
 	sw x30,-36+48(x8)
 	sw x0,-12+48(x8)
 	lw x30,-36+48(x8)
-	bge x30,x0,L.280
+	bge x30,x0,L.422
 	li x30,1
 	sw x30,-40+48(x8)
-	j L.281
-L.280:
+	j L.423
+L.422:
 	sw x0,-40+48(x8)
-L.281:
+L.423:
 	lw x30,-40+48(x8)
 	sb x30,-29+48(x8)
 	lb x30,-29+48(x8)
-	beq x30,x0,L.282
+	beq x30,x0,L.424
 	lw x30,-36+48(x8)
 	sub x30,x0,x30
 	sw x30,-8+48(x8)
-	j L.285
-L.282:
+	j L.425
+L.424:
 	lw x30,-36+48(x8)
 	sw x30,-8+48(x8)
-	j L.285
-L.284:
+L.425:
+	lw x30,-8+48(x8)
+	bne x30,x0,L.430
+	mv x30,x18 ; LOADI4
+	addi x18,x30,1
+	addi x29,x8,-28+48
+	add x30,x30,x29
+	li x29,48
+	sb x29,0(x30)
+	j L.428
+L.429:
 	mv x30,x18 ; LOADI4
 	addi x18,x30,1
 	addi x29,x8,-28+48
@@ -2178,43 +2604,44 @@ L.284:
 	li x29,10
 	udiv x30,x0,x30,x29
 	sw x30,-8+48(x8)
-L.285:
+L.430:
 	lw x30,-8+48(x8)
-	bne x30,x0,L.284
+	bne x30,x0,L.429
 	shlli x29,x20,8*(4-1)
 	shrai x29,x29,8*(4-1)
-	beq x29,x0,L.287
+	beq x29,x0,L.432
 	lb x29,-29+48(x8)
-	beq x29,x0,L.287
+	beq x29,x0,L.432
 	mv x12,x26 ; LOADP4
 	li x13,45
 	mv x31,x27 ; LOADP4
 	jalr x1, 0(x31)
-L.287:
+L.432:
+L.428:
 	lb x30,-29+48(x8)
-	beq x30,x0,L.290
+	beq x30,x0,L.435
 	li x30,1
 	sw x30,-44+48(x8)
-	j L.291
-L.290:
+	j L.436
+L.435:
 	sw x0,-44+48(x8)
-L.291:
+L.436:
 	lw x30,-44+48(x8)
 	add x30,x18,x30
 	sw x30,-12+48(x8)
-	j L.293
-L.292:
+	j L.438
+L.437:
 	mv x12,x26 ; LOADP4
 	shlli x30,x20,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.296
+	beq x30,x0,L.441
 	li x30,48
 	sw x30,-48+48(x8)
-	j L.297
-L.296:
+	j L.442
+L.441:
 	li x30,32
 	sw x30,-48+48(x8)
-L.297:
+L.442:
 	lw x30,-48+48(x8)
 	shlli x13,x30,8*(4-1)
 	shrli x13,x13,8*(4-1)
@@ -2223,22 +2650,22 @@ L.297:
 	lw x30,-12+48(x8)
 	addi x30,x30,1
 	sw x30,-12+48(x8)
-L.293:
+L.438:
 	lw x30,-12+48(x8)
 	shlli x29,x21,8*(4-1)
 	shrli x29,x29,8*(4-1)
-	blt x30,x29,L.292
+	blt x30,x29,L.437
 	shlli x29,x20,8*(4-1)
 	shrai x29,x29,8*(4-1)
-	bne x29,x0,L.301
+	bne x29,x0,L.446
 	lb x29,-29+48(x8)
-	beq x29,x0,L.301
+	beq x29,x0,L.446
 	mv x12,x26 ; LOADP4
 	li x13,45
 	mv x31,x27 ; LOADP4
 	jalr x1, 0(x31)
-	j L.301
-L.300:
+	j L.446
+L.445:
 	mv x12,x26 ; LOADP4
 	addi x30,x18,-1
 	mv x18,x30 ; LOADI4
@@ -2247,23 +2674,23 @@ L.300:
 	lbu x13,0(x30)
 	mv x31,x27 ; LOADP4
 	jalr x1, 0(x31)
-L.301:
-	bgt x18,x0,L.300
-	j L.243
-L.303:
+L.446:
+	bgt x18,x0,L.445
+	j L.382
+L.448:
 	mv x12,x26 ; LOADP4
 	li x13,37
 	mv x31,x27 ; LOADP4
 	jalr x1, 0(x31)
-	j L.243
-L.242:
+	j L.382
+L.381:
 	mv x12,x26 ; LOADP4
 	shlli x13,x22,8*(4-1)
 	shrli x13,x13,8*(4-1)
 	mv x31,x27 ; LOADP4
 	jalr x1, 0(x31)
-L.243:
-L.240:
+L.382:
+L.379:
 	mv x30,x25 ; LOADP4
 	li x29,1
 	add x25,x30,x29
@@ -2271,8 +2698,8 @@ L.240:
 	mv x22,x30 ; LOADU1
 	shlli x30,x30,8*(4-1)
 	shrli x30,x30,8*(4-1)
-	bne x30,x0,L.239
-L.236:
+	bne x30,x0,L.378
+L.375:
 	lw x1,24(x2)
 	lw x18,28(x2)
 	lw x19,32(x2)
@@ -2301,7 +2728,7 @@ ttty_putc_wrapper:
 	lw x12,0+16(x8)
 	lbu x13,4+16(x8)
 	call ttty_putc
-L.307:
+L.452:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -2320,7 +2747,7 @@ ttty_mux_putc_wrapper:
 	lw x12,0+16(x8)
 	lbu x13,4+16(x8)
 	call ttty_mux_putc
-L.308:
+L.453:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -2346,7 +2773,7 @@ ttty_printf:
 	lw x14,4+16(x8)
 	lw x15,-8+16(x8)
 	call ttty_vformat
-L.309:
+L.454:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -2372,7 +2799,7 @@ ttty_mux_printf:
 	lw x14,4+16(x8)
 	lw x15,-8+16(x8)
 	call ttty_vformat
-L.311:
+L.456:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -2382,43 +2809,43 @@ L.311:
 	.data
 	.align	4
 ANSI_UP:
-	.word	L.313
+	.word	L.458
 	.align	4
 ANSI_DOWN:
-	.word	L.314
+	.word	L.459
 	.align	4
 ANSI_LEFT:
-	.word	L.315
+	.word	L.460
 	.align	4
 ANSI_RIGHT:
-	.word	L.316
+	.word	L.461
 	.align	4
 ANSI_HOME:
-	.word	L.317
+	.word	L.462
 	.align	4
 ANSI_END:
-	.word	L.318
+	.word	L.463
 	.align	4
 ANSI_DELETE:
-	.word	L.319
+	.word	L.464
 	.align	4
 ANSI_PGUP:
-	.word	L.320
+	.word	L.465
 	.align	4
 ANSI_PGDOWN:
-	.word	L.321
+	.word	L.466
 	.align	4
 ANSI_F1:
-	.word	L.322
+	.word	L.467
 	.align	4
 ANSI_F2:
-	.word	L.323
+	.word	L.468
 	.align	4
 ANSI_F3:
-	.word	L.324
+	.word	L.469
 	.align	4
 ANSI_F4:
-	.word	L.325
+	.word	L.470
 	.globl tins_getc
 	.align 4
 	.text
@@ -2432,15 +2859,15 @@ tins_getc:
 	sw x26,32(x2)
 	sw x27,36(x2)
 	mv x27,x12
-	j L.328
-L.327:
+	j L.473
+L.472:
 	mv x25,x0 ; LOADI4
-L.330:
-L.331:
+L.475:
+L.476:
 	addi x25,x25,1
 	li x30,10000
-	blt x25,x30,L.330
-L.328:
+	blt x25,x30,L.475
+L.473:
 	lw x12,0(x27)
 	li x30,8
 	add x30,x27,x30
@@ -2448,11 +2875,11 @@ L.328:
 	jalr x1, 0(x31)
 	mv x26,x10 ; LOADI4
 	li x29,-1
-	beq x10,x29,L.327
+	beq x10,x29,L.472
 	mv x30,x26 ; LOADU4
 	shlli x10,x30,8*(4-1)
 	shrli x10,x10,8*(4-1)
-L.326:
+L.471:
 	lw x1,24(x2)
 	lw x25,28(x2)
 	lw x26,32(x2)
@@ -2479,20 +2906,28 @@ tins_read:
 	sw x10,-8+16(x8)
 	lw x30,-8+16(x8)
 	li x29,-1
-	beq x30,x29,L.335
+	beq x30,x29,L.480
 	lw x30,4+16(x8)
 	lw x29,-8+16(x8)
 	sb x29,0(x30)
 	li x10,1
-	j L.334
-L.335:
+	j L.479
+L.480:
 	mv x10,x0 ; LOADI4
-L.334:
+L.479:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
 	jalr x0,0(x1)
 
+	.align 4
+	.data
+	.globl Video_mode
+	.align	1
+Video_mode:
+	.byte	0x0
+	.align 4
+	.text
 	.align	4
 kbd_event_push:
 	addi x2,x2,-32
@@ -2511,10 +2946,10 @@ kbd_event_push:
 	li x29,193
 	add x29,x12,x29
 	lbu x29,0(x29)
-	bne x30,x29,L.338
+	bne x30,x29,L.483
 	mv x10,x0 ; LOADI4
-	j L.337
-L.338:
+	j L.482
+L.483:
 	li x30,6
 	li x29,192
 	add x29,x12,x29
@@ -2560,7 +2995,7 @@ L.338:
 	add x30,x12,x30
 	sb x27,0(x30)
 	li x10,1
-L.337:
+L.482:
 	lw x27,0(x2)
 	lw  x8,28(x2)
 	addi  x2,x2,32
@@ -2577,17 +3012,17 @@ kbd_event_peek:
 	li x29,193
 	add x29,x12,x29
 	lbu x29,0(x29)
-	bne x30,x29,L.341
+	bne x30,x29,L.486
 	mv x10,x0 ; LOADP4
-	j L.340
-L.341:
+	j L.485
+L.486:
 	li x30,6
 	li x29,193
 	add x29,x12,x29
 	lbu x29,0(x29)
 	imul x0,x30,x30,x29
 	add x10,x30,x12
-L.340:
+L.485:
 	lw  x8,28(x2)
 	addi  x2,x2,32
 	jalr x0,0(x1)
@@ -2603,10 +3038,10 @@ kbd_event_pop:
 	li x29,193
 	add x29,x12,x29
 	lbu x29,0(x29)
-	bne x30,x29,L.344
+	bne x30,x29,L.489
 	mv x10,x0 ; LOADP4
-	j L.343
-L.344:
+	j L.488
+L.489:
 	li x30,193
 	add x30,x12,x30
 	li x29,6
@@ -2620,19 +3055,12 @@ L.344:
 	idiv x0,x29,x29,x28
 	sb x29,0(x30)
 	lw x10,-8+16(x8)
-L.343:
+L.488:
 	lw  x8,28(x2)
 	addi  x2,x2,32
 	jalr x0,0(x1)
 
-	.align 4
-	.bss
-	.align	2
-L.347:
-	.space	6
 	.globl bios_kbd_handler
-	.align 4
-	.text
 	.align	4
 bios_kbd_handler:
 	addi x2,x2,-64
@@ -2640,48 +3068,35 @@ bios_kbd_handler:
 	addi  x8,x2,48
 	sw x1,24(x2)
 	sw x27,28(x2)
-	sb x0,-5+16(x8)
+	sb x0,-11+16(x8)
 	la x30,Devices+2
 	lbu x30,0(x30)
 	shlli x12,x30,8*(4-2)
 	shrli x12,x12,8*(4-2)
 	call _lwd
 	mv x27,x10 ; LOADU4
-	li x12,57005
-	mv x13,x27 ; LOADU4
+	li x30,24
+	shrl x30,x27,x30
+	sb x30,-7+16(x8)
 	li x30,16
 	shrl x30,x27,x30
 	li x29,255
-	and x14,x30,x29
+	and x30,x30,x29
+	sb x30,-8+16(x8)
 	li x30,0xffff7fff
-	and x15,x27,x30
-	call _trace
-	la x30,L.347+3
-	li x29,24
-	shrl x29,x27,x29
-	sb x29,0(x30)
-	la x30,L.347+2
-	li x29,16
-	shrl x29,x27,x29
-	li x28,255
-	and x29,x29,x28
-	sb x29,0(x30)
-	la x30,L.347
-	li x29,0xffff7fff
-	and x29,x27,x29
-	sh x29,0(x30)
-	la x30,L.347+4
-	li x29,0x8000
-	and x29,x27,x29
-	li x28,15
-	shrl x29,x29,x28
-	sb x29,0(x30)
+	and x30,x27,x30
+	sh x30,-10+16(x8)
+	li x30,0x8000
+	and x30,x27,x30
+	li x29,15
+	shrl x30,x30,x29
+	sb x30,-6+16(x8)
 	la x12,KeyboardEvents
-	la x13,L.347
+	addi x13,x8,-10+16
 	call kbd_event_push
 	mv x30,x10 ; LOADI1
-	sb x30,-5+16(x8)
-L.346:
+	sb x30,-11+16(x8)
+L.491:
 	lw x1,24(x2)
 	lw x27,28(x2)
 	lw  x8,60(x2)
@@ -2691,7 +3106,7 @@ L.346:
 	.align 4
 	.bss
 	.align	4
-L.353:
+L.497:
 	.space	8
 	.align 4
 	.text
@@ -2701,170 +3116,165 @@ kbd_event_to_ansi:
 	sw  x8,28(x2)
 	addi  x8,x2,16
 	sw x27,0(x2)
-	la x30,L.353
+	la x30,L.497
 	sw x0,0(x30)
-	la x30,L.353+4
+	la x30,L.497+4
 	sb x0,0(x30)
 	lhu x27,0(x12)
 	li x30,261
-	blt x27,x30,L.355
+	blt x27,x30,L.499
 	li x30,269
-	bgt x27,x30,L.371
+	bgt x27,x30,L.515
 	li x30,2
 	shll x30,x27,x30
-	la x29,L.372-1044
+	la x29,L.516-1044
 	add x30,x30,x29
 	lw x30,0(x30)
 	jalr x0,0(x30)
 	.align 4
 	.data
 	.align	4
-L.372:
-	.word	L.364
-	.word	L.361
-	.word	L.360
-	.word	L.359
-	.word	L.358
-	.word	L.365
-	.word	L.366
-	.word	L.362
-	.word	L.363
+L.516:
+	.word	L.508
+	.word	L.505
+	.word	L.504
+	.word	L.503
+	.word	L.502
+	.word	L.509
+	.word	L.510
+	.word	L.506
+	.word	L.507
 	.align 4
 	.text
-L.371:
+L.515:
 	li x30,290
-	blt x27,x30,L.355
+	blt x27,x30,L.499
 	li x30,293
-	bgt x27,x30,L.355
+	bgt x27,x30,L.499
 	li x30,2
 	shll x30,x27,x30
-	la x29,L.374-1160
+	la x29,L.518-1160
 	add x30,x30,x29
 	lw x30,0(x30)
 	jalr x0,0(x30)
 	.align 4
 	.data
 	.align	4
-L.374:
-	.word	L.367
-	.word	L.368
-	.word	L.369
-	.word	L.370
+L.518:
+	.word	L.511
+	.word	L.512
+	.word	L.513
+	.word	L.514
 	.align 4
 	.text
-L.358:
-	la x30,L.353
+L.502:
+	la x30,L.497
 	la x29,ANSI_UP
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.359:
-	la x30,L.353
+	j L.496
+L.503:
+	la x30,L.497
 	la x29,ANSI_DOWN
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.360:
-	la x30,L.353
+	j L.496
+L.504:
+	la x30,L.497
 	la x29,ANSI_LEFT
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.361:
-	la x30,L.353
+	j L.496
+L.505:
+	la x30,L.497
 	la x29,ANSI_RIGHT
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.362:
-	la x30,L.353
+	j L.496
+L.506:
+	la x30,L.497
 	la x29,ANSI_HOME
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.363:
-	la x30,L.353
+	j L.496
+L.507:
+	la x30,L.497
 	la x29,ANSI_END
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.364:
-	la x30,L.353
+	j L.496
+L.508:
+	la x30,L.497
 	la x29,ANSI_DELETE
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.365:
-	la x30,L.353
+	j L.496
+L.509:
+	la x30,L.497
 	la x29,ANSI_PGUP
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.366:
-	la x30,L.353
+	j L.496
+L.510:
+	la x30,L.497
 	la x29,ANSI_PGDOWN
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.367:
-	la x30,L.353
+	j L.496
+L.511:
+	la x30,L.497
 	la x29,ANSI_F1
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.368:
-	la x30,L.353
+	j L.496
+L.512:
+	la x30,L.497
 	la x29,ANSI_F2
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.369:
-	la x30,L.353
+	j L.496
+L.513:
+	la x30,L.497
 	la x29,ANSI_F3
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.370:
-	la x30,L.353
+	j L.496
+L.514:
+	la x30,L.497
 	la x29,ANSI_F4
 	lw x29,0(x29)
 	sw x29,0(x30)
 	mv x10,x30 ; LOADP4
-	j L.352
-L.355:
-	la x30,L.353+4
+	j L.496
+L.499:
+	la x30,L.497+4
 	li x29,2
 	add x29,x12,x29
 	lbu x29,0(x29)
 	sb x29,0(x30)
-	la x10,L.353
-L.352:
+	la x10,L.497
+L.496:
 	lw x27,0(x2)
 	lw  x8,28(x2)
 	addi  x2,x2,32
 	jalr x0,0(x1)
 
 	.align 4
-	.bss
-	.align	4
-L.378:
-	.space	4
-	.align 4
 	.data
 	.align	1
-L.379:
+has_pending:
 	.byte	0x0
 	.globl kbd_get_translated
 	.align 4
@@ -2877,9 +3287,9 @@ kbd_get_translated:
 	sw x1,24(x2)
 	sw x12,16(x8)
 	sw x13,20(x8)
-	la x30,L.379
+	la x30,has_pending
 	lb x30,0(x30)
-	bne x30,x0,L.380
+	bne x30,x0,L.522
 	lw x12,0+16(x8)
 	call kbd_event_peek
 	sw x10,-12+16(x8)
@@ -2887,38 +3297,38 @@ kbd_get_translated:
 	li x29,1
 	sb x29,0(x30)
 	lw x30,-12+16(x8)
-	bne x30,x0,L.382
+	bne x30,x0,L.524
 	li x10,-1
-	j L.377
-L.382:
+	j L.521
+L.524:
 	lw x12,-12+16(x8)
 	call kbd_event_to_ansi
-	la x29,L.378
+	la x29,pending
 	sw x10,0(x29)
-	la x30,L.378
+	la x30,pending
 	lw x30,0(x30)
 	lw x30,0(x30)
-	bne x30,x0,L.384
-	la x30,L.378
+	bne x30,x0,L.526
+	la x30,pending
 	lw x30,0(x30)
 	li x29,4
 	add x30,x30,x29
 	lbu x30,0(x30)
-	beq x30,x0,L.386
-	la x30,L.378
+	beq x30,x0,L.528
+	la x30,pending
 	lw x30,0(x30)
 	li x29,4
 	add x30,x30,x29
 	lbu x10,0(x30)
-	j L.377
-L.386:
+	j L.521
+L.528:
 	li x10,-1
-	j L.377
-L.384:
-	la x30,L.379
+	j L.521
+L.526:
+	la x30,has_pending
 	li x29,1
 	sb x29,0(x30)
-	la x30,L.378
+	la x30,pending
 	lw x30,0(x30)
 	lw x29,0(x30)
 	li x28,1
@@ -2927,11 +3337,11 @@ L.384:
 	lbu x30,0(x29)
 	sw x30,-8+16(x8)
 	lw x10,-8+16(x8)
-	j L.377
-L.380:
+	j L.521
+L.522:
 	lw x30,4+16(x8)
 	sb x0,0(x30)
-	la x30,L.378
+	la x30,pending
 	lw x30,0(x30)
 	lw x29,0(x30)
 	li x28,1
@@ -2939,17 +3349,32 @@ L.380:
 	sw x28,0(x30)
 	lbu x30,0(x29)
 	sw x30,-8+16(x8)
-	beq x30,x0,L.388
+	beq x30,x0,L.530
 	lw x10,-8+16(x8)
-	j L.377
-L.388:
-	la x30,L.379
+	j L.521
+L.530:
+	la x30,has_pending
 	sb x0,0(x30)
 	li x10,-1
-L.377:
+L.521:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.globl kbd_reset_translation
+	.align	4
+kbd_reset_translation:
+	addi x2,x2,-32
+	sw  x8,28(x2)
+	addi  x8,x2,16
+	la x30,has_pending
+	sb x0,0(x30)
+	la x30,pending
+	sw x0,0(x30)
+L.532:
+	lw  x8,28(x2)
+	addi  x2,x2,32
 	jalr x0,0(x1)
 
 	.align	4
@@ -2969,19 +3394,19 @@ kbd_get_byte:
 	call kbd_get_translated
 	mv x27,x10 ; LOADI4
 	lb x30,-5+16(x8)
-	beq x30,x0,L.391
+	beq x30,x0,L.534
 	lw x12,-12+16(x8)
 	call kbd_event_pop
-L.391:
+L.534:
 	li x30,13
-	bne x27,x30,L.394
+	bne x27,x30,L.537
 	li x26,10
-	j L.395
-L.394:
+	j L.538
+L.537:
 	mv x26,x27 ; LOADI4
-L.395:
+L.538:
 	mv x10,x26 ; LOADI4
-L.390:
+L.533:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -3001,7 +3426,7 @@ kbd_init_tins:
 	add x30,x12,x30
 	la x29,kbd_get_byte
 	sw x29,0(x30)
-L.396:
+L.539:
 	lw  x8,28(x2)
 	addi  x2,x2,32
 	jalr x0,0(x1)
@@ -3025,7 +3450,7 @@ serial_is_connected:
 	andi x30,x30,2
 	shlli x10,x30,8*(4-1)
 	shrai x10,x10,8*(4-1)
-L.397:
+L.540:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3050,7 +3475,7 @@ serial_available:
 	andi x30,x30,1
 	shlli x10,x30,8*(4-1)
 	shrai x10,x10,8*(4-1)
-L.398:
+L.541:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3082,14 +3507,14 @@ serial_outc:
 	sb x30,-6+16(x8)
 	lbu x30,-6+16(x8)
 	andi x30,x30,2
-	beq x30,x0,L.400
+	beq x30,x0,L.543
 	lbu x30,-5+16(x8)
 	shlli x12,x30,8*(4-2)
 	shrli x12,x12,8*(4-2)
 	lbu x13,4+16(x8)
 	call _sbd
-L.400:
-L.399:
+L.543:
+L.542:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3138,7 +3563,7 @@ video_text_screen_size:
 	lw x29,4+16(x8)
 	mv x30,x10 ; LOADU4
 	sb x30,0(x29)
-L.402:
+L.545:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3171,7 +3596,7 @@ video_set_cursor:
 	shrli x12,x12,8*(4-2)
 	lbu x13,4+16(x8)
 	call _sbd
-L.407:
+L.550:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3194,7 +3619,7 @@ video_set_csr:
 	shrli x12,x12,8*(4-2)
 	lbu x13,0+16(x8)
 	call _sbd
-L.410:
+L.553:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3227,7 +3652,7 @@ video_get_cursor:
 	lw x29,4+16(x8)
 	mv x30,x10 ; LOADU4
 	sb x30,0(x29)
-L.412:
+L.555:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3249,7 +3674,7 @@ video_get_csr:
 	mv x30,x10 ; LOADU4
 	shlli x10,x30,8*(4-1)
 	shrli x10,x10,8*(4-1)
-L.415:
+L.558:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3306,10 +3731,10 @@ video_outc:
 	add x30,x12,x30
 	lbu x30,0(x30)
 	li x29,1
-	ble x30,x29,L.418
+	ble x30,x29,L.561
 	li x25,1
-	j L.423
-L.420:
+	j L.566
+L.563:
 	shlli x30,x26,8*(4-2)
 	shrli x30,x30,8*(4-2)
 	add x30,x30,x25
@@ -3321,16 +3746,16 @@ L.420:
 	add x29,x29,x28
 	lbu x29,0(x29)
 	sb x29,0(x30)
-L.421:
+L.564:
 	li x30,1
 	add x25,x25,x30
-L.423:
+L.566:
 	li x30,8
 	add x30,x12,x30
 	lbu x30,0(x30)
-	bltu x25,x30,L.420
-L.418:
-L.417:
+	bltu x25,x30,L.563
+L.561:
+L.560:
 	lw x25,0(x2)
 	lw x26,4(x2)
 	lw x27,8(x2)
@@ -3355,7 +3780,7 @@ video_setpos:
 	lbu x12,4+16(x8)
 	lbu x13,8+16(x8)
 	call video_set_cursor
-L.424:
+L.567:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3373,8 +3798,8 @@ find_devices:
 	sw x26,40(x2)
 	sw x27,44(x2)
 	mv x27,x0 ; LOADU1
-	j L.429
-L.426:
+	j L.572
+L.569:
 	shlli x30,x27,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	addi x30,x30,256
@@ -3386,65 +3811,65 @@ L.426:
 	shlli x23,x26,8*(4-1)
 	shrli x23,x23,8*(4-1)
 	li x30,75
-	beq x23,x30,L.433
+	beq x23,x30,L.576
 	li x30,77
-	beq x23,x30,L.437
-	bgt x23,x30,L.439
-L.438:
+	beq x23,x30,L.580
+	bgt x23,x30,L.582
+L.581:
 	li x30,65
-	beq x23,x30,L.436
+	beq x23,x30,L.579
 	li x30,68
-	beq x23,x30,L.435
-	j L.431
-L.439:
+	beq x23,x30,L.578
+	j L.574
+L.582:
 	li x30,86
-	beq x23,x30,L.434
-	j L.431
-L.433:
+	beq x23,x30,L.577
+	j L.574
+L.576:
 	shlli x30,x27,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,4
 	shll x30,x30,x29
 	mv x25,x30 ; LOADU1
-	j L.431
-L.434:
+	j L.574
+L.577:
 	shlli x30,x27,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,4
 	shll x30,x30,x29
 	sb x30,-6+16(x8)
-	j L.431
-L.435:
+	j L.574
+L.578:
 	shlli x30,x27,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,4
 	shll x30,x30,x29
 	mv x24,x30 ; LOADU1
-	j L.431
-L.436:
+	j L.574
+L.579:
 	shlli x30,x27,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,4
 	shll x30,x30,x29
 	sb x30,-5+16(x8)
-	j L.431
-L.437:
+	j L.574
+L.580:
 	shlli x30,x27,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,4
 	shll x30,x30,x29
 	sb x30,-7+16(x8)
-L.431:
-L.427:
+L.574:
+L.570:
 	shlli x30,x27,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	addi x30,x30,1
 	mv x27,x30 ; LOADU1
-L.429:
+L.572:
 	shlli x30,x27,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,16
-	blt x30,x29,L.426
+	blt x30,x29,L.569
 	la x30,Devices
 	sb x25,0(x30)
 	la x30,Devices+1
@@ -3473,7 +3898,7 @@ L.429:
 	la x30,Devices+7
 	lbu x29,-7+16(x8)
 	sb x29,0(x30)
-L.425:
+L.568:
 	lw x1,24(x2)
 	lw x23,28(x2)
 	lw x24,32(x2)
@@ -3496,24 +3921,23 @@ bios_init:
 	sb x0,0(x30)
 	la x30,KeyboardEvents+193
 	sb x0,0(x30)
-	li x12,240
+	li x12,275
 	call _lbud
 	la x29,Memsize
 	mv x30,x10 ; LOADU4
 	shlli x30,x30,8*(4-1)
 	shrli x30,x30,8*(4-1)
-	li x28,20
+	li x28,16
 	shll x30,x30,x28
+	li x28,0x10000
+	add x30,x30,x28
 	sw x30,0(x29)
 	la x30,Stack_top
-	la x29,Memsize
-	lw x29,0(x29)
-	li x28,0x8000
-	sub x29,x29,x28
+	li x29,0x10000
 	sw x29,0(x30)
-	la x29,Stack_base
+	la x29,Stack_end
 	lw x30,0(x30)
-	li x28,0x10000
+	li x28,16384
 	sub x30,x30,x28
 	sw x30,0(x29)
 	call find_devices
@@ -3550,15 +3974,15 @@ bios_init:
 	li x13,1
 	call _sbd
 	mv x27,x0 ; LOADU4
-	j L.458
-L.455:
+	j L.601
+L.598:
 	add x26,x26,x27
-L.456:
+L.599:
 	li x30,1
 	add x27,x27,x30
-L.458:
+L.601:
 	li x30,0x186a0
-	bltu x27,x30,L.455
+	bltu x27,x30,L.598
 	addi x12,x8,-6+16
 	addi x13,x8,-5+16
 	addi x14,x8,-7+16
@@ -3572,7 +3996,7 @@ L.458:
 	imul x0,x6,x6,x7
 	sw x6,0(x30)
 	la x6,Charbuff
-	la x5,Stack_base
+	la x5,Memsize
 	lw x5,0(x5)
 	li x7,1024
 	sub x7,x5,x7
@@ -3647,17 +4071,32 @@ L.458:
 	li x13,1
 	call _sbd
 	mv x27,x0 ; LOADU4
-	j L.471
-L.468:
+	j L.614
+L.611:
 	add x26,x26,x27
-L.469:
+L.612:
 	li x30,1
 	add x27,x27,x30
-L.471:
+L.614:
 	li x30,0xf429a
-	bltu x27,x30,L.468
+	bltu x27,x30,L.611
+	la x30,Devices+3
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,3
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,3
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	la x29,Video_mode
+	mv x30,x10 ; LOADU4
+	sb x30,0(x29)
 	la x12,Video_tty
-	la x13,L.472
+	la x13,L.617
 	li x14,129
 	lbu x15,-6+16(x8)
 	lbu x16,-5+16(x8)
@@ -3673,7 +4112,7 @@ L.471:
 	sw x30,36(x2)
 	call ttty_init
 	la x12,Serial_tty
-	la x13,L.473
+	la x13,L.618
 	mv x14,x0 ; LOADI4
 	li x30,255
 	mv x15,x30 ; LOADI4
@@ -3707,7 +4146,7 @@ L.471:
 	call kbd_init_tins
 	la x30,CurrentTps
 	sw x0,0(x30)
-L.447:
+L.590:
 	lw x1,40(x2)
 	lw x26,44(x2)
 	lw x27,48(x2)
@@ -3728,7 +4167,7 @@ ushell_putchar:
 	la x12,Con
 	lbu x13,0+16(x8)
 	call ttty_mux_putc
-L.475:
+L.620:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -3737,33 +4176,152 @@ L.475:
 	.globl sysinfo
 	.align	4
 sysinfo:
-	addi x2,x2,-64
-	sw  x8,60(x2)
-	addi  x8,x2,48
-	sw x1,24(x2)
-	sw x25,28(x2)
-	sw x26,32(x2)
-	sw x27,36(x2)
-	sw x12,16(x8)
-	sw x13,20(x8)
-	lw x30,0+16(x8)
+	addi x2,x2,-96
+	sw  x8,92(x2)
+	addi  x8,x2,64
+	sw x1,32(x2)
+	sw x22,36(x2)
+	sw x23,40(x2)
+	sw x24,44(x2)
+	sw x25,48(x2)
+	sw x26,52(x2)
+	sw x27,56(x2)
+	sw x12,32(x8)
+	sw x13,36(x8)
+	lw x30,0+32(x8)
 	li x29,1
-	beq x30,x29,L.477
+	beq x30,x29,L.622
 	la x12,Con
-	la x13,L.479
+	la x13,L.624
 	call ttty_mux_puts
-	j L.476
-L.477:
+	j L.621
+L.622:
+	li x12,280
+	mv x13,x0 ; LOADI4
+	call _sbd
+	li x12,285
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x27,x30 ; LOADU1
+	li x12,284
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-5+32(x8)
+	li x12,283
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-6+32(x8)
+	li x12,282
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-9+32(x8)
+	li x12,281
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-8+32(x8)
+	li x12,280
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-7+32(x8)
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	li x29,59
+	bne x30,x29,L.625
+	li x12,285
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x27,x30 ; LOADU1
+	li x12,284
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-5+32(x8)
+	li x12,283
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-6+32(x8)
+	li x12,282
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-9+32(x8)
+	li x12,281
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-8+32(x8)
+	li x12,280
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-7+32(x8)
+L.625:
 	la x12,Con
-	la x13,L.480
+	la x13,L.627
 	call ttty_mux_puts
 	la x12,Con
-	la x13,L.481
+	la x13,L.628
 	call ttty_mux_puts
 	la x12,Con
-	la x13,L.482
+	la x13,L.629
+	lbu x14,-6+32(x8)
+	lbu x15,-5+32(x8)
+	shlli x16,x27,8*(4-1)
+	shrli x16,x16,8*(4-1)
+	lbu x17,-9+32(x8)
+	lbu x30,-8+32(x8)
+	addi x30,x30,1
+	sw x30,24(x2)
+	lbu x30,-7+32(x8)
+	addi x30,x30,1900
+	sw x30,28(x2)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.630
 	call ttty_mux_puts
-	li x12,241
+	la x12,Con
+	la x13,L.631
+	la x30,Video_tty+4
+	lbu x14,0(x30)
+	la x30,Video_tty+5
+	lbu x15,0(x30)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.634
+	la x30,Video_tty+20
+	lb x30,0(x30)
+	beq x30,x0,L.639
+	la x26,L.636
+	j L.640
+L.639:
+	la x26,L.637
+L.640:
+	mv x14,x26 ; LOADP4
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.641
+	la x30,Video_mode
+	lbu x30,0(x30)
+	bne x30,x0,L.645
+	la x25,L.642
+	j L.646
+L.645:
+	la x25,L.643
+L.646:
+	mv x14,x25 ; LOADP4
+	la x30,Video_mode
+	lbu x15,0(x30)
+	call ttty_mux_printf
+	la x30,Video_mode
+	lbu x30,0(x30)
+	beq x30,x0,L.647
+	mv x12,x0 ; LOADI4
+	mv x13,x0 ; LOADP4
+	call palette
+L.647:
+	la x12,Video_tty
+	li x13,10
+	call ttty_putc
+	la x12,Con
+	la x13,L.649
+	call ttty_mux_puts
+	li x12,276
 	call _lbud
 	li x29,353
 	mv x30,x10 ; LOADU4
@@ -3771,131 +4329,131 @@ L.477:
 	shrli x30,x30,8*(4-1)
 	imul x0,x30,x29,x30
 	addi x30,x30,10000
-	sw x30,-12+16(x8)
-	li x12,253
+	sw x30,-20+32(x8)
+	li x12,272
 	call _lbud
 	mv x30,x10 ; LOADU4
 	shlli x30,x30,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,83
-	bne x30,x29,L.490
-	la x27,L.484
-	j L.491
-L.490:
-	la x27,L.485
-L.491:
-	li x12,254
+	bne x30,x29,L.657
+	la x24,L.651
+	j L.658
+L.657:
+	la x24,L.652
+L.658:
+	li x12,273
 	call _lbud
 	mv x30,x10 ; LOADU4
 	shlli x30,x30,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,84
-	bne x30,x29,L.492
-	la x26,L.487
-	j L.493
-L.492:
-	la x26,L.488
-L.493:
+	bne x30,x29,L.659
+	la x23,L.654
+	j L.660
+L.659:
+	la x23,L.655
+L.660:
 	la x12,Con
-	la x13,L.483
-	mv x14,x27 ; LOADP4
-	mv x15,x26 ; LOADP4
-	lw x16,-12+16(x8)
+	la x13,L.650
+	mv x14,x24 ; LOADP4
+	mv x15,x23 ; LOADP4
+	lw x16,-20+32(x8)
 	call ttty_mux_printf
-	li x12,240
-	call _lbud
 	la x12,Con
-	la x13,L.494
-	mv x30,x10 ; LOADU4
-	shlli x30,x30,8*(4-1)
-	shrli x30,x30,8*(4-1)
+	la x13,L.661
+	la x30,Memsize
+	lw x30,0(x30)
 	li x29,10
-	shll x14,x30,x29
+	shrl x14,x30,x29
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.495
+	la x13,L.662
 	call ttty_mux_puts
-	li x12,248
-	li x13,1
+	li x12,284
+	li x13,3
 	call _sbd
-	li x12,248
+	li x12,284
 	call _lwd
-	sw x10,-8+16(x8)
+	sw x10,-16+32(x8)
 	la x12,Con
-	la x13,L.496
-	lw x30,-8+16(x8)
+	la x13,L.663
+	lw x30,-16+32(x8)
 	li x29,1000
 	udiv x14,x0,x30,x29
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.497
+	la x13,L.664
 	call ttty_mux_puts
 	call serial_is_connected
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.502
-	la x25,L.499
-	j L.503
-L.502:
-	la x25,L.500
-L.503:
+	beq x30,x0,L.669
+	la x22,L.666
+	j L.670
+L.669:
+	la x22,L.667
+L.670:
 	la x12,Con
-	la x13,L.498
+	la x13,L.665
 	la x30,Devices
 	lbu x14,0(x30)
 	li x15,75
-	mv x16,x25 ; LOADP4
+	mv x16,x22 ; LOADP4
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.504
+	la x13,L.671
 	la x30,Devices+1
 	lbu x14,0(x30)
 	li x15,75
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.506
+	la x13,L.673
 	la x30,Devices+2
 	lbu x14,0(x30)
 	li x15,75
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.508
+	la x13,L.675
 	la x30,Devices+3
 	lbu x14,0(x30)
 	li x15,86
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.510
+	la x13,L.677
 	la x30,Devices+4
 	lbu x14,0(x30)
 	li x15,68
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.512
+	la x13,L.679
 	la x30,Devices+5
 	lbu x14,0(x30)
 	li x15,68
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.514
+	la x13,L.681
 	la x30,Devices+6
 	lbu x14,0(x30)
 	li x15,65
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.516
+	la x13,L.683
 	la x30,Devices+7
 	lbu x14,0(x30)
 	li x15,77
 	call ttty_mux_printf
-L.476:
-	lw x1,24(x2)
-	lw x25,28(x2)
-	lw x26,32(x2)
-	lw x27,36(x2)
-	lw  x8,60(x2)
-	addi  x2,x2,64
+L.621:
+	lw x1,32(x2)
+	lw x22,36(x2)
+	lw x23,40(x2)
+	lw x24,44(x2)
+	lw x25,48(x2)
+	lw x26,52(x2)
+	lw x27,56(x2)
+	lw  x8,92(x2)
+	addi  x2,x2,96
 	jalr x0,0(x1)
 
 	.globl echo
@@ -3911,13 +4469,13 @@ echo:
 	mv x27,x12
 	mv x26,x13
 	li x30,2
-	blt x27,x30,L.519
+	blt x27,x30,L.686
 	li x30,4
 	add x30,x26,x30
 	lw x30,0(x30)
 	lbu x30,0(x30)
 	li x29,45
-	bne x30,x29,L.519
+	bne x30,x29,L.686
 	li x30,4
 	add x30,x26,x30
 	lw x30,0(x30)
@@ -3927,37 +4485,37 @@ echo:
 	sb x30,-5+16(x8)
 	lbu x25,-5+16(x8)
 	li x30,97
-	beq x25,x30,L.530
-	blt x25,x30,L.521
-L.541:
+	beq x25,x30,L.697
+	blt x25,x30,L.688
+L.708:
 	li x30,101
-	beq x25,x30,L.536
+	beq x25,x30,L.703
 	li x30,104
-	beq x25,x30,L.525
-	j L.521
-L.524:
-L.525:
+	beq x25,x30,L.692
+	j L.688
+L.691:
+L.692:
 	la x12,Con
-	la x13,L.526
+	la x13,L.693
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.527
+	la x13,L.694
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.528
+	la x13,L.695
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.529
+	la x13,L.696
 	call ttty_mux_printf
-	j L.518
-L.530:
+	j L.685
+L.697:
 	sw x0,-12+16(x8)
 	li x30,2
 	sw x30,-12+16(x8)
-	j L.534
-L.531:
+	j L.701
+L.698:
 	la x12,Con
-	la x13,L.535
+	la x13,L.702
 	lw x30,-12+16(x8)
 	li x29,2
 	shll x30,x30,x29
@@ -3967,24 +4525,24 @@ L.531:
 	la x12,Con
 	li x13,32
 	call ttty_mux_putc
-L.532:
+L.699:
 	lw x30,-12+16(x8)
 	addi x30,x30,1
 	sw x30,-12+16(x8)
-L.534:
+L.701:
 	lw x30,-12+16(x8)
-	blt x30,x27,L.531
+	blt x30,x27,L.698
 	la x12,Con
 	li x13,10
 	call ttty_mux_putc
-	j L.518
-L.536:
-L.521:
+	j L.685
+L.703:
+L.688:
 	sw x0,-12+16(x8)
 	li x30,2
 	sw x30,-12+16(x8)
-	j L.540
-L.537:
+	j L.707
+L.704:
 	la x12,Con
 	lw x30,-12+16(x8)
 	li x29,2
@@ -3995,24 +4553,24 @@ L.537:
 	la x12,Con
 	li x13,32
 	call ttty_mux_putc
-L.538:
+L.705:
 	lw x30,-12+16(x8)
 	addi x30,x30,1
 	sw x30,-12+16(x8)
-L.540:
+L.707:
 	lw x30,-12+16(x8)
-	blt x30,x27,L.537
+	blt x30,x27,L.704
 	la x12,Con
 	li x13,10
 	call ttty_mux_putc
-	j L.518
-L.519:
+	j L.685
+L.686:
 	li x30,1
-	ble x27,x30,L.524
+	ble x27,x30,L.691
 	mv x25,x0 ; LOADI4
 	li x25,1
-	j L.547
-L.544:
+	j L.714
+L.711:
 	la x12,Con
 	li x30,2
 	shll x30,x25,x30
@@ -4022,14 +4580,197 @@ L.544:
 	la x12,Con
 	li x13,32
 	call ttty_mux_putc
-L.545:
+L.712:
 	addi x25,x25,1
-L.547:
-	blt x25,x27,L.544
+L.714:
+	blt x25,x27,L.711
 	la x12,Con
 	li x13,10
 	call ttty_mux_putc
-L.518:
+L.685:
+	lw x1,24(x2)
+	lw x25,28(x2)
+	lw x26,32(x2)
+	lw x27,36(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.globl pretty_echo
+	.align	4
+pretty_echo:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x25,28(x2)
+	sw x26,32(x2)
+	sw x27,36(x2)
+	mv x27,x12
+	mv x26,x13
+	la x30,Video_tty+56
+	lbu x30,0(x30)
+	sb x30,-5+16(x8)
+	la x30,Video_tty+56+2
+	lbu x30,0(x30)
+	sb x30,-6+16(x8)
+	li x30,3
+	blt x27,x30,L.719
+	li x30,8
+	add x30,x26,x30
+	lw x30,0(x30)
+	lbu x30,0(x30)
+	li x29,45
+	bne x30,x29,L.719
+	li x30,4
+	add x30,x26,x30
+	lw x30,0(x30)
+	lbu x30,0(x30)
+	sb x30,-8+16(x8)
+	li x30,8
+	add x30,x26,x30
+	lw x30,0(x30)
+	li x29,1
+	add x30,x30,x29
+	lbu x30,0(x30)
+	sb x30,-7+16(x8)
+	lbu x30,-7+16(x8)
+	li x29,104
+	bne x30,x29,L.721
+L.723:
+	la x12,Video_tty
+	la x13,L.724
+	call ttty_printf
+	la x12,Video_tty
+	la x13,L.725
+	call ttty_printf
+	la x12,Video_tty
+	la x13,L.694
+	call ttty_printf
+	la x12,Video_tty
+	la x13,L.695
+	call ttty_printf
+	la x12,Video_tty
+	la x13,L.696
+	call ttty_printf
+	j L.726
+L.721:
+	la x30,Video_tty+56
+	lbu x29,-8+16(x8)
+	sb x29,0(x30)
+	la x30,Video_tty+56+2
+	li x29,106
+	sb x29,0(x30)
+	lbu x25,-7+16(x8)
+	li x30,97
+	beq x25,x30,L.734
+	blt x25,x30,L.730
+L.744:
+	li x30,101
+	beq x25,x30,L.739
+	li x30,104
+	beq x25,x30,L.723
+	j L.730
+L.734:
+	sw x0,-12+16(x8)
+	li x30,2
+	sw x30,-12+16(x8)
+	j L.738
+L.735:
+	la x12,Video_tty
+	la x13,L.702
+	lw x30,-12+16(x8)
+	li x29,2
+	shll x30,x30,x29
+	add x30,x30,x26
+	lw x14,0(x30)
+	call ttty_printf
+	la x12,Video_tty
+	li x13,32
+	call ttty_putc
+L.736:
+	lw x30,-12+16(x8)
+	addi x30,x30,1
+	sw x30,-12+16(x8)
+L.738:
+	lw x30,-12+16(x8)
+	blt x30,x27,L.735
+	la x12,Video_tty
+	li x13,10
+	call ttty_putc
+	j L.720
+L.739:
+L.730:
+	sw x0,-12+16(x8)
+	li x30,2
+	sw x30,-12+16(x8)
+	j L.743
+L.740:
+	la x12,Video_tty
+	lw x30,-12+16(x8)
+	li x29,2
+	shll x30,x30,x29
+	add x30,x30,x26
+	lw x13,0(x30)
+	call ttty_puts
+	la x12,Video_tty
+	li x13,32
+	call ttty_putc
+L.741:
+	lw x30,-12+16(x8)
+	addi x30,x30,1
+	sw x30,-12+16(x8)
+L.743:
+	lw x30,-12+16(x8)
+	blt x30,x27,L.740
+	la x12,Video_tty
+	li x13,10
+	call ttty_putc
+	j L.720
+L.719:
+	li x30,2
+	ble x27,x30,L.723
+	li x30,4
+	add x30,x26,x30
+	lw x30,0(x30)
+	lbu x30,0(x30)
+	sb x30,-7+16(x8)
+	mv x25,x0 ; LOADI4
+	la x30,Video_tty+56
+	lbu x29,-7+16(x8)
+	sb x29,0(x30)
+	la x30,Video_tty+56+2
+	li x29,106
+	sb x29,0(x30)
+	li x25,2
+	j L.753
+L.750:
+	la x12,Video_tty
+	li x30,2
+	shll x30,x25,x30
+	add x30,x30,x26
+	lw x13,0(x30)
+	call ttty_puts
+	la x12,Video_tty
+	li x13,32
+	call ttty_putc
+L.751:
+	addi x25,x25,1
+L.753:
+	blt x25,x27,L.750
+	la x12,Video_tty
+	li x13,10
+	call ttty_putc
+L.746:
+L.720:
+L.726:
+	la x30,Video_tty+56
+	lbu x29,-5+16(x8)
+	sb x29,0(x30)
+	la x30,Video_tty+56+2
+	lbu x29,-6+16(x8)
+	sb x29,0(x30)
+L.715:
 	lw x1,24(x2)
 	lw x25,28(x2)
 	lw x26,32(x2)
@@ -4044,20 +4785,20 @@ strchr:
 	addi x2,x2,-32
 	sw  x8,28(x2)
 	addi  x8,x2,16
-L.549:
+L.758:
 	lbu x30,0(x12)
-	bne x30,x13,L.552
+	bne x30,x13,L.761
 	mv x10,x12 ; LOADP4
-	j L.548
-L.552:
-L.550:
+	j L.757
+L.761:
+L.759:
 	mv x30,x12 ; LOADP4
 	li x29,1
 	add x12,x30,x29
 	lbu x30,0(x30)
-	bne x30,x0,L.549
+	bne x30,x0,L.758
 	mv x10,x0 ; LOADP4
-L.548:
+L.757:
 	lw  x8,28(x2)
 	addi  x2,x2,32
 	jalr x0,0(x1)
@@ -4071,18 +4812,18 @@ to_lower:
 	shlli x30,x12,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,65
-	blt x30,x29,L.555
+	blt x30,x29,L.764
 	li x29,90
-	bgt x30,x29,L.555
+	bgt x30,x29,L.764
 	shlli x30,x12,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	addi x30,x30,32
 	shlli x10,x30,8*(4-1)
 	shrli x10,x10,8*(4-1)
-	j L.554
-L.555:
+	j L.763
+L.764:
 	mv x10,x0 ; LOADI4
-L.554:
+L.763:
 	lw  x8,28(x2)
 	addi  x2,x2,32
 	jalr x0,0(x1)
@@ -4097,21 +4838,23 @@ is_space:
 	shlli x30,x12,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,32
-	beq x30,x29,L.562
+	beq x30,x29,L.772
 	li x29,9
-	beq x30,x29,L.562
+	beq x30,x29,L.772
 	li x29,10
-	bne x30,x29,L.559
-L.562:
+	beq x30,x29,L.772
+	li x29,12
+	bne x30,x29,L.768
+L.772:
 	li x27,1
-	j L.560
-L.559:
+	j L.769
+L.768:
 	mv x27,x0 ; LOADI4
-L.560:
+L.769:
 	mv x30,x27 ; LOADI1
 	shlli x10,x30,8*(4-1)
 	shrai x10,x10,8*(4-1)
-L.557:
+L.766:
 	lw x27,0(x2)
 	lw  x8,28(x2)
 	addi  x2,x2,32
@@ -4138,75 +4881,75 @@ strtol:
 	sw x30,-8+16(x8)
 	mv x22,x0 ; LOADI4
 	mv x23,x0 ; LOADI4
-	blt x26,x0,L.566
+	blt x26,x0,L.776
 	li x30,36
-	ble x26,x30,L.564
-L.566:
+	ble x26,x30,L.774
+L.776:
 	mv x10,x0 ; LOADI4
-	j L.563
-L.564:
+	j L.773
+L.774:
 	sw x27,-12+16(x8)
-	j L.568
-L.567:
+	j L.778
+L.777:
 	li x30,1
 	add x27,x27,x30
-L.568:
+L.778:
 	lbu x12,0(x27)
 	call is_space
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	bne x30,x0,L.567
+	bne x30,x0,L.777
 	lbu x30,0(x27)
 	li x29,45
-	bne x30,x29,L.570
+	bne x30,x29,L.780
 	li x30,-1
 	sw x30,-8+16(x8)
 	li x30,1
 	add x27,x27,x30
-	j L.571
-L.570:
+	j L.781
+L.780:
 	lbu x30,0(x27)
 	li x29,43
-	bne x30,x29,L.572
+	bne x30,x29,L.782
 	li x30,1
 	add x27,x27,x30
-L.572:
-L.571:
-	beq x26,x0,L.576
+L.782:
+L.781:
+	beq x26,x0,L.786
 	li x30,16
-	bne x26,x30,L.574
-L.576:
+	bne x26,x30,L.784
+L.786:
 	lbu x30,0(x27)
 	li x29,48
-	bne x30,x29,L.574
+	bne x30,x29,L.784
 	li x30,1
 	add x30,x27,x30
 	lbu x30,0(x30)
 	li x29,120
-	bne x30,x29,L.574
+	bne x30,x29,L.784
 	li x26,16
 	li x30,2
 	add x27,x27,x30
-	j L.575
-L.574:
-	beq x26,x0,L.579
+	j L.785
+L.784:
+	beq x26,x0,L.789
 	li x30,8
-	bne x26,x30,L.577
-L.579:
+	bne x26,x30,L.787
+L.789:
 	lbu x30,0(x27)
 	li x29,48
-	bne x30,x29,L.577
+	bne x30,x29,L.787
 	li x26,8
 	li x30,1
 	add x27,x27,x30
-L.577:
-L.575:
-	bne x26,x0,L.580
+L.787:
+L.785:
+	bne x26,x0,L.790
 	li x26,10
-L.580:
-	la x24,L.582
-L.583:
+L.790:
+	la x24,L.792
+L.793:
 	lbu x12,0(x27)
 	call to_lower
 	mv x12,x24 ; LOADP4
@@ -4215,13 +4958,13 @@ L.583:
 	shrli x13,x13,8*(4-1)
 	call strchr
 	mv x25,x10 ; LOADP4
-	beq x25,x0,L.589
+	beq x25,x0,L.799
 	mv x29,x24 ; LOADU4
 	sub x30,x25,x29
-	blt x30,x26,L.587
-L.589:
-	j L.585
-L.587:
+	blt x30,x26,L.797
+L.799:
+	j L.795
+L.797:
 	imul x0,x30,x23,x26
 	add x30,x30,x25
 	mv x29,x24 ; LOADU4
@@ -4230,22 +4973,22 @@ L.587:
 	li x30,1
 	add x27,x27,x30
 	li x22,1
-	j L.583
-L.585:
+	j L.793
+L.795:
 	lw x30,4+16(x8)
-	beq x30,x0,L.590
-	beq x22,x0,L.593
+	beq x30,x0,L.800
+	beq x22,x0,L.803
 	mv x21,x27 ; LOADP4
-	j L.594
-L.593:
+	j L.804
+L.803:
 	lw x21,-12+16(x8)
-L.594:
+L.804:
 	lw x30,4+16(x8)
 	sw x21,0(x30)
-L.590:
+L.800:
 	lw x30,-8+16(x8)
 	imul x0,x10,x23,x30
-L.563:
+L.773:
 	lw x1,24(x2)
 	lw x21,28(x2)
 	lw x22,32(x2)
@@ -4268,18 +5011,18 @@ is_print:
 	shlli x30,x12,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,32
-	blt x30,x29,L.597
+	blt x30,x29,L.807
 	li x29,127
-	beq x30,x29,L.597
+	beq x30,x29,L.807
 	li x27,1
-	j L.598
-L.597:
+	j L.808
+L.807:
 	mv x27,x0 ; LOADI4
-L.598:
+L.808:
 	mv x30,x27 ; LOADI1
 	shlli x10,x30,8*(4-1)
 	shrai x10,x10,8*(4-1)
-L.595:
+L.805:
 	lw x27,0(x2)
 	lw  x8,28(x2)
 	addi  x2,x2,32
@@ -4295,18 +5038,18 @@ is_digit:
 	shlli x30,x12,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,48
-	blt x30,x29,L.601
+	blt x30,x29,L.811
 	li x29,57
-	bgt x30,x29,L.601
+	bgt x30,x29,L.811
 	li x27,1
-	j L.602
-L.601:
+	j L.812
+L.811:
 	mv x27,x0 ; LOADI4
-L.602:
+L.812:
 	mv x30,x27 ; LOADI1
 	shlli x10,x30,8*(4-1)
 	shrai x10,x10,8*(4-1)
-L.599:
+L.809:
 	lw x27,0(x2)
 	lw  x8,28(x2)
 	addi  x2,x2,32
@@ -4322,18 +5065,18 @@ is_alpha:
 	shlli x30,x12,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,65
-	blt x30,x29,L.605
+	blt x30,x29,L.815
 	li x29,122
-	bgt x30,x29,L.605
+	bgt x30,x29,L.815
 	li x27,1
-	j L.606
-L.605:
+	j L.816
+L.815:
 	mv x27,x0 ; LOADI4
-L.606:
+L.816:
 	mv x30,x27 ; LOADI1
 	shlli x10,x30,8*(4-1)
 	shrai x10,x10,8*(4-1)
-L.603:
+L.813:
 	lw x27,0(x2)
 	lw  x8,28(x2)
 	addi  x2,x2,32
@@ -4349,18 +5092,18 @@ is_upper:
 	shlli x30,x12,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,65
-	blt x30,x29,L.609
+	blt x30,x29,L.819
 	li x29,90
-	bgt x30,x29,L.609
+	bgt x30,x29,L.819
 	li x27,1
-	j L.610
-L.609:
+	j L.820
+L.819:
 	mv x27,x0 ; LOADI4
-L.610:
+L.820:
 	mv x30,x27 ; LOADI1
 	shlli x10,x30,8*(4-1)
 	shrai x10,x10,8*(4-1)
-L.607:
+L.817:
 	lw x27,0(x2)
 	lw  x8,28(x2)
 	addi  x2,x2,32
@@ -4387,109 +5130,109 @@ strtoul:
 	mv x27,x14
 	lw x24,0+16(x8)
 	sw x0,-8+16(x8)
-L.612:
+L.822:
 	mv x30,x24 ; LOADP4
 	li x29,1
 	add x24,x30,x29
 	lbu x26,0(x30)
-L.613:
+L.823:
 	shlli x12,x26,8*(4-1)
 	shrli x12,x12,8*(4-1)
 	call is_space
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	bne x30,x0,L.612
+	bne x30,x0,L.822
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,45
-	bne x30,x29,L.615
+	bne x30,x29,L.825
 	li x30,1
 	sw x30,-8+16(x8)
 	mv x29,x24 ; LOADP4
 	add x24,x29,x30
 	lbu x26,0(x29)
-	j L.616
-L.615:
+	j L.826
+L.825:
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,43
-	bne x30,x29,L.617
+	bne x30,x29,L.827
 	mv x30,x24 ; LOADP4
 	li x29,1
 	add x24,x30,x29
 	lbu x26,0(x30)
-L.617:
-L.616:
-	beq x27,x0,L.621
+L.827:
+L.826:
+	beq x27,x0,L.831
 	li x30,16
-	bne x27,x30,L.619
-L.621:
+	bne x27,x30,L.829
+L.831:
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,48
-	bne x30,x29,L.619
+	bne x30,x29,L.829
 	lbu x30,0(x24)
 	li x29,120
-	beq x30,x29,L.622
+	beq x30,x29,L.832
 	li x29,88
-	bne x30,x29,L.619
-L.622:
+	bne x30,x29,L.829
+L.832:
 	li x30,1
 	add x30,x24,x30
 	lbu x26,0(x30)
 	li x30,2
 	add x24,x24,x30
 	li x27,16
-L.619:
-	bne x27,x0,L.623
+L.829:
+	bne x27,x0,L.833
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,48
-	bne x30,x29,L.626
+	bne x30,x29,L.836
 	li x20,8
-	j L.627
-L.626:
+	j L.837
+L.836:
 	li x20,10
-L.627:
+L.837:
 	mv x27,x20 ; LOADI4
-L.623:
+L.833:
 	li x30,0xffffff
 	udiv x22,x0,x30,x27
 	udiv x0,x30,x30,x27
 	mv x21,x30 ; LOADI4
 	mv x25,x0 ; LOADU4
 	mv x23,x0 ; LOADI4
-L.628:
+L.838:
 	shlli x12,x26,8*(4-1)
 	shrli x12,x12,8*(4-1)
 	call is_print
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	bne x30,x0,L.632
-	j L.630
-L.632:
+	bne x30,x0,L.842
+	j L.840
+L.842:
 	shlli x12,x26,8*(4-1)
 	shrli x12,x12,8*(4-1)
 	call is_digit
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.634
+	beq x30,x0,L.844
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	addi x30,x30,-48
 	mv x26,x30 ; LOADU1
-	j L.635
-L.634:
+	j L.845
+L.844:
 	shlli x12,x26,8*(4-1)
 	shrli x12,x12,8*(4-1)
 	call is_alpha
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.630
+	beq x30,x0,L.840
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	sw x30,-12+16(x8)
@@ -4498,71 +5241,71 @@ L.634:
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.639
+	beq x30,x0,L.849
 	li x19,55
-	j L.640
-L.639:
+	j L.850
+L.849:
 	li x19,87
-L.640:
+L.850:
 	lw x30,-12+16(x8)
 	sub x30,x30,x19
 	mv x26,x30 ; LOADU1
-L.637:
-L.635:
+L.847:
+L.845:
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
-	blt x30,x27,L.641
-	j L.630
-L.641:
-	blt x23,x0,L.646
-	bgtu x25,x22,L.646
-	bne x25,x22,L.643
+	blt x30,x27,L.851
+	j L.840
+L.851:
+	blt x23,x0,L.856
+	bgtu x25,x22,L.856
+	bne x25,x22,L.853
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
-	ble x30,x21,L.643
-L.646:
+	ble x30,x21,L.853
+L.856:
 	li x23,-1
-	j L.644
-L.643:
+	j L.854
+L.853:
 	li x23,1
 	mv x30,x27 ; LOADU4
 	imul x0,x25,x25,x30
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	add x25,x25,x30
-L.644:
-L.629:
+L.854:
+L.839:
 	mv x30,x24 ; LOADP4
 	li x29,1
 	add x24,x30,x29
 	lbu x26,0(x30)
-	j L.628
-L.630:
-	bge x23,x0,L.647
+	j L.838
+L.840:
+	bge x23,x0,L.857
 	li x25,0xffffff
-	j L.648
-L.647:
+	j L.858
+L.857:
 	lw x30,-8+16(x8)
-	beq x30,x0,L.649
+	beq x30,x0,L.859
 	not x30,x25
 	li x29,1
 	add x25,x30,x29
-L.649:
-L.648:
+L.859:
+L.858:
 	lw x30,4+16(x8)
-	beq x30,x0,L.651
-	beq x23,x0,L.654
+	beq x30,x0,L.861
+	beq x23,x0,L.864
 	li x30,-1
 	add x19,x24,x30
-	j L.655
-L.654:
+	j L.865
+L.864:
 	lw x19,0+16(x8)
-L.655:
+L.865:
 	lw x30,4+16(x8)
 	sw x19,0(x30)
-L.651:
+L.861:
 	mv x10,x25 ; LOADU4
-L.611:
+L.821:
 	lw x1,24(x2)
 	lw x19,28(x2)
 	lw x20,32(x2)
@@ -4593,19 +5336,19 @@ peek:
 	sw x27,68(x2)
 	sw x12,16(x8)
 	sw x13,20(x8)
-	mv x26,x0 ; LOADU4
+	mv x25,x0 ; LOADU4
 	mv x27,x0 ; LOADU4
 	lw x30,0+16(x8)
 	li x29,2
-	beq x30,x29,L.657
+	beq x30,x29,L.867
 	la x12,Con
-	la x13,L.659
+	la x13,L.869
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.660
+	la x13,L.870
 	call ttty_mux_printf
-	j L.656
-L.657:
+	j L.866
+L.867:
 	lw x30,4+16(x8)
 	li x29,4
 	add x30,x30,x29
@@ -4613,27 +5356,27 @@ L.657:
 	mv x13,x0 ; LOADP4
 	mv x14,x0 ; LOADI4
 	call strtoul
-	mv x26,x10 ; LOADU4
+	mv x25,x10 ; LOADU4
 	li x30,128
-	add x25,x26,x30
+	add x26,x25,x30
+	la x12,Con
+	la x13,L.871
+	mv x14,x25 ; LOADU4
+	mv x30,x25 ; LOADP4
+	lbu x15,0(x30)
+	call ttty_mux_printf
 	li x30,-16
-	and x27,x26,x30
-	j L.664
-L.661:
+	and x27,x25,x30
+	j L.875
+L.872:
 	mv x24,x0 ; LOADU1
 	mv x23,x0 ; LOADP4
 	la x12,Con
-	la x13,L.665
-	mv x14,x26 ; LOADU4
-	mv x30,x26 ; LOADP4
-	lbu x15,0(x30)
-	call ttty_mux_printf
-	la x12,Con
-	la x13,L.666
+	la x13,L.876
 	mv x14,x27 ; LOADU4
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.667
+	la x13,L.877
 	add x30,x27,x23
 	lbu x14,0(x30)
 	li x30,1
@@ -4670,7 +5413,7 @@ L.661:
 	sw x30,36(x2)
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.668
+	la x13,L.878
 	li x30,8
 	add x30,x27,x30
 	add x30,x30,x23
@@ -4709,26 +5452,30 @@ L.661:
 	sw x30,36(x2)
 	call ttty_mux_printf
 	la x12,Con
-	li x13,124
-	call ttty_mux_putc
+	la x13,L.879
+	call ttty_mux_puts
 	mv x24,x0 ; LOADU1
-	j L.672
-L.669:
+	j L.883
+L.880:
 	shlli x30,x24,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	add x30,x30,x27
 	add x30,x30,x23
-	lbu x30,0(x30)
-	beq x30,x0,L.674
+	lbu x12,0(x30)
+	call is_print
+	mv x30,x10 ; LOADI1
+	shlli x30,x30,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	beq x30,x0,L.885
 	shlli x30,x24,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	add x30,x30,x27
 	add x30,x30,x23
 	lbu x21,0(x30)
-	j L.675
-L.674:
+	j L.886
+L.885:
 	li x21,46
-L.675:
+L.886:
 	mv x30,x21 ; LOADU4
 	mv x22,x30 ; LOADU1
 	la x12,Con
@@ -4738,33 +5485,33 @@ L.675:
 	shlli x30,x24,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,7
-	bne x30,x29,L.676
+	bne x30,x29,L.887
 	la x12,Con
 	li x13,124
 	call ttty_mux_putc
-L.676:
-L.670:
+L.887:
+L.881:
 	shlli x30,x24,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	addi x30,x30,1
 	mv x24,x30 ; LOADU1
-L.672:
+L.883:
 	shlli x30,x24,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	li x29,16
-	blt x30,x29,L.669
+	blt x30,x29,L.880
 	la x12,Con
 	li x13,124
 	call ttty_mux_putc
 	la x12,Con
 	li x13,10
 	call ttty_mux_putc
-L.662:
+L.873:
 	li x30,16
 	add x27,x27,x30
-L.664:
-	bltu x27,x25,L.661
-L.656:
+L.875:
+	bltu x27,x26,L.872
+L.866:
 	lw x1,40(x2)
 	lw x21,44(x2)
 	lw x22,48(x2)
@@ -4792,18 +5539,18 @@ poke:
 	mv x26,x0 ; LOADU4
 	lw x30,0+16(x8)
 	li x29,3
-	beq x30,x29,L.679
+	beq x30,x29,L.890
 	la x12,Con
-	la x13,L.681
+	la x13,L.892
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.682
+	la x13,L.893
 	call ttty_mux_printf
 	la x12,Con
-	la x13,L.683
+	la x13,L.894
 	call ttty_mux_printf
-	j L.678
-L.679:
+	j L.889
+L.890:
 	lw x30,4+16(x8)
 	li x29,4
 	add x30,x30,x29
@@ -4824,7 +5571,7 @@ L.679:
 	li x29,255
 	and x29,x26,x29
 	sb x29,0(x30)
-L.678:
+L.889:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -4842,9 +5589,9 @@ clear:
 	sw x12,16(x8)
 	sw x13,20(x8)
 	la x12,Con
-	la x13,L.685
+	la x13,L.896
 	call ttty_mux_puts
-L.684:
+L.895:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -4864,13 +5611,13 @@ send_escape:
 	mv x27,x0 ; LOADI4
 	mv x26,x0 ; LOADU4
 	mv x27,x0 ; LOADI4
-L.687:
+L.898:
 	mv x30,x27 ; LOADU4
 	add x26,x26,x30
-L.688:
+L.899:
 	addi x27,x27,1
 	li x30,1000000
-	blt x27,x30,L.687
+	blt x27,x30,L.898
 	la x30,Devices
 	lbu x30,0(x30)
 	shlli x12,x30,8*(4-2)
@@ -4878,13 +5625,13 @@ L.688:
 	li x13,43
 	call _sbd
 	mv x27,x0 ; LOADI4
-L.691:
+L.902:
 	mv x30,x27 ; LOADU4
 	add x26,x26,x30
-L.692:
+L.903:
 	addi x27,x27,1
 	li x30,10000
-	blt x27,x30,L.691
+	blt x27,x30,L.902
 	la x30,Devices
 	lbu x30,0(x30)
 	shlli x12,x30,8*(4-2)
@@ -4892,13 +5639,13 @@ L.692:
 	li x13,43
 	call _sbd
 	mv x27,x0 ; LOADI4
-L.695:
+L.906:
 	mv x30,x27 ; LOADU4
 	add x26,x26,x30
-L.696:
+L.907:
 	addi x27,x27,1
 	li x30,10000
-	blt x27,x30,L.695
+	blt x27,x30,L.906
 	la x30,Devices
 	lbu x30,0(x30)
 	shlli x12,x30,8*(4-2)
@@ -4906,14 +5653,14 @@ L.696:
 	li x13,43
 	call _sbd
 	mv x27,x0 ; LOADI4
-L.699:
+L.910:
 	mv x30,x27 ; LOADU4
 	add x26,x26,x30
-L.700:
+L.911:
 	addi x27,x27,1
 	li x30,1000000
-	blt x27,x30,L.699
-L.686:
+	blt x27,x30,L.910
+L.897:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -4933,17 +5680,17 @@ ser:
 	sw x27,36(x2)
 	sw x12,16(x8)
 	sw x13,20(x8)
-	j L.705
-L.704:
+	j L.916
+L.915:
 	la x12,KeyboardEvents
 	call kbd_event_pop
 	mv x27,x10 ; LOADP4
 	mv x30,x27 ; LOADU4
-	beq x30,x0,L.707
+	beq x30,x0,L.918
 	li x30,2
 	add x30,x27,x30
 	lbu x30,0(x30)
-	beq x30,x0,L.709
+	beq x30,x0,L.920
 	la x30,Devices
 	lbu x30,0(x30)
 	shlli x12,x30,8*(4-2)
@@ -4952,18 +5699,18 @@ L.704:
 	add x30,x27,x30
 	lbu x13,0(x30)
 	call _sbd
-L.709:
+L.920:
 	lhu x30,0(x27)
 	li x29,256
-	bne x30,x29,L.711
-	j L.706
-L.711:
-L.707:
+	bne x30,x29,L.922
+	j L.917
+L.922:
+L.918:
 	call serial_available
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.713
+	beq x30,x0,L.924
 	la x30,Devices
 	lbu x30,0(x30)
 	addi x30,x30,3
@@ -4973,8 +5720,8 @@ L.707:
 	mv x30,x10 ; LOADU4
 	mv x25,x30 ; LOADU1
 	mv x26,x0 ; LOADU1
-	j L.718
-L.715:
+	j L.929
+L.926:
 	la x30,Devices
 	lbu x30,0(x30)
 	shlli x12,x30,8*(4-2)
@@ -4985,22 +5732,22 @@ L.715:
 	shlli x13,x30,8*(4-1)
 	shrli x13,x13,8*(4-1)
 	call ttty_putc
-L.716:
+L.927:
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	addi x30,x30,1
 	mv x26,x30 ; LOADU1
-L.718:
+L.929:
 	shlli x30,x26,8*(4-1)
 	shrli x30,x30,8*(4-1)
 	shlli x29,x25,8*(4-1)
 	shrli x29,x29,8*(4-1)
-	blt x30,x29,L.715
-L.713:
-L.705:
-	j L.704
-L.706:
-L.703:
+	blt x30,x29,L.926
+L.924:
+L.916:
+	j L.915
+L.917:
+L.914:
 	lw x1,24(x2)
 	lw x25,28(x2)
 	lw x26,32(x2)
@@ -5035,7 +5782,7 @@ synth_write:
 	lbu x13,4+16(x8)
 	call _sbd
 	mv x10,x0 ; LOADI4
-L.719:
+L.930:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -5044,7 +5791,7 @@ L.719:
 	.align 4
 	.data
 	.align	1
-L.723:
+L.934:
 	.byte	0x5
 	.align 4
 	.text
@@ -5058,23 +5805,25 @@ vol_control:
 	call kbd_event_pop
 	sw x10,-8+16(x8)
 	lw x30,-8+16(x8)
-	beq x30,x0,L.724
+	beq x30,x0,L.935
 	lw x30,-8+16(x8)
 	lhu x30,0(x30)
 	li x29,256
-	bne x30,x29,L.726
+	bne x30,x29,L.937
+	li x12,45067
+	call _trace
 	li x10,1
-	j L.722
-L.726:
+	j L.933
+L.937:
 	lw x30,-8+16(x8)
 	lhu x30,0(x30)
 	li x29,265
-	bne x30,x29,L.728
-	la x30,L.723
+	bne x30,x29,L.939
+	la x30,L.934
 	lbu x30,0(x30)
 	li x29,15
-	bge x30,x29,L.728
-	la x30,L.723
+	bge x30,x29,L.939
+	la x30,L.934
 	lbu x29,0(x30)
 	addi x29,x29,1
 	sb x29,0(x30)
@@ -5085,16 +5834,16 @@ L.726:
 	shrli x12,x12,8*(4-2)
 	lbu x13,0(x30)
 	call _sbd
-	j L.729
-L.728:
+	j L.940
+L.939:
 	lw x30,-8+16(x8)
 	lhu x30,0(x30)
 	li x29,264
-	bne x30,x29,L.731
-	la x30,L.723
+	bne x30,x29,L.942
+	la x30,L.934
 	lbu x30,0(x30)
-	ble x30,x0,L.731
-	la x30,L.723
+	ble x30,x0,L.942
+	la x30,L.934
 	lbu x29,0(x30)
 	addi x29,x29,-1
 	sb x29,0(x30)
@@ -5105,11 +5854,11 @@ L.728:
 	shrli x12,x12,8*(4-2)
 	lbu x13,0(x30)
 	call _sbd
-L.731:
-L.729:
-L.724:
+L.942:
+L.940:
+L.935:
 	mv x10,x0 ; LOADI4
-L.722:
+L.933:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -5121,40 +5870,38 @@ pause:
 	sw  x8,60(x2)
 	addi  x8,x2,48
 	sw x1,24(x2)
-	sw x25,28(x2)
-	sw x26,32(x2)
-	sw x27,36(x2)
-	mv x27,x12
+	sw x26,28(x2)
+	sw x27,32(x2)
+	sw x12,16(x8)
 	sw x13,20(x8)
 	la x12,KeyboardEvents
 	call kbd_event_pop
-	mv x26,x10 ; LOADP4
-	mv x30,x26 ; LOADU4
-	beq x30,x0,L.735
-	lhu x30,0(x26)
+	mv x27,x10 ; LOADP4
+	mv x30,x27 ; LOADU4
+	beq x30,x0,L.946
+	lhu x30,0(x27)
 	lw x29,4+16(x8)
-	bne x30,x29,L.735
-	li x12,4
-	lb x13,0(x27)
-	call _trace
-	lb x30,0(x27)
-	bne x30,x0,L.738
-	li x25,1
-	j L.739
-L.738:
-	mv x25,x0 ; LOADI4
-L.739:
-	mv x30,x25 ; LOADI1
-	sb x30,0(x27)
-	lb x10,0(x27)
-	j L.734
-L.735:
-	lb x10,0(x27)
-L.734:
+	bne x30,x29,L.946
+	lw x30,0+16(x8)
+	lb x29,0(x30)
+	bne x29,x0,L.949
+	li x26,1
+	j L.950
+L.949:
+	mv x26,x0 ; LOADI4
+L.950:
+	mv x29,x26 ; LOADI1
+	sb x29,0(x30)
+	lw x30,0+16(x8)
+	lb x10,0(x30)
+	j L.945
+L.946:
+	lw x30,0+16(x8)
+	lb x10,0(x30)
+L.945:
 	lw x1,24(x2)
-	lw x25,28(x2)
-	lw x26,32(x2)
-	lw x27,36(x2)
+	lw x26,28(x2)
+	lw x27,32(x2)
 	lw  x8,60(x2)
 	addi  x2,x2,64
 	jalr x0,0(x1)
@@ -5184,7 +5931,7 @@ play_chord:
 	lhu x30,8+16(x8)
 	sh x30,-6+16(x8)
 	mv x27,x0 ; LOADI4
-L.743:
+L.954:
 	la x30,Devices+6
 	lbu x30,0(x30)
 	addi x30,x30,7
@@ -5219,18 +5966,11 @@ L.743:
 	shrli x12,x12,8*(4-2)
 	li x13,1
 	call _sbd
-L.744:
+L.955:
 	addi x27,x27,1
 	li x30,3
-	blt x27,x30,L.743
-L.751:
-	call vol_control
-	mv x30,x10 ; LOADI1
-	shlli x30,x30,8*(4-1)
-	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.754
-	j L.740
-L.754:
+	blt x27,x30,L.954
+L.962:
 	la x30,Devices+6
 	lbu x30,0(x30)
 	addi x30,x30,8
@@ -5238,10 +5978,10 @@ L.754:
 	shrli x12,x12,8*(4-2)
 	call _lwd
 	mv x26,x10 ; LOADU4
-L.752:
+L.963:
 	li x30,7
 	and x29,x26,x30
-	bne x29,x30,L.751
+	bne x29,x30,L.962
 	la x30,Devices+6
 	lbu x30,0(x30)
 	addi x30,x30,8
@@ -5249,7 +5989,7 @@ L.752:
 	shrli x12,x12,8*(4-2)
 	li x13,7
 	call _sbd
-L.740:
+L.951:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -5275,15 +6015,15 @@ fanfare:
 	li x12,50
 	li x13,148
 	call synth_write
-	j L.760
-L.759:
+	j L.969
+L.968:
 	call vol_control
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.762
-	j L.761
-L.762:
+	beq x30,x0,L.971
+	j L.970
+L.971:
 	li x12,2320
 	li x13,2391
 	li x14,2455
@@ -5296,10 +6036,10 @@ L.762:
 	li x13,2032
 	li x14,2354
 	call play_chord
-L.760:
-	j L.759
-L.761:
-L.758:
+L.969:
+	j L.968
+L.970:
+L.967:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -5308,7 +6048,7 @@ L.758:
 	.align 4
 	.data
 	.align	2
-L.765:
+L.974:
 	.half	0x0
 	.half	0x1fd5
 	.half	0x3e2e
@@ -5347,8 +6087,8 @@ pcm:
 	sw x12,16(x8)
 	sw x13,20(x8)
 	mv x27,x0 ; LOADU1
-	j L.767
-L.766:
+	j L.976
+L.975:
 	la x30,Devices+6
 	lbu x30,0(x30)
 	addi x30,x30,8
@@ -5360,12 +6100,12 @@ L.766:
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.770
-	j L.768
-L.770:
+	beq x30,x0,L.979
+	j L.977
+L.979:
 	li x30,0x100000
 	and x30,x26,x30
-	bne x30,x0,L.772
+	bne x30,x0,L.981
 	la x30,Devices+6
 	lbu x30,0(x30)
 	addi x30,x30,13
@@ -5375,7 +6115,7 @@ L.770:
 	shrli x30,x30,8*(4-1)
 	li x29,1
 	shll x30,x30,x29
-	la x29,L.765
+	la x29,L.974
 	add x30,x30,x29
 	lh x30,0(x30)
 	shlli x13,x30,8*(4-2)
@@ -5387,11 +6127,11 @@ L.770:
 	li x29,24
 	idiv x0,x30,x30,x29
 	mv x27,x30 ; LOADU1
-L.772:
-L.767:
-	j L.766
-L.768:
-L.764:
+L.981:
+L.976:
+	j L.975
+L.977:
+L.973:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -5402,7 +6142,7 @@ L.764:
 	.align 4
 	.data
 	.align	2
-L.776:
+L.985:
 	.half	0x0
 	.half	0x1fd5
 	.half	0x3e2e
@@ -5472,7 +6212,7 @@ pcm_synth:
 	shrli x12,x12,8*(4-2)
 	li x13,1
 	call _sbd
-L.781:
+L.990:
 	la x30,Devices+6
 	lbu x30,0(x30)
 	addi x30,x30,8
@@ -5484,12 +6224,12 @@ L.781:
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.785
-	j L.783
-L.785:
+	beq x30,x0,L.994
+	j L.992
+L.994:
 	li x30,0x100000
 	and x30,x27,x30
-	bne x30,x0,L.787
+	bne x30,x0,L.996
 	la x30,Devices+6
 	lbu x30,0(x30)
 	addi x30,x30,13
@@ -5499,7 +6239,7 @@ L.785:
 	shrli x30,x30,8*(4-1)
 	li x29,1
 	shll x30,x30,x29
-	la x29,L.776
+	la x29,L.985
 	add x30,x30,x29
 	lh x30,0(x30)
 	shlli x13,x30,8*(4-2)
@@ -5511,13 +6251,13 @@ L.785:
 	li x29,24
 	idiv x0,x30,x30,x29
 	mv x26,x30 ; LOADU1
-L.787:
-L.782:
+L.996:
+L.991:
 	li x30,1
 	and x30,x27,x30
-	beq x30,x0,L.781
-L.783:
-L.775:
+	beq x30,x0,L.990
+L.992:
+L.984:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -5538,17 +6278,17 @@ tamlin:
 	sw x27,40(x2)
 	sw x12,16(x8)
 	sw x13,20(x8)
-	li x25,0x1000
+	li x25,0x10000
 	li x26,0x14fbf
 	mv x27,x0 ; LOADU4
 	lh x30,0(x25)
 	li x29,-7484
-	beq x30,x29,L.795
+	beq x30,x29,L.1004
 	la x12,Con
-	la x13,L.793
+	la x13,L.1002
 	call ttty_mux_printf
-	j L.790
-L.794:
+	j L.999
+L.1003:
 	la x30,Devices+6
 	lbu x30,0(x30)
 	addi x30,x30,8
@@ -5560,12 +6300,12 @@ L.794:
 	mv x30,x10 ; LOADI1
 	shlli x30,x30,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.798
-	j L.796
-L.798:
+	beq x30,x0,L.1007
+	j L.1005
+L.1007:
 	li x30,0x100000
 	and x30,x24,x30
-	bne x30,x0,L.800
+	bne x30,x0,L.1009
 	la x30,Devices+6
 	lbu x30,0(x30)
 	addi x30,x30,13
@@ -5580,11 +6320,11 @@ L.798:
 	call _shd
 	li x30,1
 	add x27,x27,x30
-L.800:
-L.795:
-	bltu x27,x26,L.794
-L.796:
-L.790:
+L.1009:
+L.1004:
+	bltu x27,x26,L.1003
+L.1005:
+L.999:
 	lw x1,24(x2)
 	lw x24,28(x2)
 	lw x25,32(x2)
@@ -5634,7 +6374,7 @@ video_begin_drawing:
 	shrli x12,x12,8*(4-2)
 	li x13,2
 	call _sbd
-L.803:
+L.1012:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -5654,7 +6394,7 @@ video_end_drawing:
 	shrli x12,x12,8*(4-2)
 	li x13,1
 	call _sbd
-L.805:
+L.1014:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -5674,14 +6414,14 @@ video_clear:
 	sb x30,4+16(x8)
 	la x30,video_is_drawing
 	lb x30,0(x30)
-	bne x30,x0,L.808
+	bne x30,x0,L.1017
 	la x30,Devices+3
 	lbu x30,0(x30)
 	shlli x12,x30,8*(4-2)
 	shrli x12,x12,8*(4-2)
 	li x13,2
 	call _sbd
-L.808:
+L.1017:
 	la x30,Devices+3
 	lbu x30,0(x30)
 	addi x30,x30,1
@@ -5718,15 +6458,15 @@ L.808:
 	call _sbd
 	la x30,video_is_drawing
 	lb x30,0(x30)
-	bne x30,x0,L.816
+	bne x30,x0,L.1025
 	la x30,Devices+3
 	lbu x30,0(x30)
 	shlli x12,x30,8*(4-2)
 	shrli x12,x12,8*(4-2)
 	li x13,1
 	call _sbd
-L.816:
-L.807:
+L.1025:
+L.1016:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -5817,7 +6557,7 @@ draw_line:
 	shrli x12,x12,8*(4-2)
 	li x13,13
 	call _sbd
-L.819:
+L.1028:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -5826,16 +6566,16 @@ L.819:
 	.align 4
 	.data
 	.align	4
-L.829:
+L.1038:
 	.word	0x640000
 	.align	4
-L.830:
+L.1039:
 	.word	0x640000
 	.align	4
-L.831:
+L.1040:
 	.word	0x249f0
 	.align	4
-L.832:
+L.1041:
 	.word	0x1d4c0
 	.globl bouncing_box
 	.align 4
@@ -5852,15 +6592,15 @@ bouncing_box:
 	sw x26,40(x2)
 	sw x27,44(x2)
 	li x25,80
-	la x30,L.829
+	la x30,L.1038
 	lw x29,0(x30)
-	la x28,L.831
+	la x28,L.1040
 	lw x28,0(x28)
 	add x29,x29,x28
 	sw x29,0(x30)
-	la x29,L.830
+	la x29,L.1039
 	lw x28,0(x29)
-	la x7,L.832
+	la x7,L.1041
 	lw x7,0(x7)
 	add x28,x28,x7
 	sw x28,0(x29)
@@ -5874,31 +6614,31 @@ bouncing_box:
 	shlli x30,x27,8*(4-2)
 	shrai x30,x30,8*(4-2)
 	li x29,-40
-	blt x30,x29,L.835
+	blt x30,x29,L.1044
 	li x29,600
-	ble x30,x29,L.833
-L.835:
-	la x30,L.831
+	ble x30,x29,L.1042
+L.1044:
+	la x30,L.1040
 	lw x29,0(x30)
 	not x29,x29
 	li x28,1
 	add x29,x29,x28
 	sw x29,0(x30)
-L.833:
+L.1042:
 	shlli x30,x26,8*(4-2)
 	shrai x30,x30,8*(4-2)
 	li x29,-40
-	blt x30,x29,L.838
+	blt x30,x29,L.1047
 	li x29,440
-	ble x30,x29,L.836
-L.838:
-	la x30,L.832
+	ble x30,x29,L.1045
+L.1047:
+	la x30,L.1041
 	lw x29,0(x30)
 	not x29,x29
 	li x28,1
 	add x29,x29,x28
 	sw x29,0(x30)
-L.836:
+L.1045:
 	mv x12,x0 ; LOADI4
 	call video_begin_drawing
 	li x12,5
@@ -5967,7 +6707,7 @@ L.836:
 	call draw_line
 	call video_end_drawing
 	la x12,Video_tty
-	la x13,L.839
+	la x13,L.1048
 	shlli x30,x25,8*(4-2)
 	shrli x30,x30,8*(4-2)
 	li x29,2
@@ -5979,7 +6719,7 @@ L.836:
 	shrai x29,x29,8*(4-2)
 	add x15,x29,x30
 	call ttty_printf
-L.828:
+L.1037:
 	lw x1,24(x2)
 	lw x23,28(x2)
 	lw x24,32(x2)
@@ -6036,13 +6776,13 @@ test2d:
 	shlli x13,x30,8*(4-1)
 	shrli x13,x13,8*(4-1)
 	call _sbd
-L.843:
+L.1052:
 	call vol_control
 	mv x27,x10 ; LOADI1
-L.844:
+L.1053:
 	shlli x30,x27,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.843
+	beq x30,x0,L.1052
 	la x30,Devices+3
 	lbu x30,0(x30)
 	addi x30,x30,14
@@ -6071,7 +6811,7 @@ L.844:
 	sw x0,0(x30)
 	la x12,Video_tty
 	call ttty_clear
-L.840:
+L.1049:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -6211,7 +6951,7 @@ draw_batch:
 	shrli x12,x12,8*(4-2)
 	li x13,16
 	call _sbd
-L.848:
+L.1057:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -6224,152 +6964,419 @@ cube_mesh:
 	.half	0xffce
 	.half	0xffce
 	.half	0xffce
-	.byte	0xa0
+	.byte	0x15
 	.byte	0x0
 	.half	0xffce
 	.half	0xffce
 	.half	0x32
-	.byte	0xa0
+	.byte	0x15
 	.byte	0x0
 	.half	0x32
 	.half	0xffce
 	.half	0xffce
-	.byte	0xa1
+	.byte	0x15
 	.byte	0x0
 	.half	0x32
 	.half	0xffce
 	.half	0x32
-	.byte	0xa1
+	.byte	0x15
 	.byte	0x0
 	.half	0x32
 	.half	0x32
 	.half	0xffce
-	.byte	0xa2
+	.byte	0x15
 	.byte	0x0
 	.half	0x32
 	.half	0x32
 	.half	0x32
-	.byte	0xa2
+	.byte	0x15
 	.byte	0x0
 	.half	0xffce
 	.half	0x32
 	.half	0xffce
-	.byte	0xa3
+	.byte	0x15
 	.byte	0x0
 	.half	0xffce
 	.half	0x32
 	.half	0x32
-	.byte	0xa3
+	.byte	0x15
 	.byte	0x0
 	.half	0xffce
 	.half	0xffce
 	.half	0xffce
-	.byte	0xa0
+	.byte	0x15
 	.byte	0x0
 	.half	0xffce
 	.half	0xffce
 	.half	0x32
-	.byte	0xa0
+	.byte	0x15
 	.byte	0x1
 	.half	0xffce
 	.half	0xffce
 	.half	0xffce
-	.byte	0xa4
+	.byte	0x20
 	.byte	0x0
 	.half	0x32
 	.half	0xffce
 	.half	0xffce
-	.byte	0xa4
+	.byte	0x20
 	.byte	0x0
 	.half	0xffce
 	.half	0x32
 	.half	0xffce
-	.byte	0xa4
+	.byte	0x20
 	.byte	0x0
 	.half	0x32
 	.half	0x32
 	.half	0xffce
-	.byte	0xa4
+	.byte	0x20
 	.byte	0x1
 	.half	0xffce
 	.half	0xffce
 	.half	0x32
-	.byte	0xa5
-	.byte	0x0
-	.half	0x32
-	.half	0xffce
-	.half	0x32
-	.byte	0xa5
+	.byte	0x2d
 	.byte	0x0
 	.half	0xffce
 	.half	0x32
 	.half	0x32
-	.byte	0xa5
+	.byte	0x2d
+	.byte	0x0
+	.half	0x32
+	.half	0xffce
+	.half	0x32
+	.byte	0x2d
 	.byte	0x0
 	.half	0x32
 	.half	0x32
 	.half	0x32
-	.byte	0xa5
+	.byte	0x2d
 	.byte	0x1
 	.align	2
-L.864:
+quad_mesh:
+	.half	0xffce
+	.half	0xffce
+	.half	0x0
+	.byte	0xa
+	.byte	0x0
+	.half	0x32
+	.half	0xffce
+	.half	0x0
+	.byte	0xa
+	.byte	0x0
+	.half	0xffce
+	.half	0x32
+	.half	0x0
+	.byte	0xa
+	.byte	0x0
+	.half	0x32
+	.half	0xffce
+	.half	0x0
+	.byte	0xa
+	.byte	0x0
+	.half	0x32
+	.half	0x32
+	.half	0x0
+	.byte	0xa
+	.byte	0x0
+	.half	0xffce
+	.half	0x32
+	.half	0x0
+	.byte	0xa
+	.byte	0x0
+	.align	2
+hexagon_mesh:
+	.half	0x0
+	.half	0x0
+	.half	0x0
+	.byte	0xc
+	.byte	0x0
+	.half	0x0
+	.half	0x32
+	.half	0x0
+	.byte	0xc
+	.byte	0x0
+	.half	0x2b
+	.half	0x19
+	.half	0x0
+	.byte	0xc
+	.byte	0x0
+	.half	0x2b
+	.half	0xffe7
+	.half	0x0
+	.byte	0xc
+	.byte	0x0
+	.half	0x0
+	.half	0xffce
+	.half	0x0
+	.byte	0xc
+	.byte	0x0
+	.half	0xffd5
+	.half	0xffe7
+	.half	0x0
+	.byte	0xc
+	.byte	0x0
+	.half	0xffd5
+	.half	0x19
+	.half	0x0
+	.byte	0xc
+	.byte	0x0
+	.half	0x0
+	.half	0x32
+	.half	0x0
+	.byte	0xc
+	.byte	0x1
+	.align	2
+points_abs_mesh:
+	.half	0xff9c
+	.half	0x50
+	.half	0xc8
+	.byte	0xf
+	.byte	0x0
+	.half	0x96
+	.half	0xffe2
+	.half	0x1c2
+	.byte	0xe
+	.byte	0x0
+	.half	0xa
+	.half	0xa
+	.half	0x64
+	.byte	0xd
+	.byte	0x0
+	.half	0xff38
+	.half	0xffce
+	.half	0x320
+	.byte	0xc
+	.byte	0x0
+	.align	2
+points_linked_mesh:
+	.half	0x0
+	.half	0x0
+	.half	0x0
+	.byte	0xf
+	.byte	0x0
+	.half	0xa
+	.half	0xa
+	.half	0xa
+	.byte	0x7
+	.byte	0x0
+	.half	0xfff6
+	.half	0xa
+	.half	0xa
+	.byte	0x7
+	.byte	0x0
+	.half	0x0
+	.half	0xfff1
+	.half	0xfffb
+	.byte	0x7
+	.byte	0x0
+	.align	2
+line_strip_mesh:
+	.half	0xffd8
+	.half	0x28
+	.half	0x0
+	.byte	0xb
+	.byte	0x0
+	.half	0x28
+	.half	0x28
+	.half	0x0
+	.byte	0xb
+	.byte	0x0
+	.half	0xffd8
+	.half	0xffd8
+	.half	0x0
+	.byte	0xb
+	.byte	0x0
+	.half	0x28
+	.half	0xffd8
+	.half	0x0
+	.byte	0xb
+	.byte	0x1
+	.align	2
+line_star_mesh:
+	.half	0x0
+	.half	0x0
+	.half	0x0
+	.byte	0xf
+	.byte	0x0
+	.half	0x32
+	.half	0x0
+	.half	0x0
+	.byte	0x2d
+	.byte	0x0
+	.half	0x0
+	.half	0x32
+	.half	0x0
+	.byte	0x15
+	.byte	0x0
+	.half	0x0
+	.half	0x0
+	.half	0x32
+	.byte	0x20
+	.byte	0x1
+	.align	2
+ry:
 	.half	0x0
 	.align	2
-L.865:
+rx:
 	.half	0x0
 	.align	1
-L.866:
+is_paused:
 	.byte	0x0
 	.align 4
 	.text
 	.align	4
 cube:
-	addi x2,x2,-48
-	sw  x8,44(x2)
-	addi  x8,x2,32
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
 	sw x1,24(x2)
+	sw x27,28(x2)
+	li x27,-3
 	mv x12,x0 ; LOADI4
 	call video_begin_drawing
 	li x12,5
 	li x13,2
 	call video_clear
+	mv x30,x27 ; LOADI4
+	addi x27,x30,1
+	la x29,wox
+	li x28,80
+	imul x0,x30,x28,x30
+	li x28,16
+	shll x30,x30,x28
+	sw x30,0(x29)
 	la x12,cube_mesh
 	li x13,144
-	la x30,L.865
+	la x30,rx
 	lhu x14,0(x30)
-	la x30,L.864
+	la x30,ry
 	lhu x15,0(x30)
 	mv x16,x0 ; LOADI4
-	li x17,202
+	li x17,198
+	call draw_batch
+	mv x30,x27 ; LOADI4
+	addi x27,x30,1
+	la x29,wox
+	li x28,80
+	imul x0,x30,x28,x30
+	li x28,16
+	shll x30,x30,x28
+	sw x30,0(x29)
+	la x12,quad_mesh
+	li x13,48
+	li x14,10
+	li x15,20
+	mv x16,x0 ; LOADI4
+	li x17,199
+	call draw_batch
+	mv x30,x27 ; LOADI4
+	addi x27,x30,1
+	la x29,wox
+	li x28,80
+	imul x0,x30,x28,x30
+	li x28,16
+	shll x30,x30,x28
+	sw x30,0(x29)
+	la x12,hexagon_mesh
+	li x13,64
+	la x30,rx
+	lhu x14,0(x30)
+	la x30,ry
+	lhu x15,0(x30)
+	mv x16,x0 ; LOADI4
+	li x17,214
+	call draw_batch
+	mv x30,x27 ; LOADI4
+	addi x27,x30,1
+	la x29,wox
+	li x28,80
+	imul x0,x30,x28,x30
+	li x28,16
+	shll x30,x30,x28
+	sw x30,0(x29)
+	la x12,points_abs_mesh
+	li x13,32
+	la x30,rx
+	lhu x14,0(x30)
+	la x30,ry
+	lhu x15,0(x30)
+	mv x16,x0 ; LOADI4
+	li x17,196
+	call draw_batch
+	mv x30,x27 ; LOADI4
+	addi x27,x30,1
+	la x29,wox
+	li x28,80
+	imul x0,x30,x28,x30
+	li x28,16
+	shll x30,x30,x28
+	sw x30,0(x29)
+	la x12,points_linked_mesh
+	li x13,32
+	la x30,rx
+	lhu x14,0(x30)
+	la x30,ry
+	lhu x15,0(x30)
+	mv x16,x0 ; LOADI4
+	li x17,212
+	call draw_batch
+	mv x30,x27 ; LOADI4
+	addi x27,x30,1
+	la x29,wox
+	li x28,80
+	imul x0,x30,x28,x30
+	li x28,16
+	shll x30,x30,x28
+	sw x30,0(x29)
+	la x12,line_strip_mesh
+	li x13,32
+	li x14,10
+	li x15,30
+	mv x16,x0 ; LOADI4
+	li x17,197
+	call draw_batch
+	mv x30,x27 ; LOADI4
+	addi x27,x30,1
+	la x29,wox
+	li x28,80
+	imul x0,x30,x28,x30
+	li x28,16
+	shll x30,x30,x28
+	sw x30,0(x29)
+	la x12,line_star_mesh
+	li x13,32
+	la x30,rx
+	lhu x14,0(x30)
+	la x30,ry
+	lhu x15,0(x30)
+	mv x16,x0 ; LOADI4
+	li x17,213
 	call draw_batch
 	call video_end_drawing
 	la x12,Video_tty
-	la x13,L.867
-	la x30,L.865
+	la x13,L.1073
+	la x30,rx
 	lhu x14,0(x30)
-	la x30,L.864
+	la x30,ry
 	lhu x15,0(x30)
 	call ttty_printf
-	la x12,L.866
-	li x13,32
-	call pause
-	mv x30,x10 ; LOADI1
-	shlli x30,x30,8*(4-1)
-	shrai x30,x30,8*(4-1)
-	bne x30,x0,L.868
-	la x30,L.865
+	la x30,is_paused
+	lb x30,0(x30)
+	bne x30,x0,L.1074
+	la x30,rx
 	lhu x29,0(x30)
 	addi x29,x29,200
 	sh x29,0(x30)
-	la x30,L.864
+	la x30,ry
 	lhu x29,0(x30)
 	addi x29,x29,350
 	sh x29,0(x30)
-L.868:
-L.863:
+L.1074:
+L.1072:
 	lw x1,24(x2)
-	lw  x8,44(x2)
-	addi  x2,x2,48
+	lw x27,28(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
 	jalr x0,0(x1)
 
 	.globl test3d
@@ -6400,6 +7407,9 @@ test3d:
 	la x30,woz
 	lw x30,0(x30)
 	sw x30,-12+16(x8)
+	la x30,woy
+	lw x30,0(x30)
+	sw x30,-16+16(x8)
 	mv x12,x0 ; LOADI4
 	li x13,3
 	call video_clear
@@ -6417,13 +7427,16 @@ test3d:
 	shlli x13,x30,8*(4-1)
 	shrli x13,x13,8*(4-1)
 	call _sbd
-L.873:
+L.1079:
+	la x12,is_paused
+	li x13,32
+	call pause
 	call vol_control
 	mv x27,x10 ; LOADI1
-L.874:
+L.1080:
 	shlli x30,x27,8*(4-1)
 	shrai x30,x30,8*(4-1)
-	beq x30,x0,L.873
+	beq x30,x0,L.1079
 	la x30,Devices+3
 	lbu x30,0(x30)
 	addi x30,x30,14
@@ -6456,9 +7469,13 @@ L.874:
 	la x30,woz
 	lw x29,-12+16(x8)
 	sw x29,0(x30)
+	la x30,woy
+	lw x29,-16+16(x8)
+	sw x29,0(x30)
+	call kbd_reset_translation
 	la x12,Video_tty
 	call ttty_clear
-L.870:
+L.1076:
 	lw x1,24(x2)
 	lw x26,28(x2)
 	lw x27,32(x2)
@@ -6475,12 +7492,12 @@ bios_vblank_handler:
 	sw x1,24(x2)
 	la x30,on_vblank
 	lw x30,0(x30)
-	beq x30,x0,L.879
+	beq x30,x0,L.1085
 	la x30,on_vblank
 	lw x31,0(x30)
 	jalr x1, 0(x31)
-L.879:
-L.878:
+L.1085:
+L.1084:
 	lw x1,24(x2)
 	lw  x8,44(x2)
 	addi  x2,x2,48
@@ -6489,45 +7506,7391 @@ L.878:
 	.align 4
 	.data
 	.align	4
+L.1088:
+	.word	0x0
+	.align	4
+L.1089:
+	.word	0x0
+	.align	4
+L.1090:
+	.word	0x0
+	.align	4
+L.1091:
+	.word	0x0
+	.align 4
+	.bss
+	.align	1
+L.1092:
+	.space	1
+	.align	1
+L.1093:
+	.space	1
+	.globl readmouse
+	.align 4
+	.text
+	.align	4
+readmouse:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x27,28(x2)
+	la x30,Devices+7
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x27,x30 ; LOADU1
+	la x30,Devices+7
+	lbu x30,0(x30)
+	addi x30,x30,1
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lhud
+	mv x30,x10 ; LOADU4
+	sh x30,-6+16(x8)
+	la x30,Devices+7
+	lbu x30,0(x30)
+	addi x30,x30,3
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lhud
+	mv x30,x10 ; LOADU4
+	sh x30,-8+16(x8)
+	la x12,Video_tty
+	la x13,L.1097
+	lhu x14,-6+16(x8)
+	lhu x15,-8+16(x8)
+	call ttty_printf
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,2
+	beq x30,x0,L.1098
+	la x12,Video_tty
+	la x13,L.1100
+	call ttty_printf
+	la x30,L.1092
+	li x29,1
+	sb x29,0(x30)
+	la x30,L.1088
+	lw x29,0(x30)
+	li x28,1
+	add x29,x29,x28
+	sw x29,0(x30)
+	j L.1099
+L.1098:
+	la x30,L.1092
+	lb x30,0(x30)
+	li x29,1
+	bne x30,x29,L.1101
+	la x12,Video_tty
+	la x13,L.1103
+	call ttty_printf
+	la x30,L.1092
+	sb x0,0(x30)
+	la x30,L.1089
+	lw x29,0(x30)
+	li x28,1
+	add x29,x29,x28
+	sw x29,0(x30)
+L.1101:
+L.1099:
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,1
+	beq x30,x0,L.1104
+	la x12,Video_tty
+	la x13,L.1106
+	call ttty_printf
+	la x30,L.1093
+	li x29,1
+	sb x29,0(x30)
+	la x30,L.1090
+	lw x29,0(x30)
+	li x28,1
+	add x29,x29,x28
+	sw x29,0(x30)
+	j L.1105
+L.1104:
+	la x30,L.1093
+	lb x30,0(x30)
+	li x29,1
+	bne x30,x29,L.1107
+	la x12,Video_tty
+	la x13,L.1109
+	call ttty_printf
+	la x30,L.1093
+	sb x0,0(x30)
+	la x30,L.1091
+	lw x29,0(x30)
+	li x28,1
+	add x29,x29,x28
+	sw x29,0(x30)
+L.1107:
+L.1105:
+	la x12,Video_tty
+	la x13,L.1110
+	la x30,L.1088
+	lw x14,0(x30)
+	la x30,L.1089
+	lw x15,0(x30)
+	call ttty_printf
+	la x12,Video_tty
+	la x13,L.1111
+	la x30,L.1090
+	lw x14,0(x30)
+	la x30,L.1091
+	lw x15,0(x30)
+	call ttty_printf
+L.1087:
+	lw x1,24(x2)
+	lw x27,28(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.align 4
+	.data
+	.align	1
+mouse_pointer_sprite:
+	.byte	0x40
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x50
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x54
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x55
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x55
+	.byte	0x40
+	.byte	0x0
+	.byte	0x0
+	.byte	0x55
+	.byte	0x50
+	.byte	0x0
+	.byte	0x0
+	.byte	0x55
+	.byte	0x54
+	.byte	0x0
+	.byte	0x0
+	.byte	0x55
+	.byte	0x55
+	.byte	0x0
+	.byte	0x0
+	.byte	0x55
+	.byte	0x55
+	.byte	0x40
+	.byte	0x0
+	.byte	0x55
+	.byte	0x51
+	.byte	0x0
+	.byte	0x0
+	.byte	0x54
+	.byte	0x51
+	.byte	0x0
+	.byte	0x0
+	.byte	0x40
+	.byte	0x14
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x14
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x15
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x5
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.globl mouse
+	.align 4
+	.text
+	.align	4
+mouse:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x24,28(x2)
+	sw x25,32(x2)
+	sw x26,36(x2)
+	sw x27,40(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	mv x26,x0 ; LOADI1
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	mv x25,x30 ; LOADU4
+	la x30,Devices+7
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x24,x30 ; LOADU1
+	sb x24,-5+16(x8)
+	la x12,Video_tty
+	call ttty_clear
+	la x12,Video_tty
+	la x13,L.1115
+	call ttty_puts
+	shlli x30,x24,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	ori x30,x30,32
+	mv x24,x30 ; LOADU1
+	shlli x30,x24,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	ori x30,x30,64
+	mv x24,x30 ; LOADU1
+	li x27,4608
+	j L.1119
+L.1116:
+	shlli x30,x27,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	mv x12,x30 ; LOADI4
+	la x29,mouse_pointer_sprite-4608
+	add x30,x30,x29
+	lbu x13,0(x30)
+	call _sbd
+L.1117:
+	shlli x30,x27,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	addi x30,x30,1
+	mv x27,x30 ; LOADU2
+L.1119:
+	shlli x30,x27,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	li x29,4672
+	blt x30,x29,L.1116
+	la x30,Devices+7
+	lbu x30,0(x30)
+	addi x30,x30,9
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,4608
+	call _shd
+	la x30,Devices+7
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	shlli x13,x24,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x30,on_vblank
+	la x29,readmouse
+	sw x29,0(x30)
+	li x30,1
+	or x25,x25,x30
+	li x30,-5
+	and x25,x25,x30
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x30,x25 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+L.1124:
+	call vol_control
+	mv x26,x10 ; LOADI1
+L.1125:
+	shlli x30,x26,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	beq x30,x0,L.1124
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	mv x25,x30 ; LOADU4
+	li x30,-2
+	and x25,x25,x30
+	li x30,4
+	or x25,x25,x30
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x30,x25 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x30,Devices+7
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	lbu x13,-5+16(x8)
+	call _sbd
+	la x30,on_vblank
+	sw x0,0(x30)
+	la x12,Video_tty
+	call ttty_clear
+	call kbd_reset_translation
+L.1112:
+	lw x1,24(x2)
+	lw x24,28(x2)
+	lw x25,32(x2)
+	lw x26,36(x2)
+	lw x27,40(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.globl kbtest
+	.align	4
+kbtest:
+	addi x2,x2,-80
+	sw  x8,76(x2)
+	addi  x8,x2,64
+	sw x1,24(x2)
+	sw x23,28(x2)
+	sw x24,32(x2)
+	sw x25,36(x2)
+	sw x26,40(x2)
+	sw x27,44(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	mv x26,x0 ; LOADI1
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	mv x25,x30 ; LOADU4
+	li x30,-5
+	and x25,x25,x30
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x30,x25 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x12,Video_tty
+	call ttty_clear
+	la x12,Video_tty
+	la x13,L.1133
+	call ttty_puts
+L.1134:
+	la x12,KeyboardEvents
+	call kbd_event_pop
+	mv x27,x10 ; LOADP4
+	mv x30,x27 ; LOADU4
+	beq x30,x0,L.1134
+	shlli x30,x26,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	bne x30,x0,L.1140
+	lhu x30,0(x27)
+	li x29,256
+	bne x30,x29,L.1140
+	la x12,Video_tty
+	la x13,L.1142
+	call ttty_printf
+	li x26,1
+	j L.1141
+L.1140:
+	shlli x30,x26,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	beq x30,x0,L.1143
+	lhu x30,0(x27)
+	li x29,256
+	bne x30,x29,L.1143
+	j L.1136
+L.1143:
+	mv x26,x0 ; LOADI1
+	la x12,Video_tty
+	la x13,L.1145
+	call ttty_printf
+L.1141:
+	li x30,2
+	add x30,x27,x30
+	lbu x12,0(x30)
+	call is_print
+	mv x30,x10 ; LOADI1
+	shlli x30,x30,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	beq x30,x0,L.1148
+	li x30,2
+	add x30,x27,x30
+	lbu x12,0(x30)
+	call is_space
+	mv x30,x10 ; LOADI1
+	shlli x30,x30,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	bne x30,x0,L.1148
+	li x30,2
+	add x30,x27,x30
+	lbu x24,0(x30)
+	j L.1149
+L.1148:
+	li x24,32
+L.1149:
+	la x12,Video_tty
+	la x13,L.1146
+	mv x14,x24 ; LOADI4
+	li x30,2
+	add x30,x27,x30
+	lbu x15,0(x30)
+	call ttty_printf
+	lhu x12,0(x27)
+	call keys_getkeyname
+	mv x30,x10 ; LOADP4
+	la x12,Video_tty
+	la x13,L.1150
+	lhu x14,0(x27)
+	mv x15,x30 ; LOADP4
+	call ttty_printf
+	la x12,Video_tty
+	la x13,L.1151
+	li x30,4
+	add x30,x27,x30
+	lb x30,0(x30)
+	beq x30,x0,L.1155
+	la x23,L.1152
+	j L.1156
+L.1155:
+	la x23,L.1153
+L.1156:
+	mv x14,x23 ; LOADP4
+	li x30,3
+	add x30,x27,x30
+	lbu x15,0(x30)
+	call ttty_printf
+	j L.1134
+L.1136:
+	li x30,4
+	or x25,x25,x30
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x30,x25 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x12,Video_tty
+	call ttty_clear
+L.1130:
+	lw x1,24(x2)
+	lw x23,28(x2)
+	lw x24,32(x2)
+	lw x25,36(x2)
+	lw x26,40(x2)
+	lw x27,44(x2)
+	lw  x8,76(x2)
+	addi  x2,x2,80
+	jalr x0,0(x1)
+
+	.align	4
+time:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	li x12,284
+	li x13,1
+	call _sbd
+	li x12,284
+	call _lwd
+	mv x30,x10 ; LOADU4
+L.1158:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.align	4
+align_to_sector_boundary:
+	addi x2,x2,-32
+	sw  x8,28(x2)
+	addi  x8,x2,16
+	mv x30,x12 ; LOADU4
+	sw x30,-8+16(x8)
+	li x30,1023
+	bgeu x13,x30,L.1160
+	mv x10,x0 ; LOADP4
+	j L.1159
+L.1160:
+	lw x30,-8+16(x8)
+	li x29,511
+	add x30,x30,x29
+	li x29,-512
+	and x30,x30,x29
+	mv x10,x30 ; LOADP4
+L.1159:
+	lw  x8,28(x2)
+	addi  x2,x2,32
+	jalr x0,0(x1)
+
+	.align	4
+tps_sector_io:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x27,28(x2)
+	mv x27,x12
+	sw x13,20(x8)
+	sw x14,24(x8)
+	sw x15,28(x8)
+	lw x30,4+16(x8)
+	sb x30,4+16(x8)
+	lw x30,8+16(x8)
+	sb x30,8+16(x8)
+	li x30,1
+	bne x27,x30,L.1168
+	lw x12,12+16(x8)
+	li x13,5120
+	li x14,512
+	call _copymd
+	sw x10,-8+16(x8)
+	beq x10,x0,L.1168
+	li x12,912080
+	mv x13,x0 ; LOADI4
+	lw x14,-8+16(x8)
+	call _trace
+	mv x10,x0 ; LOADI4
+	j L.1162
+L.1167:
+L.1168:
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,128
+	bne x30,x0,L.1167
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,1
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	lbu x13,4+16(x8)
+	call _sbd
+	la x30,Devices+4
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,6
+	call _sbd
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,2
+	beq x30,x0,L.1177
+	li x12,912080
+	li x13,1
+	call _trace
+	mv x10,x0 ; LOADI4
+	j L.1162
+L.1176:
+L.1177:
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,128
+	bne x30,x0,L.1176
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,1
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	lbu x13,8+16(x8)
+	call _sbd
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,2
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,10
+	call _shd
+	la x30,Devices+4
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x30,x27 ; LOADU4
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+L.1183:
+L.1184:
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,128
+	bne x30,x0,L.1183
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,2
+	beq x30,x0,L.1187
+	li x12,912080
+	li x13,2
+	call _trace
+	mv x10,x0 ; LOADI4
+	j L.1162
+L.1187:
+	li x30,2
+	bne x27,x30,L.1190
+	li x12,5120
+	lw x13,12+16(x8)
+	li x14,512
+	call _copydm
+	sw x10,-8+16(x8)
+	beq x10,x0,L.1192
+	li x12,912080
+	li x13,3
+	lw x14,-8+16(x8)
+	call _trace
+	mv x10,x0 ; LOADI4
+	j L.1162
+L.1192:
+L.1190:
+	li x10,1
+L.1162:
+	lw x1,24(x2)
+	lw x27,28(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.align	4
+hcs_sector_io:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x27,28(x2)
+	mv x27,x12
+	sw x13,20(x8)
+	sw x14,24(x8)
+	sw x15,28(x8)
+	lw x30,4+16(x8)
+	sb x30,4+16(x8)
+	lw x30,8+16(x8)
+	sh x30,8+16(x8)
+	li x30,1
+	bne x27,x30,L.1200
+	lw x12,12+16(x8)
+	li x13,5120
+	li x14,512
+	call _copymd
+	sw x10,-8+16(x8)
+	beq x10,x0,L.1200
+	li x12,912080
+	mv x13,x0 ; LOADI4
+	lw x14,-8+16(x8)
+	call _trace
+	mv x10,x0 ; LOADI4
+	j L.1194
+L.1199:
+L.1200:
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,7
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,128
+	bne x30,x0,L.1199
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,1
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	lbu x13,4+16(x8)
+	call _sbd
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,2
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	lhu x13,8+16(x8)
+	call _shd
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,4
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,10
+	call _shd
+	la x30,Devices+5
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x30,x27 ; LOADU4
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,7
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,2
+	beq x30,x0,L.1211
+	li x12,912081
+	li x13,1
+	call _trace
+	mv x10,x0 ; LOADI4
+	j L.1194
+L.1210:
+L.1211:
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,7
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,128
+	bne x30,x0,L.1210
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,7
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,2
+	beq x30,x0,L.1214
+	li x12,912081
+	li x13,3
+	call _trace
+	mv x10,x0 ; LOADI4
+	j L.1194
+L.1214:
+	li x30,2
+	bne x27,x30,L.1217
+	li x12,5120
+	lw x13,12+16(x8)
+	li x14,512
+	call _copydm
+	sw x10,-8+16(x8)
+	beq x10,x0,L.1219
+	li x12,912080
+	li x13,3
+	lw x14,-8+16(x8)
+	call _trace
+	mv x10,x0 ; LOADI4
+	j L.1194
+L.1219:
+L.1217:
+	li x10,1
+L.1194:
+	lw x1,24(x2)
+	lw x27,28(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.align	4
+tps_sector_load:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	sw x14,24(x8)
+	lw x30,0+16(x8)
+	sb x30,0+16(x8)
+	lw x30,4+16(x8)
+	sb x30,4+16(x8)
+	li x12,2
+	lbu x13,0+16(x8)
+	lbu x14,4+16(x8)
+	lw x15,8+16(x8)
+	call tps_sector_io
+	mv x30,x10 ; LOADI1
+	shlli x10,x30,8*(4-1)
+	shrai x10,x10,8*(4-1)
+L.1221:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.align	4
+tps_sector_store:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	sw x14,24(x8)
+	lw x30,0+16(x8)
+	sb x30,0+16(x8)
+	lw x30,4+16(x8)
+	sb x30,4+16(x8)
+	li x12,1
+	lbu x13,0+16(x8)
+	lbu x14,4+16(x8)
+	lw x15,8+16(x8)
+	call tps_sector_io
+	mv x30,x10 ; LOADI1
+	shlli x10,x30,8*(4-1)
+	shrai x10,x10,8*(4-1)
+L.1222:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.align	4
+hcs_sector_load:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	sw x14,24(x8)
+	lw x30,0+16(x8)
+	sb x30,0+16(x8)
+	lw x30,4+16(x8)
+	sb x30,4+16(x8)
+	li x12,2
+	lbu x13,0+16(x8)
+	lbu x30,4+16(x8)
+	shlli x14,x30,8*(4-2)
+	shrli x14,x14,8*(4-2)
+	lw x15,8+16(x8)
+	call hcs_sector_io
+	mv x30,x10 ; LOADI1
+	shlli x10,x30,8*(4-1)
+	shrai x10,x10,8*(4-1)
+L.1223:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.align	4
+hcs_sector_store:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	sw x14,24(x8)
+	lw x30,0+16(x8)
+	sb x30,0+16(x8)
+	lw x30,4+16(x8)
+	sb x30,4+16(x8)
+	li x12,1
+	lbu x13,0+16(x8)
+	lbu x30,4+16(x8)
+	shlli x14,x30,8*(4-2)
+	shrli x14,x14,8*(4-2)
+	lw x15,8+16(x8)
+	call hcs_sector_io
+	mv x30,x10 ; LOADI1
+	shlli x10,x30,8*(4-1)
+	shrai x10,x10,8*(4-1)
+L.1224:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.align	4
+sector_store:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	sw x14,24(x8)
+	sw x15,28(x8)
+	lw x30,4+16(x8)
+	sb x30,4+16(x8)
+	lw x30,8+16(x8)
+	sh x30,8+16(x8)
+	lw x30,0+16(x8)
+	li x29,1
+	bne x30,x29,L.1227
+	lhu x30,8+16(x8)
+	li x29,255
+	ble x30,x29,L.1229
+	mv x10,x0 ; LOADI4
+	j L.1226
+L.1229:
+	lbu x12,4+16(x8)
+	lhu x30,8+16(x8)
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	lw x14,12+16(x8)
+	call tps_sector_store
+	mv x30,x10 ; LOADI1
+	shlli x10,x30,8*(4-1)
+	shrai x10,x10,8*(4-1)
+	j L.1226
+L.1227:
+	lw x30,0+16(x8)
+	bne x30,x0,L.1231
+	lbu x12,4+16(x8)
+	lhu x30,8+16(x8)
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	lw x14,12+16(x8)
+	call hcs_sector_store
+	mv x30,x10 ; LOADI1
+	shlli x10,x30,8*(4-1)
+	shrai x10,x10,8*(4-1)
+	j L.1226
+L.1231:
+	mv x10,x0 ; LOADI4
+L.1226:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.align	4
+sector_load:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	sw x14,24(x8)
+	sw x15,28(x8)
+	lw x30,4+16(x8)
+	sb x30,4+16(x8)
+	lw x30,8+16(x8)
+	sh x30,8+16(x8)
+	lw x30,0+16(x8)
+	li x29,1
+	bne x30,x29,L.1234
+	lhu x30,8+16(x8)
+	li x29,255
+	ble x30,x29,L.1236
+	mv x10,x0 ; LOADI4
+	j L.1233
+L.1236:
+	lbu x12,4+16(x8)
+	lhu x30,8+16(x8)
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	lw x14,12+16(x8)
+	call tps_sector_load
+	mv x30,x10 ; LOADI1
+	shlli x10,x30,8*(4-1)
+	shrai x10,x10,8*(4-1)
+	j L.1233
+L.1234:
+	lw x30,0+16(x8)
+	bne x30,x0,L.1238
+	lbu x12,4+16(x8)
+	lhu x30,8+16(x8)
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	lw x14,12+16(x8)
+	call hcs_sector_load
+	mv x30,x10 ; LOADI1
+	shlli x10,x30,8*(4-1)
+	shrai x10,x10,8*(4-1)
+	j L.1233
+L.1238:
+	li x12,14593332
+	call _trace
+	mv x10,x0 ; LOADI4
+L.1233:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.globl memcmp
+	.align	4
+memcmp:
+	addi x2,x2,-32
+	sw  x8,28(x2)
+	addi  x8,x2,16
+	sw x25,0(x2)
+	sw x26,4(x2)
+	sw x27,8(x2)
+	mv x26,x12 ; LOADP4
+	mv x25,x13 ; LOADP4
+	mv x27,x0 ; LOADU4
+	j L.1244
+L.1241:
+	add x30,x27,x26
+	lb x30,0(x30)
+	add x29,x27,x25
+	lb x29,0(x29)
+	beq x30,x29,L.1245
+	mv x30,x26 ; LOADU4
+	mv x29,x25 ; LOADU4
+	sub x30,x30,x29
+	mv x10,x30 ; LOADI4
+	j L.1240
+L.1245:
+L.1242:
+	li x30,1
+	add x27,x27,x30
+L.1244:
+	bltu x27,x14,L.1241
+	mv x10,x0 ; LOADI4
+L.1240:
+	lw x25,0(x2)
+	lw x26,4(x2)
+	lw x27,8(x2)
+	lw  x8,28(x2)
+	addi  x2,x2,32
+	jalr x0,0(x1)
+
+	.align 4
+	.data
+	.align	4
+lcg_seed:
+	.word	0x3039
+	.align 4
+	.text
+	.align	4
+talea_rand:
+	addi x2,x2,-32
+	sw  x8,28(x2)
+	addi  x8,x2,16
+	la x30,lcg_seed
+	li x29,0x41c64e6d
+	lw x28,0(x30)
+	imul x0,x29,x29,x28
+	li x28,12345
+	add x29,x29,x28
+	li x28,0x7fffffff
+	and x29,x29,x28
+	sw x29,0(x30)
+	lw x30,0(x30)
+	li x29,16
+	shrl x30,x30,x29
+	shlli x10,x30,8*(4-2)
+	shrli x10,x10,8*(4-2)
+L.1247:
+	lw  x8,28(x2)
+	addi  x2,x2,32
+	jalr x0,0(x1)
+
+	.align	4
+test_sector:
+	addi x2,x2,-96
+	sw  x8,92(x2)
+	addi  x8,x2,80
+	sw x1,24(x2)
+	sw x19,28(x2)
+	sw x20,32(x2)
+	sw x21,36(x2)
+	sw x22,40(x2)
+	sw x23,44(x2)
+	sw x24,48(x2)
+	sw x25,52(x2)
+	sw x26,56(x2)
+	sw x27,60(x2)
+	mv x27,x12
+	mv x26,x13
+	mv x25,x14
+	sw x15,28(x8)
+	sw x16,32(x8)
+	sw x17,36(x8)
+	lw x24,24+16(x8)
+	mv x23,x0 ; LOADU4
+	mv x22,x0 ; LOADU4
+	mv x20,x0 ; LOADU4
+	mv x21,x0 ; LOADI1
+	lw x30,28+16(x8)
+	sb x0,0(x30)
+	blt x27,x0,L.1251
+	li x30,1
+	ble x27,x30,L.1249
+L.1251:
+	la x12,Con
+	la x13,L.1252
+	mv x14,x27 ; LOADI4
+	call ttty_mux_printf
+	mv x10,x0 ; LOADU4
+	j L.1248
+L.1249:
+	la x12,Con
+	la x13,L.1253
+	li x30,1
+	bne x27,x30,L.1257
+	la x19,L.1254
+	j L.1258
+L.1257:
+	la x19,L.1255
+L.1258:
+	mv x14,x19 ; LOADP4
+	shlli x15,x26,8*(4-1)
+	shrli x15,x15,8*(4-1)
+	shlli x16,x25,8*(4-1)
+	shrli x16,x16,8*(4-1)
+	call ttty_mux_printf
+	call time
+	mv x23,x10 ; LOADU4
+	lw x30,0(x24)
+	li x29,1
+	add x30,x30,x29
+	sw x30,0(x24)
+	mv x12,x27 ; LOADI4
+	shlli x13,x26,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	shlli x30,x25,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	shlli x14,x30,8*(4-2)
+	shrli x14,x14,8*(4-2)
+	lw x15,20+16(x8)
+	call sector_load
+	mv x30,x10 ; LOADI4
+	mv x21,x30 ; LOADI1
+	call time
+	mv x22,x10 ; LOADU4
+	sub x30,x22,x23
+	add x20,x20,x30
+	shlli x30,x21,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	bne x30,x0,L.1259
+	la x12,Con
+	la x13,L.1261
+	call ttty_mux_printf
+	mv x10,x20 ; LOADU4
+	j L.1248
+L.1259:
+	la x12,Con
+	la x13,L.1262
+	call ttty_mux_printf
+	call time
+	mv x23,x10 ; LOADU4
+	lw x30,0(x24)
+	li x29,1
+	add x30,x30,x29
+	sw x30,0(x24)
+	mv x12,x27 ; LOADI4
+	shlli x13,x26,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	shlli x30,x25,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	shlli x14,x30,8*(4-2)
+	shrli x14,x14,8*(4-2)
+	lw x15,12+16(x8)
+	call sector_store
+	mv x30,x10 ; LOADI4
+	mv x21,x30 ; LOADI1
+	call time
+	mv x22,x10 ; LOADU4
+	sub x30,x22,x23
+	add x20,x20,x30
+	shlli x30,x21,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	bne x30,x0,L.1263
+	la x12,Con
+	la x13,L.1261
+	call ttty_mux_printf
+	mv x10,x20 ; LOADU4
+	j L.1248
+L.1263:
+	la x12,Con
+	la x13,L.1262
+	call ttty_mux_printf
+	call time
+	mv x23,x10 ; LOADU4
+	lw x30,0(x24)
+	li x29,1
+	add x30,x30,x29
+	sw x30,0(x24)
+	mv x12,x27 ; LOADI4
+	shlli x13,x26,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	shlli x30,x25,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	shlli x14,x30,8*(4-2)
+	shrli x14,x14,8*(4-2)
+	lw x15,16+16(x8)
+	call sector_load
+	mv x30,x10 ; LOADI4
+	mv x21,x30 ; LOADI1
+	call time
+	mv x22,x10 ; LOADU4
+	sub x30,x22,x23
+	add x20,x20,x30
+	shlli x30,x21,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	bne x30,x0,L.1265
+	la x12,Con
+	la x13,L.1261
+	call ttty_mux_printf
+	mv x10,x20 ; LOADU4
+	j L.1248
+L.1265:
+	la x12,Con
+	la x13,L.1262
+	call ttty_mux_printf
+	lw x12,12+16(x8)
+	lw x13,16+16(x8)
+	li x14,512
+	call memcmp
+	beq x10,x0,L.1267
+	la x12,Con
+	la x13,L.1269
+	call ttty_mux_printf
+	j L.1268
+L.1267:
+	la x12,Con
+	la x13,L.1270
+	call ttty_mux_printf
+L.1268:
+	call time
+	mv x23,x10 ; LOADU4
+	lw x30,0(x24)
+	li x29,1
+	add x30,x30,x29
+	sw x30,0(x24)
+	mv x12,x27 ; LOADI4
+	shlli x13,x26,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	shlli x30,x25,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	shlli x14,x30,8*(4-2)
+	shrli x14,x14,8*(4-2)
+	lw x15,20+16(x8)
+	call sector_store
+	mv x30,x10 ; LOADI4
+	mv x21,x30 ; LOADI1
+	call time
+	mv x22,x10 ; LOADU4
+	sub x30,x22,x23
+	add x20,x20,x30
+	shlli x30,x21,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	bne x30,x0,L.1271
+	la x12,Con
+	la x13,L.1273
+	call ttty_mux_printf
+	lw x30,28+16(x8)
+	li x29,1
+	sb x29,0(x30)
+	mv x10,x20 ; LOADU4
+	j L.1248
+L.1271:
+	la x12,Con
+	la x13,L.1274
+	call ttty_mux_printf
+	mv x10,x20 ; LOADU4
+L.1248:
+	lw x1,24(x2)
+	lw x19,28(x2)
+	lw x20,32(x2)
+	lw x21,36(x2)
+	lw x22,40(x2)
+	lw x23,44(x2)
+	lw x24,48(x2)
+	lw x25,52(x2)
+	lw x26,56(x2)
+	lw x27,60(x2)
+	lw  x8,92(x2)
+	addi  x2,x2,96
+	jalr x0,0(x1)
+
+	.align	4
+io_stress_test:
+	addi x2,x2,-96
+	sw  x8,92(x2)
+	addi  x8,x2,80
+	sw x1,44(x2)
+	sw x21,48(x2)
+	sw x22,52(x2)
+	sw x23,56(x2)
+	sw x24,60(x2)
+	sw x25,64(x2)
+	sw x26,68(x2)
+	sw x27,72(x2)
+	mv x27,x12
+	sb x0,-5+16(x8)
+	mv x25,x0 ; LOADU4
+	sw x0,-12+16(x8)
+	mv x24,x0 ; LOADU4
+	la x12,test_data
+	li x13,1024
+	call align_to_sector_boundary
+	mv x23,x10 ; LOADP4
+	la x12,read_data
+	li x13,1024
+	call align_to_sector_boundary
+	mv x22,x10 ; LOADP4
+	la x12,temp_buff
+	li x13,1024
+	call align_to_sector_boundary
+	mv x21,x10 ; LOADP4
+	mv x29,x21 ; LOADU4
+	beq x29,x0,L.1279
+	mv x29,x23 ; LOADU4
+	beq x29,x0,L.1279
+	mv x29,x22 ; LOADU4
+	bne x29,x0,L.1276
+L.1279:
+	la x12,Con
+	la x13,L.1280
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1281
+	mv x14,x21 ; LOADU4
+	mv x15,x23 ; LOADU4
+	mv x16,x22 ; LOADU4
+	call ttty_mux_printf
+	j L.1275
+L.1276:
+	la x12,Con
+	la x13,L.1281
+	mv x14,x21 ; LOADU4
+	mv x15,x23 ; LOADU4
+	mv x16,x22 ; LOADU4
+	call ttty_mux_printf
+	mv x12,x23 ; LOADP4
+	li x13,21930
+	li x14,512
+	call memseth
+	mv x26,x0 ; LOADU4
+	j L.1285
+L.1282:
+	mv x12,x27 ; LOADI4
+	mv x13,x0 ; LOADI4
+	mv x30,x26 ; LOADU1
+	shlli x14,x30,8*(4-1)
+	shrli x14,x14,8*(4-1)
+	mv x15,x23 ; LOADP4
+	mv x16,x22 ; LOADP4
+	mv x17,x21 ; LOADP4
+	addi x30,x8,-12+16
+	sw x30,24(x2)
+	addi x30,x8,-5+16
+	sw x30,28(x2)
+	call test_sector
+	add x25,x25,x10
+	li x30,1
+	add x24,x24,x30
+	lb x30,-5+16(x8)
+	beq x30,x0,L.1286
+	j L.1275
+L.1286:
+L.1283:
+	li x30,1
+	add x26,x26,x30
+L.1285:
+	li x30,10
+	bltu x26,x30,L.1282
+	li x26,246
+	j L.1291
+L.1288:
+	mv x12,x27 ; LOADI4
+	mv x13,x0 ; LOADI4
+	mv x30,x26 ; LOADU1
+	shlli x14,x30,8*(4-1)
+	shrli x14,x14,8*(4-1)
+	mv x15,x23 ; LOADP4
+	mv x16,x22 ; LOADP4
+	mv x17,x21 ; LOADP4
+	addi x30,x8,-12+16
+	sw x30,24(x2)
+	addi x30,x8,-5+16
+	sw x30,28(x2)
+	call test_sector
+	add x25,x25,x10
+	li x30,1
+	add x24,x24,x30
+	lb x30,-5+16(x8)
+	beq x30,x0,L.1292
+	j L.1275
+L.1292:
+L.1289:
+	li x30,1
+	add x26,x26,x30
+L.1291:
+	li x30,256
+	bltu x26,x30,L.1288
+	call talea_rand
+	mv x12,x27 ; LOADI4
+	mv x13,x0 ; LOADI4
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	andi x30,x30,255
+	shlli x14,x30,8*(4-1)
+	shrli x14,x14,8*(4-1)
+	mv x15,x23 ; LOADP4
+	mv x16,x22 ; LOADP4
+	mv x17,x21 ; LOADP4
+	addi x30,x8,-12+16
+	sw x30,24(x2)
+	addi x30,x8,-5+16
+	sw x30,28(x2)
+	call test_sector
+	add x25,x25,x10
+	li x30,1
+	add x24,x24,x30
+	lb x30,-5+16(x8)
+	beq x30,x0,L.1294
+	j L.1275
+L.1294:
+	call talea_rand
+	mv x12,x27 ; LOADI4
+	mv x13,x0 ; LOADI4
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	andi x30,x30,255
+	shlli x14,x30,8*(4-1)
+	shrli x14,x14,8*(4-1)
+	mv x15,x23 ; LOADP4
+	mv x16,x22 ; LOADP4
+	mv x17,x21 ; LOADP4
+	addi x30,x8,-12+16
+	sw x30,24(x2)
+	addi x30,x8,-5+16
+	sw x30,28(x2)
+	call test_sector
+	add x25,x25,x10
+	li x30,1
+	add x24,x24,x30
+	lb x30,-5+16(x8)
+	beq x30,x0,L.1296
+	j L.1275
+L.1296:
+	call talea_rand
+	mv x12,x27 ; LOADI4
+	mv x13,x0 ; LOADI4
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	andi x30,x30,255
+	shlli x14,x30,8*(4-1)
+	shrli x14,x14,8*(4-1)
+	mv x15,x23 ; LOADP4
+	mv x16,x22 ; LOADP4
+	mv x17,x21 ; LOADP4
+	addi x30,x8,-12+16
+	sw x30,24(x2)
+	addi x30,x8,-5+16
+	sw x30,28(x2)
+	call test_sector
+	add x25,x25,x10
+	li x30,1
+	add x24,x24,x30
+	lb x30,-5+16(x8)
+	beq x30,x0,L.1298
+	j L.1275
+L.1298:
+	call talea_rand
+	mv x12,x27 ; LOADI4
+	mv x13,x0 ; LOADI4
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	andi x30,x30,255
+	shlli x14,x30,8*(4-1)
+	shrli x14,x14,8*(4-1)
+	mv x15,x23 ; LOADP4
+	mv x16,x22 ; LOADP4
+	mv x17,x21 ; LOADP4
+	addi x30,x8,-12+16
+	sw x30,24(x2)
+	addi x30,x8,-5+16
+	sw x30,28(x2)
+	call test_sector
+	add x25,x25,x10
+	li x30,1
+	add x24,x24,x30
+	lb x30,-5+16(x8)
+	beq x30,x0,L.1300
+	j L.1275
+L.1300:
+	call talea_rand
+	mv x12,x27 ; LOADI4
+	mv x13,x0 ; LOADI4
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	andi x30,x30,255
+	shlli x14,x30,8*(4-1)
+	shrli x14,x14,8*(4-1)
+	mv x15,x23 ; LOADP4
+	mv x16,x22 ; LOADP4
+	mv x17,x21 ; LOADP4
+	addi x30,x8,-12+16
+	sw x30,24(x2)
+	addi x30,x8,-5+16
+	sw x30,28(x2)
+	call test_sector
+	add x25,x25,x10
+	li x30,1
+	add x24,x24,x30
+	lb x30,-5+16(x8)
+	beq x30,x0,L.1302
+	j L.1275
+L.1302:
+	la x12,Con
+	la x13,L.1304
+	mv x14,x24 ; LOADU4
+	lw x30,-12+16(x8)
+	mv x15,x30 ; LOADU4
+	li x29,100
+	imul x0,x28,x29,x25
+	udiv x28,x0,x28,x30
+	udiv x16,x0,x28,x29
+	udiv x0,x17,x28,x29
+	sw x25,24(x2)
+	li x28,1000
+	li x7,9
+	shll x7,x24,x7
+	li x6,2
+	shll x7,x7,x6
+	imul x0,x7,x29,x7
+	li x6,10
+	shrl x7,x7,x6
+	imul x0,x7,x28,x7
+	udiv x7,x0,x7,x25
+	udiv x6,x0,x7,x29
+	sw x6,28(x2)
+	udiv x0,x7,x7,x29
+	sw x7,32(x2)
+	imul x0,x30,x28,x30
+	imul x0,x30,x29,x30
+	udiv x30,x0,x30,x25
+	udiv x28,x0,x30,x29
+	sw x28,36(x2)
+	udiv x0,x30,x30,x29
+	sw x30,40(x2)
+	call ttty_mux_printf
+L.1275:
+	lw x1,44(x2)
+	lw x21,48(x2)
+	lw x22,52(x2)
+	lw x23,56(x2)
+	lw x24,60(x2)
+	lw x25,64(x2)
+	lw x26,68(x2)
+	lw x27,72(x2)
+	lw  x8,92(x2)
+	addi  x2,x2,96
+	jalr x0,0(x1)
+
+	.globl tpstest
+	.align	4
+tpstest:
+	addi x2,x2,-96
+	sw  x8,92(x2)
+	addi  x8,x2,64
+	sw x1,24(x2)
+	sw x20,28(x2)
+	sw x21,32(x2)
+	sw x22,36(x2)
+	sw x23,40(x2)
+	sw x24,44(x2)
+	sw x25,48(x2)
+	sw x26,52(x2)
+	sw x27,56(x2)
+	sw x12,32(x8)
+	sw x13,36(x8)
+	lw x30,0+32(x8)
+	li x29,2
+	beq x30,x29,L.1306
+	la x12,Con
+	la x13,L.1308
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1309
+	call ttty_mux_printf
+	mv x23,x0 ; LOADU4
+	j L.1313
+L.1310:
+	la x12,Con
+	la x13,L.1314
+	li x30,65
+	add x14,x23,x30
+	mv x15,x23 ; LOADU4
+	call ttty_mux_printf
+L.1311:
+	li x30,1
+	add x23,x23,x30
+L.1313:
+	li x30,2
+	bltu x23,x30,L.1310
+	j L.1305
+L.1306:
+	lw x30,4+32(x8)
+	li x29,4
+	add x30,x30,x29
+	lw x30,0(x30)
+	lbu x30,0(x30)
+	addi x30,x30,-48
+	mv x25,x30 ; LOADU1
+	shlli x30,x25,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	li x29,2
+	blt x30,x29,L.1319
+	la x12,Con
+	la x13,L.1317
+	call ttty_mux_printf
+	j L.1305
+L.1318:
+L.1319:
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,128
+	bne x30,x0,L.1318
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,1
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	shlli x13,x25,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x30,Devices+4
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,3
+	call _sbd
+	la x30,Devices+4
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,4
+	call _sbd
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,4
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x24,x30 ; LOADU1
+	la x30,Devices+4
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,5
+	call _sbd
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,4
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x27,x30 ; LOADU1
+	la x30,Devices+4
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x26,x30 ; LOADU1
+	la x12,Con
+	la x13,L.1329
+	shlli x14,x25,8*(4-1)
+	shrli x14,x14,8*(4-1)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1330
+	shlli x30,x24,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	bne x30,x0,L.1336
+	la x23,L.1331
+	j L.1337
+L.1336:
+	shlli x30,x24,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	li x29,1
+	bne x30,x29,L.1338
+	la x22,L.1332
+	j L.1339
+L.1338:
+	la x22,L.1333
+L.1339:
+	mv x23,x22 ; LOADP4
+L.1337:
+	mv x14,x23 ; LOADP4
+	shlli x15,x24,8*(4-1)
+	shrli x15,x15,8*(4-1)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1340
+	shlli x30,x26,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	mv x14,x30 ; LOADI4
+	andi x30,x30,2
+	beq x30,x0,L.1344
+	la x21,L.1341
+	j L.1345
+L.1344:
+	la x21,L.1342
+L.1345:
+	mv x15,x21 ; LOADP4
+	call ttty_mux_printf
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	ble x30,x0,L.1346
+	li x29,6
+	bgt x30,x29,L.1346
+	li x30,20
+	shlli x29,x27,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	imul x0,x30,x30,x29
+	la x29,Storage_MediumLookup+4
+	add x30,x30,x29
+	lw x30,0(x30)
+	sw x30,-8+32(x8)
+	li x30,20
+	shlli x29,x27,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	imul x0,x30,x30,x29
+	la x29,Storage_MediumLookup+16
+	add x30,x30,x29
+	lw x30,0(x30)
+	sw x30,-12+32(x8)
+	li x30,20
+	shlli x29,x27,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	imul x0,x30,x30,x29
+	la x29,Storage_MediumLookup+8
+	add x30,x30,x29
+	lw x30,0(x30)
+	sw x30,-16+32(x8)
+	li x30,20
+	shlli x29,x27,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	imul x0,x30,x30,x29
+	la x29,Storage_MediumLookup+12
+	add x30,x30,x29
+	lw x30,0(x30)
+	sw x30,-20+32(x8)
+	la x12,Con
+	la x13,L.1352
+	shlli x30,x26,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,16
+	beq x30,x0,L.1355
+	la x20,L.1353
+	j L.1356
+L.1355:
+	la x20,L.1342
+L.1356:
+	mv x14,x20 ; LOADP4
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1357
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	li x29,2
+	shll x30,x30,x29
+	la x29,Storage_MediumNames
+	add x30,x30,x29
+	lw x14,0(x30)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1358
+	lw x14,-8+32(x8)
+	lw x15,-12+32(x8)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1359
+	lw x14,-16+32(x8)
+	lw x15,-20+32(x8)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1360
+	lw x30,-8+32(x8)
+	lw x29,-12+32(x8)
+	imul x0,x30,x30,x29
+	mv x14,x30 ; LOADU4
+	li x29,10
+	shrl x15,x30,x29
+	call ttty_mux_printf
+	j L.1347
+L.1346:
+	la x12,Con
+	la x13,L.1361
+	call ttty_mux_printf
+	j L.1305
+L.1347:
+	shlli x30,x26,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,16
+	beq x30,x0,L.1362
+	j L.1305
+L.1362:
+	la x12,Con
+	la x13,L.1364
+	call ttty_mux_printf
+L.1365:
+L.1366:
+	la x12,KeyboardEvents
+	call kbd_event_pop
+	mv x20,x10 ; LOADP4
+	mv x30,x10 ; LOADU4
+	beq x30,x0,L.1365
+	lhu x30,0(x20)
+	li x29,257
+	beq x30,x29,L.1368
+	j L.1305
+L.1368:
+	li x12,1
+	call io_stress_test
+L.1305:
+	lw x1,24(x2)
+	lw x20,28(x2)
+	lw x21,32(x2)
+	lw x22,36(x2)
+	lw x23,40(x2)
+	lw x24,44(x2)
+	lw x25,48(x2)
+	lw x26,52(x2)
+	lw x27,56(x2)
+	lw  x8,92(x2)
+	addi  x2,x2,96
+	jalr x0,0(x1)
+
+	.globl hcstest
+	.align	4
+hcstest:
+	addi x2,x2,-80
+	sw  x8,76(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x24,28(x2)
+	sw x25,32(x2)
+	sw x26,36(x2)
+	sw x27,40(x2)
+	sw x12,32(x8)
+	sw x13,36(x8)
+L.1371:
+L.1372:
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,7
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,128
+	bne x30,x0,L.1371
+	la x30,Devices+5
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,5
+	call _sbd
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,6
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x27,x30 ; LOADU1
+	la x30,Devices+5
+	lbu x30,0(x30)
+	addi x30,x30,7
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x26,x30 ; LOADU1
+	la x12,Con
+	la x13,L.1378
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1340
+	shlli x30,x26,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	mv x14,x30 ; LOADI4
+	andi x30,x30,2
+	beq x30,x0,L.1380
+	la x25,L.1341
+	j L.1381
+L.1380:
+	la x25,L.1342
+L.1381:
+	mv x15,x25 ; LOADP4
+	call ttty_mux_printf
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	ble x30,x0,L.1382
+	li x29,6
+	bgt x30,x29,L.1382
+	li x30,20
+	shlli x29,x27,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	imul x0,x30,x30,x29
+	la x29,Storage_MediumLookup+4
+	add x30,x30,x29
+	lw x30,0(x30)
+	sw x30,-8+32(x8)
+	li x30,20
+	shlli x29,x27,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	imul x0,x30,x30,x29
+	la x29,Storage_MediumLookup+16
+	add x30,x30,x29
+	lw x30,0(x30)
+	sw x30,-12+32(x8)
+	li x30,20
+	shlli x29,x27,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	imul x0,x30,x30,x29
+	la x29,Storage_MediumLookup+8
+	add x30,x30,x29
+	lw x30,0(x30)
+	sw x30,-16+32(x8)
+	li x30,20
+	shlli x29,x27,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	imul x0,x30,x30,x29
+	la x29,Storage_MediumLookup+12
+	add x30,x30,x29
+	lw x30,0(x30)
+	sw x30,-20+32(x8)
+	la x12,Con
+	la x13,L.1352
+	shlli x30,x26,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,16
+	beq x30,x0,L.1389
+	la x24,L.1353
+	j L.1390
+L.1389:
+	la x24,L.1342
+L.1390:
+	mv x14,x24 ; LOADP4
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1357
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	li x29,2
+	shll x30,x30,x29
+	la x29,Storage_MediumNames
+	add x30,x30,x29
+	lw x14,0(x30)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1358
+	lw x14,-8+32(x8)
+	lw x15,-12+32(x8)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1359
+	lw x14,-16+32(x8)
+	lw x15,-20+32(x8)
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1391
+	lw x30,-8+32(x8)
+	lw x29,-12+32(x8)
+	imul x0,x30,x30,x29
+	mv x14,x30 ; LOADU4
+	li x29,20
+	shrl x15,x30,x29
+	call ttty_mux_printf
+	j L.1383
+L.1382:
+	la x12,Con
+	la x13,L.1361
+	call ttty_mux_printf
+	j L.1370
+L.1383:
+	shlli x30,x26,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,16
+	beq x30,x0,L.1392
+	j L.1370
+L.1392:
+	la x12,Con
+	la x13,L.1364
+	call ttty_mux_printf
+L.1394:
+L.1395:
+	la x12,KeyboardEvents
+	call kbd_event_pop
+	mv x24,x10 ; LOADP4
+	mv x30,x10 ; LOADU4
+	beq x30,x0,L.1394
+	lhu x30,0(x24)
+	li x29,257
+	beq x30,x29,L.1397
+	j L.1370
+L.1397:
+	mv x12,x0 ; LOADI4
+	call io_stress_test
+L.1370:
+	lw x1,24(x2)
+	lw x24,28(x2)
+	lw x25,32(x2)
+	lw x26,36(x2)
+	lw x27,40(x2)
+	lw  x8,76(x2)
+	addi  x2,x2,80
+	jalr x0,0(x1)
+
+	.align 4
+	.data
+	.align	4
+on_interval:
+	.word	0x0
+	.align	4
+on_timeout:
+	.word	0x0
+	.globl bios_interval_handler
+	.align 4
+	.text
+	.align	4
+bios_interval_handler:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	la x30,on_interval
+	lw x30,0(x30)
+	beq x30,x0,L.1400
+	la x30,on_interval
+	lw x31,0(x30)
+	jalr x1, 0(x31)
+L.1400:
+L.1399:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.globl bios_timeout_handler
+	.align	4
+bios_timeout_handler:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	la x30,on_timeout
+	lw x30,0(x30)
+	beq x30,x0,L.1403
+	la x30,on_timeout
+	lw x31,0(x30)
+	jalr x1, 0(x31)
+L.1403:
+L.1402:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.align 4
+	.data
+	.align	4
+L.1406:
+	.word	0x0
+	.globl test_interval
+	.align 4
+	.text
+	.align	4
+test_interval:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	la x30,L.1406
+	lw x29,0(x30)
+	li x28,1
+	add x29,x29,x28
+	sw x29,0(x30)
+	la x12,Con
+	la x13,L.1407
+	lw x14,0(x30)
+	call ttty_mux_printf
+L.1405:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.align 4
+	.data
+	.align	4
+L.1409:
+	.word	0x0
+	.globl test_timeout
+	.align 4
+	.text
+	.align	4
+test_timeout:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	la x30,Devices+1
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	sb x30,-5+16(x8)
+	la x30,L.1409
+	lw x29,0(x30)
+	li x28,1
+	add x29,x29,x28
+	sw x29,0(x30)
+	la x12,Con
+	la x13,L.1411
+	call ttty_mux_printf
+	la x30,Devices+1
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	lbu x30,-5+16(x8)
+	andi x30,x30,-3
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+L.1408:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.globl timertest
+	.align	4
+timertest:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x26,28(x2)
+	sw x27,32(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	la x30,Devices+1
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x27,x30 ; LOADU1
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x26,x30 ; LOADU1
+	la x30,on_interval
+	la x29,test_interval
+	sw x29,0(x30)
+	la x30,on_timeout
+	la x29,test_timeout
+	sw x29,0(x30)
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	shlli x30,x26,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,-5
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x12,Con
+	call ttty_mux_clear
+	la x12,Con
+	la x13,L.1417
+	call ttty_mux_printf
+	la x30,Devices+1
+	lbu x30,0(x30)
+	addi x30,x30,2
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x30,0xfffff
+	shlli x13,x30,8*(4-2)
+	shrli x13,x13,8*(4-2)
+	call _shd
+	la x30,Devices+1
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x30,0xfffff
+	shlli x13,x30,8*(4-2)
+	shrli x13,x13,8*(4-2)
+	call _shd
+	la x30,Devices+1
+	lbu x30,0(x30)
+	addi x30,x30,4
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,1
+	call _sbd
+	la x30,Devices+1
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	ori x30,x30,128
+	ori x30,x30,1
+	ori x30,x30,2
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+L.1422:
+L.1423:
+	call vol_control
+	mv x30,x10 ; LOADI1
+	shlli x30,x30,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	beq x30,x0,L.1422
+	la x30,Devices+1
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,-132
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	shlli x13,x26,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	mv x30,x0 ; LOADP4
+	la x29,on_interval
+	sw x30,0(x29)
+	la x29,on_timeout
+	sw x30,0(x29)
+	la x12,Con
+	call ttty_mux_clear
+L.1413:
+	lw x1,24(x2)
+	lw x26,28(x2)
+	lw x27,32(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.align	4
+unixtime:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	li x12,280
+	mv x13,x0 ; LOADI4
+	call _sbd
+	li x12,280
+	call _lwd
+	sw x10,-8+16(x8)
+	li x12,280
+	li x13,1
+	call _sbd
+	lw x10,-8+16(x8)
+L.1427:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.globl clock
+	.align	4
+clock:
+	addi x2,x2,-80
+	sw  x8,76(x2)
+	addi  x8,x2,64
+	sw x1,24(x2)
+	sw x23,28(x2)
+	sw x24,32(x2)
+	sw x25,36(x2)
+	sw x26,40(x2)
+	sw x27,44(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x27,x30 ; LOADU1
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	shlli x30,x27,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	andi x30,x30,-5
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x12,Con
+	la x13,L.1431
+	call ttty_mux_printf
+L.1432:
+	call unixtime
+	mv x23,x10 ; LOADU4
+	li x12,285
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x26,x30 ; LOADU1
+	li x12,284
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x25,x30 ; LOADU1
+	li x12,283
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x24,x30 ; LOADU1
+	shlli x30,x26,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	li x29,59
+	bne x30,x29,L.1435
+	li x12,285
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x26,x30 ; LOADU1
+	li x12,284
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x25,x30 ; LOADU1
+	li x12,283
+	call _lbud
+	mv x30,x10 ; LOADU4
+	mv x24,x30 ; LOADU1
+L.1435:
+	la x12,Con
+	la x13,L.1437
+	shlli x14,x24,8*(4-1)
+	shrli x14,x14,8*(4-1)
+	shlli x15,x25,8*(4-1)
+	shrli x15,x15,8*(4-1)
+	shlli x16,x26,8*(4-1)
+	shrli x16,x16,8*(4-1)
+	mv x17,x23 ; LOADU4
+	call ttty_mux_printf
+L.1433:
+	call vol_control
+	mv x30,x10 ; LOADI1
+	shlli x30,x30,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	beq x30,x0,L.1432
+	la x12,Con
+	li x13,10
+	call ttty_mux_putc
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	shlli x13,x27,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+L.1428:
+	lw x1,24(x2)
+	lw x23,28(x2)
+	lw x24,32(x2)
+	lw x25,36(x2)
+	lw x26,40(x2)
+	lw x27,44(x2)
+	lw  x8,76(x2)
+	addi  x2,x2,80
+	jalr x0,0(x1)
+
+	.globl cpymd
+	.align	4
+cpymd:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x26,28(x2)
+	sw x27,32(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	mv x26,x0 ; LOADU4
+	sw x0,-12+16(x8)
+	mv x27,x0 ; LOADU2
+	lw x30,0+16(x8)
+	li x29,3
+	beq x30,x29,L.1440
+	la x12,Con
+	la x13,L.1442
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1443
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1444
+	call ttty_mux_printf
+	j L.1439
+L.1440:
+	lw x30,4+16(x8)
+	li x29,4
+	add x30,x30,x29
+	lw x12,0(x30)
+	mv x13,x0 ; LOADP4
+	mv x14,x0 ; LOADI4
+	call strtoul
+	mv x26,x10 ; LOADU4
+	lw x30,4+16(x8)
+	li x29,8
+	add x30,x30,x29
+	lw x12,0(x30)
+	mv x13,x0 ; LOADP4
+	mv x14,x0 ; LOADI4
+	call strtoul
+	mv x27,x10 ; LOADU2
+	shlli x30,x27,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	li x29,272
+	bge x30,x29,L.1445
+	la x12,Con
+	la x13,L.1447
+	call ttty_mux_printf
+	j L.1439
+L.1445:
+	la x12,Con
+	la x13,L.1448
+	mv x14,x26 ; LOADU4
+	shlli x15,x27,8*(4-2)
+	shrli x15,x15,8*(4-2)
+	call ttty_mux_printf
+	mv x12,x26 ; LOADU4
+	shlli x13,x27,8*(4-2)
+	shrli x13,x13,8*(4-2)
+	li x14,128
+	call _copymd
+	mv x30,x10 ; LOADU4
+	sw x30,-8+16(x8)
+	lw x30,-8+16(x8)
+	beq x30,x0,L.1449
+	la x12,Con
+	la x13,L.1451
+	li x30,128
+	lw x29,-8+16(x8)
+	sub x14,x30,x29
+	call ttty_mux_printf
+L.1449:
+L.1439:
+	lw x1,24(x2)
+	lw x26,28(x2)
+	lw x27,32(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.globl cpydm
+	.align	4
+cpydm:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x26,28(x2)
+	sw x27,32(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	mv x26,x0 ; LOADU4
+	sw x0,-12+16(x8)
+	mv x27,x0 ; LOADU2
+	lw x30,0+16(x8)
+	li x29,3
+	beq x30,x29,L.1453
+	la x12,Con
+	la x13,L.1455
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1456
+	call ttty_mux_printf
+	la x12,Con
+	la x13,L.1457
+	call ttty_mux_printf
+	j L.1452
+L.1453:
+	lw x30,4+16(x8)
+	li x29,4
+	add x30,x30,x29
+	lw x12,0(x30)
+	mv x13,x0 ; LOADP4
+	mv x14,x0 ; LOADI4
+	call strtoul
+	mv x27,x10 ; LOADU2
+	lw x30,4+16(x8)
+	li x29,8
+	add x30,x30,x29
+	lw x12,0(x30)
+	mv x13,x0 ; LOADP4
+	mv x14,x0 ; LOADI4
+	call strtoul
+	mv x26,x10 ; LOADU4
+	shlli x30,x27,8*(4-2)
+	shrli x30,x30,8*(4-2)
+	li x29,272
+	bge x30,x29,L.1458
+	la x12,Con
+	la x13,L.1460
+	call ttty_mux_printf
+	j L.1452
+L.1458:
+	la x12,Con
+	la x13,L.1461
+	shlli x14,x27,8*(4-2)
+	shrli x14,x14,8*(4-2)
+	mv x15,x26 ; LOADU4
+	call ttty_mux_printf
+	shlli x12,x27,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x13,x26 ; LOADU4
+	li x14,128
+	call _copydm
+	mv x30,x10 ; LOADU4
+	sw x30,-8+16(x8)
+	lw x30,-8+16(x8)
+	beq x30,x0,L.1462
+	la x12,Con
+	la x13,L.1451
+	li x30,128
+	lw x29,-8+16(x8)
+	sub x14,x30,x29
+	call ttty_mux_printf
+L.1462:
+L.1452:
+	lw x1,24(x2)
+	lw x26,28(x2)
+	lw x27,32(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.globl glyphs
+	.align	4
+glyphs:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x26,28(x2)
+	sw x27,32(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	la x30,Video_tty+56+2
+	lbu x26,0(x30)
+	la x12,Video_tty
+	call ttty_clear
+	la x12,Video_tty
+	la x13,L.1467
+	call ttty_printf
+	mv x27,x0 ; LOADU4
+	j L.1471
+L.1468:
+	la x12,Video_tty
+	mv x30,x27 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call ttty_emit_raw
+L.1469:
+	li x30,1
+	add x27,x27,x30
+L.1471:
+	li x30,255
+	bltu x27,x30,L.1468
+	la x12,Video_tty
+	la x13,L.1472
+	call ttty_printf
+	la x30,Video_tty+56+2
+	shlli x29,x26,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	ori x29,x29,1
+	sb x29,0(x30)
+	mv x27,x0 ; LOADU4
+	j L.1478
+L.1475:
+	la x12,Video_tty
+	mv x30,x27 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call ttty_emit_raw
+L.1476:
+	li x30,1
+	add x27,x27,x30
+L.1478:
+	li x30,255
+	bltu x27,x30,L.1475
+	la x30,Video_tty+56+2
+	sb x26,0(x30)
+	la x12,Video_tty
+	la x13,L.1481
+	call ttty_printf
+	la x30,Video_tty+56+2
+	shlli x29,x26,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	ori x29,x29,2
+	sb x29,0(x30)
+	mv x27,x0 ; LOADU4
+	j L.1487
+L.1484:
+	la x12,Video_tty
+	mv x30,x27 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call ttty_emit_raw
+L.1485:
+	li x30,1
+	add x27,x27,x30
+L.1487:
+	li x30,255
+	bltu x27,x30,L.1484
+	la x30,Video_tty+56+2
+	sb x26,0(x30)
+	la x12,Video_tty
+	la x13,L.1490
+	call ttty_printf
+	la x30,Video_tty+56+2
+	shlli x29,x26,8*(4-1)
+	shrli x29,x29,8*(4-1)
+	ori x29,x29,1
+	ori x29,x29,2
+	sb x29,0(x30)
+	mv x27,x0 ; LOADU4
+	j L.1496
+L.1493:
+	la x12,Video_tty
+	mv x30,x27 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call ttty_emit_raw
+L.1494:
+	li x30,1
+	add x27,x27,x30
+L.1496:
+	li x30,255
+	bltu x27,x30,L.1493
+	la x30,Video_tty+56+2
+	sb x26,0(x30)
+L.1464:
+	lw x1,24(x2)
+	lw x26,28(x2)
+	lw x27,32(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.globl palette
+	.align	4
+palette:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x27,28(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	la x30,Video_tty+56
+	lbu x30,0(x30)
+	sb x30,-5+16(x8)
+	la x30,Video_tty+56+1
+	lbu x30,0(x30)
+	sb x30,-6+16(x8)
+	la x30,Video_tty+56+2
+	lbu x30,0(x30)
+	sb x30,-7+16(x8)
+	la x30,Video_tty+56+2
+	sb x0,0(x30)
+	la x12,Video_tty
+	la x13,L.1507
+	call ttty_printf
+	mv x27,x0 ; LOADU4
+	j L.1511
+L.1508:
+	la x30,Video_tty+56
+	mv x29,x27 ; LOADU1
+	sb x29,0(x30)
+	la x30,Video_tty+56+1
+	mv x29,x27 ; LOADU1
+	sb x29,0(x30)
+	la x12,Video_tty
+	li x13,32
+	call ttty_emit_raw
+L.1509:
+	li x30,1
+	add x27,x27,x30
+L.1511:
+	li x30,255
+	bltu x27,x30,L.1508
+	la x30,Video_tty+56+2
+	lbu x29,-7+16(x8)
+	sb x29,0(x30)
+	la x30,Video_tty+56+1
+	lbu x29,-6+16(x8)
+	sb x29,0(x30)
+	la x30,Video_tty+56
+	lbu x29,-5+16(x8)
+	sb x29,0(x30)
+	la x12,Video_tty
+	li x13,10
+	call ttty_putc
+L.1499:
+	lw x1,24(x2)
+	lw x27,28(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.align 4
+	.data
+	.align	1
+L.1521:
+	.byte	0x0
+	.align	1
+L.1522:
+	.byte	0x0
+	.align	1
+L.1523:
+	.byte	0x0
+	.align	1
+L.1524:
+	.byte	0x0
+	.align 4
+	.text
+	.align	4
+change_pallete:
+	addi x2,x2,-48
+	sw  x8,44(x2)
+	addi  x8,x2,32
+	sw x1,24(x2)
+	li x12,1280
+	la x30,L.1522
+	lbu x29,0(x30)
+	addi x28,x29,1
+	sb x28,0(x30)
+	mv x13,x29 ; LOADI4
+	call _sbd
+	li x12,1281
+	la x30,L.1523
+	lbu x29,0(x30)
+	addi x28,x29,1
+	sb x28,0(x30)
+	mv x13,x29 ; LOADI4
+	call _sbd
+	li x12,1282
+	la x30,L.1524
+	lbu x29,0(x30)
+	addi x28,x29,1
+	sb x28,0(x30)
+	mv x13,x29 ; LOADI4
+	call _sbd
+	li x12,1283
+	li x13,255
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,2
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,1
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,4
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,2
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,1280
+	call _shd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,4
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x13,x0 ; LOADI4
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	la x30,L.1521
+	lbu x29,0(x30)
+	addi x28,x29,1
+	sb x28,0(x30)
+	mv x13,x29 ; LOADI4
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,8
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x13,x0 ; LOADI4
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,8
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,1
+	call _sbd
+L.1520:
+	lw x1,24(x2)
+	lw  x8,44(x2)
+	addi  x2,x2,48
+	jalr x0,0(x1)
+
+	.globl palette_shenanigans
+	.align	4
+palette_shenanigans:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x26,28(x2)
+	sw x27,32(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	mv x27,x0 ; LOADI1
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	mv x26,x30 ; LOADU4
+	la x12,Video_tty
+	call ttty_clear
+	la x12,Video_tty
+	la x13,L.1535
+	call ttty_puts
+	mv x12,x0 ; LOADI4
+	mv x13,x0 ; LOADP4
+	call palette
+	la x30,on_vblank
+	la x29,change_pallete
+	sw x29,0(x30)
+	li x30,1
+	or x26,x26,x30
+	li x30,-5
+	and x26,x26,x30
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x30,x26 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+L.1537:
+	call vol_control
+	mv x27,x10 ; LOADI1
+L.1538:
+	shlli x30,x27,8*(4-1)
+	shrai x30,x30,8*(4-1)
+	beq x30,x0,L.1537
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	call _lbud
+	mv x30,x10 ; LOADU4
+	shlli x30,x30,8*(4-1)
+	shrli x30,x30,8*(4-1)
+	mv x26,x30 ; LOADU4
+	li x30,-2
+	and x26,x26,x30
+	li x30,4
+	or x26,x26,x30
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,14
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x30,x26 ; LOADU1
+	shlli x13,x30,8*(4-1)
+	shrli x13,x13,8*(4-1)
+	call _sbd
+	la x30,on_vblank
+	sw x0,0(x30)
+	la x12,Video_tty
+	call ttty_clear
+	call kbd_reset_translation
+L.1533:
+	lw x1,24(x2)
+	lw x26,28(x2)
+	lw x27,32(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.align 4
+	.data
+	.align	1
+testfont_data:
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7e
+	.byte	0x81
+	.byte	0xa5
+	.byte	0x81
+	.byte	0x81
+	.byte	0xbd
+	.byte	0x99
+	.byte	0x81
+	.byte	0x81
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7e
+	.byte	0xff
+	.byte	0xdb
+	.byte	0xff
+	.byte	0xff
+	.byte	0xc3
+	.byte	0xe7
+	.byte	0xff
+	.byte	0xff
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x6c
+	.byte	0xfe
+	.byte	0xfe
+	.byte	0xfe
+	.byte	0xfe
+	.byte	0x7c
+	.byte	0x38
+	.byte	0x10
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x7c
+	.byte	0xfe
+	.byte	0x7c
+	.byte	0x38
+	.byte	0x10
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x3c
+	.byte	0xe7
+	.byte	0xe7
+	.byte	0xe7
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x7e
+	.byte	0xff
+	.byte	0xff
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xe7
+	.byte	0xc3
+	.byte	0xc3
+	.byte	0xe7
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x66
+	.byte	0x42
+	.byte	0x42
+	.byte	0x66
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xc3
+	.byte	0x99
+	.byte	0xbd
+	.byte	0xbd
+	.byte	0x99
+	.byte	0xc3
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x1e
+	.byte	0xe
+	.byte	0x1a
+	.byte	0x32
+	.byte	0x78
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x78
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3f
+	.byte	0x33
+	.byte	0x3f
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x70
+	.byte	0xf0
+	.byte	0xe0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7f
+	.byte	0x63
+	.byte	0x7f
+	.byte	0x63
+	.byte	0x63
+	.byte	0x63
+	.byte	0x63
+	.byte	0x67
+	.byte	0xe7
+	.byte	0xe6
+	.byte	0xc0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0xdb
+	.byte	0x3c
+	.byte	0xe7
+	.byte	0x3c
+	.byte	0xdb
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x80
+	.byte	0xc0
+	.byte	0xe0
+	.byte	0xf0
+	.byte	0xf8
+	.byte	0xfe
+	.byte	0xf8
+	.byte	0xf0
+	.byte	0xe0
+	.byte	0xc0
+	.byte	0x80
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x2
+	.byte	0x6
+	.byte	0xe
+	.byte	0x1e
+	.byte	0x3e
+	.byte	0xfe
+	.byte	0x3e
+	.byte	0x1e
+	.byte	0xe
+	.byte	0x6
+	.byte	0x2
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x0
+	.byte	0x66
+	.byte	0x66
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7f
+	.byte	0xdb
+	.byte	0xdb
+	.byte	0xdb
+	.byte	0x7b
+	.byte	0x1b
+	.byte	0x1b
+	.byte	0x1b
+	.byte	0x1b
+	.byte	0x1b
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0x60
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x6c
+	.byte	0x38
+	.byte	0xc
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0xfe
+	.byte	0xfe
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0xc
+	.byte	0xfe
+	.byte	0xc
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x60
+	.byte	0xfe
+	.byte	0x60
+	.byte	0x30
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x28
+	.byte	0x6c
+	.byte	0xfe
+	.byte	0x6c
+	.byte	0x28
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x38
+	.byte	0x7c
+	.byte	0x7c
+	.byte	0xfe
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0xfe
+	.byte	0x7c
+	.byte	0x7c
+	.byte	0x38
+	.byte	0x38
+	.byte	0x10
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x3c
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x24
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0xfe
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0xfe
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc2
+	.byte	0xc0
+	.byte	0x7c
+	.byte	0x6
+	.byte	0x6
+	.byte	0x86
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc2
+	.byte	0xc6
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0xc6
+	.byte	0x86
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x76
+	.byte	0xdc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x60
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x18
+	.byte	0xc
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x18
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x66
+	.byte	0x3c
+	.byte	0xff
+	.byte	0x3c
+	.byte	0x66
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x30
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x2
+	.byte	0x6
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0xc0
+	.byte	0x80
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x38
+	.byte	0x78
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0x6
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0x6
+	.byte	0x6
+	.byte	0x3c
+	.byte	0x6
+	.byte	0x6
+	.byte	0x6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc
+	.byte	0x1c
+	.byte	0x3c
+	.byte	0x6c
+	.byte	0xcc
+	.byte	0xfe
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0x1e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xfc
+	.byte	0x6
+	.byte	0x6
+	.byte	0x6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x60
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xfc
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0x6
+	.byte	0x6
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7e
+	.byte	0x6
+	.byte	0x6
+	.byte	0x6
+	.byte	0xc
+	.byte	0x78
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x30
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x6
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0x30
+	.byte	0x18
+	.byte	0xc
+	.byte	0x6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x60
+	.byte	0x30
+	.byte	0x18
+	.byte	0xc
+	.byte	0x6
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xde
+	.byte	0xde
+	.byte	0xde
+	.byte	0xdc
+	.byte	0xc0
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfc
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x7c
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0xfc
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x66
+	.byte	0xc2
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc2
+	.byte	0x66
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xf8
+	.byte	0x6c
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x6c
+	.byte	0xf8
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x66
+	.byte	0x62
+	.byte	0x68
+	.byte	0x78
+	.byte	0x68
+	.byte	0x60
+	.byte	0x62
+	.byte	0x66
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x66
+	.byte	0x62
+	.byte	0x68
+	.byte	0x78
+	.byte	0x68
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0xf0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x66
+	.byte	0xc2
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xde
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x66
+	.byte	0x3a
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x1e
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x78
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xe6
+	.byte	0x66
+	.byte	0x66
+	.byte	0x6c
+	.byte	0x78
+	.byte	0x78
+	.byte	0x6c
+	.byte	0x66
+	.byte	0x66
+	.byte	0xe6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xf0
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0x62
+	.byte	0x66
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xee
+	.byte	0xfe
+	.byte	0xfe
+	.byte	0xd6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xe6
+	.byte	0xf6
+	.byte	0xfe
+	.byte	0xde
+	.byte	0xce
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfc
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x7c
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0xf0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xd6
+	.byte	0xde
+	.byte	0x7c
+	.byte	0xc
+	.byte	0xe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfc
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x7c
+	.byte	0x6c
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0xe6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x60
+	.byte	0x38
+	.byte	0xc
+	.byte	0x6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7e
+	.byte	0x7e
+	.byte	0x5a
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x10
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xfe
+	.byte	0xee
+	.byte	0x6c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x6c
+	.byte	0x7c
+	.byte	0x38
+	.byte	0x38
+	.byte	0x7c
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0x86
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0xc2
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x80
+	.byte	0xc0
+	.byte	0xe0
+	.byte	0x70
+	.byte	0x38
+	.byte	0x1c
+	.byte	0xe
+	.byte	0x6
+	.byte	0x2
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0xc
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x18
+	.byte	0xc
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x78
+	.byte	0xc
+	.byte	0x7c
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xe0
+	.byte	0x60
+	.byte	0x60
+	.byte	0x78
+	.byte	0x6c
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x1c
+	.byte	0xc
+	.byte	0xc
+	.byte	0x3c
+	.byte	0x6c
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x1c
+	.byte	0x36
+	.byte	0x32
+	.byte	0x30
+	.byte	0x78
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x78
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x76
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x7c
+	.byte	0xc
+	.byte	0xcc
+	.byte	0x78
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xe0
+	.byte	0x60
+	.byte	0x60
+	.byte	0x6c
+	.byte	0x76
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0xe6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x38
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x6
+	.byte	0x6
+	.byte	0x0
+	.byte	0xe
+	.byte	0x6
+	.byte	0x6
+	.byte	0x6
+	.byte	0x6
+	.byte	0x6
+	.byte	0x6
+	.byte	0x66
+	.byte	0x66
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xe0
+	.byte	0x60
+	.byte	0x60
+	.byte	0x66
+	.byte	0x6c
+	.byte	0x78
+	.byte	0x78
+	.byte	0x6c
+	.byte	0x66
+	.byte	0xe6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xec
+	.byte	0xfe
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xdc
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xdc
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x7c
+	.byte	0x60
+	.byte	0x60
+	.byte	0xf0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x76
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x7c
+	.byte	0xc
+	.byte	0xc
+	.byte	0x1e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xdc
+	.byte	0x76
+	.byte	0x66
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0xf0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0x60
+	.byte	0x38
+	.byte	0xc
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x10
+	.byte	0x30
+	.byte	0x30
+	.byte	0xfc
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x30
+	.byte	0x36
+	.byte	0x1c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xfe
+	.byte	0x6c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x38
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7e
+	.byte	0x6
+	.byte	0xc
+	.byte	0xf8
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0xcc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xe
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x70
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0xe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x70
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0xe
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x70
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x76
+	.byte	0xdc
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x66
+	.byte	0xc2
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc2
+	.byte	0x66
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x70
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xcc
+	.byte	0x0
+	.byte	0x0
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x0
+	.byte	0x78
+	.byte	0xc
+	.byte	0x7c
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xcc
+	.byte	0x0
+	.byte	0x0
+	.byte	0x78
+	.byte	0xc
+	.byte	0x7c
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x60
+	.byte	0x30
+	.byte	0x18
+	.byte	0x0
+	.byte	0x78
+	.byte	0xc
+	.byte	0x7c
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x0
+	.byte	0x78
+	.byte	0xc
+	.byte	0x7c
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x18
+	.byte	0x70
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x60
+	.byte	0x30
+	.byte	0x18
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x66
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x66
+	.byte	0x0
+	.byte	0x38
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x60
+	.byte	0x30
+	.byte	0x18
+	.byte	0x0
+	.byte	0x38
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc
+	.byte	0x18
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x66
+	.byte	0x62
+	.byte	0x68
+	.byte	0x78
+	.byte	0x68
+	.byte	0x62
+	.byte	0x66
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xec
+	.byte	0x36
+	.byte	0x36
+	.byte	0x7e
+	.byte	0xd8
+	.byte	0xd8
+	.byte	0x6e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3e
+	.byte	0x6c
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xfe
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xce
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x60
+	.byte	0x30
+	.byte	0x18
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x78
+	.byte	0xcc
+	.byte	0x0
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x60
+	.byte	0x30
+	.byte	0x18
+	.byte	0x0
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7e
+	.byte	0x6
+	.byte	0xc
+	.byte	0x78
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xce
+	.byte	0xde
+	.byte	0xf6
+	.byte	0xe6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x64
+	.byte	0x60
+	.byte	0xf0
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0x60
+	.byte	0xe6
+	.byte	0xfc
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x4
+	.byte	0x7c
+	.byte	0xce
+	.byte	0xce
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xd6
+	.byte	0xe6
+	.byte	0xe6
+	.byte	0x7c
+	.byte	0x40
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xe
+	.byte	0x1b
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0xd8
+	.byte	0x70
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0x0
+	.byte	0x78
+	.byte	0xc
+	.byte	0x7c
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x0
+	.byte	0x38
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0x0
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x76
+	.byte	0xdc
+	.byte	0x0
+	.byte	0xdc
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x76
+	.byte	0xdc
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xe6
+	.byte	0xf6
+	.byte	0xfe
+	.byte	0xde
+	.byte	0xce
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x3e
+	.byte	0x0
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x0
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x30
+	.byte	0x0
+	.byte	0x30
+	.byte	0x30
+	.byte	0x60
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0x82
+	.byte	0xb2
+	.byte	0xaa
+	.byte	0xb2
+	.byte	0xaa
+	.byte	0xaa
+	.byte	0x82
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x6
+	.byte	0x6
+	.byte	0x6
+	.byte	0x6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x60
+	.byte	0xe0
+	.byte	0x62
+	.byte	0x66
+	.byte	0x6c
+	.byte	0x18
+	.byte	0x30
+	.byte	0x60
+	.byte	0xdc
+	.byte	0x86
+	.byte	0xc
+	.byte	0x18
+	.byte	0x3e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x60
+	.byte	0xe0
+	.byte	0x62
+	.byte	0x66
+	.byte	0x6c
+	.byte	0x18
+	.byte	0x30
+	.byte	0x66
+	.byte	0xce
+	.byte	0x9a
+	.byte	0x3f
+	.byte	0x6
+	.byte	0x6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x3c
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x36
+	.byte	0x6c
+	.byte	0xd8
+	.byte	0x6c
+	.byte	0x36
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xd8
+	.byte	0x6c
+	.byte	0x36
+	.byte	0x6c
+	.byte	0xd8
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x11
+	.byte	0x44
+	.byte	0x11
+	.byte	0x44
+	.byte	0x11
+	.byte	0x44
+	.byte	0x11
+	.byte	0x44
+	.byte	0x11
+	.byte	0x44
+	.byte	0x11
+	.byte	0x44
+	.byte	0x11
+	.byte	0x44
+	.byte	0x11
+	.byte	0x44
+	.byte	0x55
+	.byte	0xaa
+	.byte	0x55
+	.byte	0xaa
+	.byte	0x55
+	.byte	0xaa
+	.byte	0x55
+	.byte	0xaa
+	.byte	0x55
+	.byte	0xaa
+	.byte	0x55
+	.byte	0xaa
+	.byte	0x55
+	.byte	0xaa
+	.byte	0x55
+	.byte	0xaa
+	.byte	0xdd
+	.byte	0x77
+	.byte	0xdd
+	.byte	0x77
+	.byte	0xdd
+	.byte	0x77
+	.byte	0xdd
+	.byte	0x77
+	.byte	0xdd
+	.byte	0x77
+	.byte	0xdd
+	.byte	0x77
+	.byte	0xdd
+	.byte	0x77
+	.byte	0xdd
+	.byte	0x77
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0xf8
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x60
+	.byte	0xc0
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc
+	.byte	0x6
+	.byte	0x10
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0x82
+	.byte	0x9a
+	.byte	0xa2
+	.byte	0xa2
+	.byte	0xa2
+	.byte	0x9a
+	.byte	0x82
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0xf6
+	.byte	0x6
+	.byte	0xf6
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x6
+	.byte	0xf6
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0xf6
+	.byte	0x6
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc0
+	.byte	0xc0
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x66
+	.byte	0x66
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xf8
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x1f
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x1f
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0xff
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x76
+	.byte	0xdc
+	.byte	0x0
+	.byte	0x78
+	.byte	0xc
+	.byte	0x7c
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0x76
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x76
+	.byte	0xdc
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xfe
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x37
+	.byte	0x30
+	.byte	0x3f
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3f
+	.byte	0x30
+	.byte	0x37
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0xf7
+	.byte	0x0
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0x0
+	.byte	0xf7
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x37
+	.byte	0x30
+	.byte	0x37
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0x0
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0xf7
+	.byte	0x0
+	.byte	0xf7
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x36
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x34
+	.byte	0x18
+	.byte	0x2c
+	.byte	0x6
+	.byte	0x3e
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xf8
+	.byte	0x6c
+	.byte	0x66
+	.byte	0x66
+	.byte	0xf6
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x6c
+	.byte	0xf8
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x66
+	.byte	0x62
+	.byte	0x68
+	.byte	0x78
+	.byte	0x68
+	.byte	0x62
+	.byte	0x66
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x66
+	.byte	0x62
+	.byte	0x68
+	.byte	0x78
+	.byte	0x68
+	.byte	0x62
+	.byte	0x66
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x18
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x66
+	.byte	0x62
+	.byte	0x68
+	.byte	0x78
+	.byte	0x68
+	.byte	0x62
+	.byte	0x66
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc
+	.byte	0x18
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x66
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x66
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0xf8
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x1f
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x18
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x30
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x78
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xcc
+	.byte	0xd8
+	.byte	0xcc
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xcc
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x18
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x76
+	.byte	0xdc
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x76
+	.byte	0xdc
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x7c
+	.byte	0x60
+	.byte	0x60
+	.byte	0xc0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xe0
+	.byte	0x60
+	.byte	0x60
+	.byte	0x7c
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x7c
+	.byte	0x60
+	.byte	0x60
+	.byte	0xf0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xf0
+	.byte	0x60
+	.byte	0x7c
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x7c
+	.byte	0x60
+	.byte	0xf0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x30
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x30
+	.byte	0x18
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x0
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x7e
+	.byte	0x6
+	.byte	0xc
+	.byte	0xf8
+	.byte	0x0
+	.byte	0xc
+	.byte	0x18
+	.byte	0x0
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x66
+	.byte	0x3c
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc
+	.byte	0x18
+	.byte	0x30
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xfe
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x18
+	.byte	0x7e
+	.byte	0x18
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xff
+	.byte	0x0
+	.byte	0xff
+	.byte	0x0
+	.byte	0x0
+	.byte	0xe0
+	.byte	0x30
+	.byte	0x62
+	.byte	0x36
+	.byte	0xec
+	.byte	0x18
+	.byte	0x30
+	.byte	0x66
+	.byte	0xce
+	.byte	0x9a
+	.byte	0x3f
+	.byte	0x6
+	.byte	0x6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7f
+	.byte	0xdb
+	.byte	0xdb
+	.byte	0xdb
+	.byte	0x7b
+	.byte	0x1b
+	.byte	0x1b
+	.byte	0x1b
+	.byte	0x1b
+	.byte	0x1b
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0xc6
+	.byte	0x60
+	.byte	0x38
+	.byte	0x6c
+	.byte	0xc6
+	.byte	0xc6
+	.byte	0x6c
+	.byte	0x38
+	.byte	0xc
+	.byte	0xc6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x0
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0xc
+	.byte	0x78
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x38
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x38
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0xc6
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x18
+	.byte	0x38
+	.byte	0x18
+	.byte	0x18
+	.byte	0x18
+	.byte	0x3c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7c
+	.byte	0x6
+	.byte	0x3c
+	.byte	0x6
+	.byte	0x6
+	.byte	0x7c
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x3c
+	.byte	0x66
+	.byte	0xc
+	.byte	0x18
+	.byte	0x32
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x7e
+	.byte	0x7e
+	.byte	0x7e
+	.byte	0x7e
+	.byte	0x7e
+	.byte	0x7e
+	.byte	0x7e
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.byte	0x0
+	.globl testfont_data_len
+	.align	4
+testfont_data_len:
+	.word	0x1004
+	.globl fontload
+	.align 4
+	.text
+	.align	4
+fontload:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x26,28(x2)
+	sw x27,32(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	la x12,testfont_data
+	li x13,1280
+	li x14,4096
+	call _copymd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,2
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,1
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x13,x0 ; LOADI4
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,2
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,1280
+	call _shd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,4
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,255
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,5
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	mv x13,x0 ; LOADI4
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,6
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,63
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,7
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,8
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	addi x30,x30,8
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,16
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,8
+	call _sbd
+	la x30,Devices+3
+	lbu x30,0(x30)
+	shlli x12,x30,8*(4-2)
+	shrli x12,x12,8*(4-2)
+	li x13,1
+	call _sbd
+	mv x27,x0 ; LOADU4
+	j L.1556
+L.1553:
+	add x26,x26,x27
+L.1554:
+	li x30,1
+	add x27,x27,x30
+L.1556:
+	li x30,0x186a0
+	bltu x27,x30,L.1553
+	addi x12,x8,-5+16
+	addi x13,x8,-6+16
+	addi x14,x8,-7+16
+	call video_text_screen_size
+	la x30,Video_tty+8
+	lbu x29,-7+16(x8)
+	sb x29,0(x30)
+	la x30,Video_tty+4
+	lbu x29,-5+16(x8)
+	sb x29,0(x30)
+	la x30,Video_tty+5
+	lbu x29,-6+16(x8)
+	sb x29,0(x30)
+	la x30,Video_tty+56
+	sb x0,0(x30)
+	la x30,Video_tty+56+1
+	li x29,15
+	sb x29,0(x30)
+	la x30,Video_tty+56+2
+	sb x0,0(x30)
+	la x12,Video_tty
+	call ttty_clear
+L.1542:
+	lw x1,24(x2)
+	lw x26,28(x2)
+	lw x27,32(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.globl shutdown
+	.align	4
+shutdown:
+	addi x2,x2,-64
+	sw  x8,60(x2)
+	addi  x8,x2,48
+	sw x1,24(x2)
+	sw x27,28(x2)
+	sw x12,16(x8)
+	sw x13,20(x8)
+	la x12,Con
+	la x13,L.1566
+	call ttty_mux_printf
+L.1567:
+L.1568:
+	la x12,KeyboardEvents
+	call kbd_event_pop
+	mv x27,x10 ; LOADP4
+	mv x30,x10 ; LOADU4
+	beq x30,x0,L.1567
+	lhu x30,0(x27)
+	li x29,257
+	beq x30,x29,L.1570
+	j L.1565
+L.1570:
+	li x12,279
+	li x13,165
+	call _sbd
+	li x12,279
+	li x13,90
+	call _sbd
+L.1565:
+	lw x1,24(x2)
+	lw x27,28(x2)
+	lw  x8,60(x2)
+	addi  x2,x2,64
+	jalr x0,0(x1)
+
+	.align 4
+	.data
+	.align	4
 commands:
-	.word	L.881
-	.word	L.882
+	.word	L.1572
+	.word	L.1573
 	.word	sysinfo
-	.word	L.883
-	.word	L.884
+	.word	L.1574
+	.word	L.1575
 	.word	echo
-	.word	L.885
-	.word	L.886
+	.word	L.1576
+	.word	L.1577
 	.word	peek
-	.word	L.887
-	.word	L.888
+	.word	L.1578
+	.word	L.1579
 	.word	poke
-	.word	L.889
-	.word	L.890
+	.word	L.1580
+	.word	L.1581
 	.word	ser
-	.word	L.891
-	.word	L.892
+	.word	L.1582
+	.word	L.1583
 	.word	send_escape
-	.word	L.893
-	.word	L.894
+	.word	L.1584
+	.word	L.1585
 	.word	fanfare
-	.word	L.895
-	.word	L.896
+	.word	L.1586
+	.word	L.1587
 	.word	pcm
-	.word	L.897
-	.word	L.898
+	.word	L.1588
+	.word	L.1589
 	.word	pcm_synth
-	.word	L.899
-	.word	L.900
+	.word	L.1590
+	.word	L.1591
 	.word	tamlin
-	.word	L.901
-	.word	L.902
+	.word	L.1592
+	.word	L.1593
 	.word	test2d
-	.word	L.903
-	.word	L.904
+	.word	L.1594
+	.word	L.1595
 	.word	test3d
-	.word	L.905
-	.word	L.906
+	.word	L.1596
+	.word	L.1597
+	.word	pretty_echo
+	.word	L.1598
+	.word	L.1599
+	.word	mouse
+	.word	L.1600
+	.word	L.1601
+	.word	kbtest
+	.word	L.1602
+	.word	L.1603
+	.word	tpstest
+	.word	L.1604
+	.word	L.1605
+	.word	hcstest
+	.word	L.1606
+	.word	L.1607
+	.word	timertest
+	.word	L.1608
+	.word	L.1609
+	.word	clock
+	.word	L.1610
+	.word	L.1611
+	.word	cpymd
+	.word	L.1612
+	.word	L.1613
+	.word	cpydm
+	.word	L.1614
+	.word	L.1615
+	.word	glyphs
+	.word	L.1616
+	.word	L.1617
+	.word	palette
+	.word	L.1618
+	.word	L.1619
+	.word	palette_shenanigans
+	.word	L.1620
+	.word	L.1621
+	.word	fontload
+	.word	L.1622
+	.word	L.1623
+	.word	shutdown
+	.word	L.1624
+	.word	L.1625
 	.word	clear
 	.globl bios_start
 	.align 4
@@ -6541,27 +14904,32 @@ bios_start:
 	sw x25,28(x2)
 	sw x26,32(x2)
 	sw x27,36(x2)
+	call _cli
 	call bios_init
+	call unixtime
+	la x29,lcg_seed
+	sw x10,0(x29)
 	mv x27,x0 ; LOADU4
-	j L.911
-L.908:
+	j L.1630
+L.1627:
 	add x26,x26,x27
-L.909:
+L.1628:
 	li x30,1
 	add x27,x27,x30
-L.911:
+L.1630:
 	li x30,0x186a0
-	bltu x27,x30,L.908
+	bltu x27,x30,L.1627
+	call _sti
 	la x12,Con
 	call ttty_mux_clear
 	la x12,Con
-	la x13,L.912
-	la x14,L.913
-	la x15,L.914
+	la x13,L.1631
+	la x14,L.1632
+	la x15,L.1633
 	li x16,84
 	call ttty_mux_printf
 	la x12,Video_tty
-	la x13,L.915
+	la x13,L.1634
 	la x30,Video_tty+4
 	lbu x14,0(x30)
 	la x30,Video_tty+5
@@ -6570,10 +14938,12 @@ L.911:
 	lbu x16,0(x30)
 	call ttty_printf
 	la x12,commands
-	li x13,13
+	li x13,27
 	call ushell_init
-	j L.920
-L.919:
+	li x12,0xc3eff000
+	call _ssreg
+	j L.1639
+L.1638:
 	la x12,Keyboard_in
 	call tins_getc
 	mv x30,x10 ; LOADU4
@@ -6581,9 +14951,9 @@ L.919:
 	shlli x12,x25,8*(4-1)
 	shrli x12,x12,8*(4-1)
 	call ushell_process
-L.920:
-	j L.919
-L.907:
+L.1639:
+	j L.1638
+L.1626:
 	lw x1,24(x2)
 	lw x25,28(x2)
 	lw x26,32(x2)
@@ -6594,6 +14964,15 @@ L.907:
 
 	.align 4
 	.bss
+	.align	1
+read_data:
+	.space	1024
+	.align	1
+test_data:
+	.space	1024
+	.align	1
+temp_buff:
+	.space	1024
 	.align	2
 vxbuff:
 	.space	800
@@ -6602,6 +14981,9 @@ woy:
 	.space	4
 	.align	4
 wox:
+	.space	4
+	.align	4
+pending:
 	.space	4
 	.align	1
 command:
@@ -6622,9 +15004,9 @@ Charbuff:
 	.align	4
 Charbuff_size:
 	.space	4
-	.globl Stack_base
+	.globl Stack_end
 	.align	4
-Stack_base:
+Stack_end:
 	.space	4
 	.globl Stack_top
 	.align	4
@@ -6657,7 +15039,7 @@ Devices:
 	.align 4
 	.data
 	.align	1
-L.915:
+L.1634:
 	.byte	0x54
 	.byte	0x65
 	.byte	0x72
@@ -6700,7 +15082,7 @@ L.915:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.914:
+L.1633:
 	.byte	0x30
 	.byte	0x2e
 	.byte	0x35
@@ -6711,7 +15093,7 @@ L.914:
 	.byte	0x61
 	.byte	0x0
 	.align	1
-L.913:
+L.1632:
 	.byte	0x42
 	.byte	0x61
 	.byte	0x73
@@ -6724,7 +15106,7 @@ L.913:
 	.byte	0x53
 	.byte	0x0
 	.align	1
-L.912:
+L.1631:
 	.byte	0x25
 	.byte	0x73
 	.byte	0x20
@@ -6736,7 +15118,7 @@ L.912:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.906:
+L.1625:
 	.byte	0x63
 	.byte	0x6c
 	.byte	0x65
@@ -6755,7 +15137,7 @@ L.906:
 	.byte	0x6e
 	.byte	0x0
 	.align	1
-L.905:
+L.1624:
 	.byte	0x63
 	.byte	0x6c
 	.byte	0x65
@@ -6763,7 +15145,554 @@ L.905:
 	.byte	0x72
 	.byte	0x0
 	.align	1
-L.904:
+L.1623:
+	.byte	0x73
+	.byte	0x68
+	.byte	0x75
+	.byte	0x74
+	.byte	0x73
+	.byte	0x20
+	.byte	0x64
+	.byte	0x6f
+	.byte	0x77
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x6d
+	.byte	0x61
+	.byte	0x63
+	.byte	0x68
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x65
+	.byte	0x0
+	.align	1
+L.1622:
+	.byte	0x73
+	.byte	0x68
+	.byte	0x75
+	.byte	0x74
+	.byte	0x64
+	.byte	0x6f
+	.byte	0x77
+	.byte	0x6e
+	.byte	0x0
+	.align	1
+L.1621:
+	.byte	0x63
+	.byte	0x68
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x67
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x66
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x74
+	.byte	0x0
+	.align	1
+L.1620:
+	.byte	0x66
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x74
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x61
+	.byte	0x64
+	.byte	0x0
+	.align	1
+L.1619:
+	.byte	0x63
+	.byte	0x68
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x67
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x70
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x74
+	.byte	0x74
+	.byte	0x65
+	.byte	0x20
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x64
+	.byte	0x65
+	.byte	0x78
+	.byte	0x20
+	.byte	0x65
+	.byte	0x61
+	.byte	0x63
+	.byte	0x68
+	.byte	0x20
+	.byte	0x73
+	.byte	0x63
+	.byte	0x72
+	.byte	0x65
+	.byte	0x65
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x72
+	.byte	0x65
+	.byte	0x66
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x68
+	.byte	0x0
+	.align	1
+L.1618:
+	.byte	0x70
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x74
+	.byte	0x74
+	.byte	0x65
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x0
+	.align	1
+L.1617:
+	.byte	0x73
+	.byte	0x68
+	.byte	0x6f
+	.byte	0x77
+	.byte	0x73
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x61
+	.byte	0x64
+	.byte	0x65
+	.byte	0x64
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x20
+	.byte	0x70
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x74
+	.byte	0x74
+	.byte	0x65
+	.byte	0x0
+	.align	1
+L.1616:
+	.byte	0x70
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x74
+	.byte	0x74
+	.byte	0x65
+	.byte	0x0
+	.align	1
+L.1615:
+	.byte	0x73
+	.byte	0x68
+	.byte	0x6f
+	.byte	0x77
+	.byte	0x73
+	.byte	0x20
+	.byte	0x61
+	.byte	0x20
+	.byte	0x74
+	.byte	0x61
+	.byte	0x62
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x66
+	.byte	0x20
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x20
+	.byte	0x67
+	.byte	0x6c
+	.byte	0x79
+	.byte	0x70
+	.byte	0x68
+	.byte	0x73
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x34
+	.byte	0x20
+	.byte	0x66
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x74
+	.byte	0x73
+	.byte	0x20
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x61
+	.byte	0x64
+	.byte	0x65
+	.byte	0x64
+	.byte	0x0
+	.align	1
+L.1614:
+	.byte	0x67
+	.byte	0x6c
+	.byte	0x79
+	.byte	0x70
+	.byte	0x68
+	.byte	0x73
+	.byte	0x0
+	.align	1
+L.1613:
+	.byte	0x62
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x63
+	.byte	0x6b
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x79
+	.byte	0x20
+	.byte	0x31
+	.byte	0x32
+	.byte	0x38
+	.byte	0x20
+	.byte	0x62
+	.byte	0x79
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x66
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x6d
+	.byte	0x20
+	.byte	0x44
+	.byte	0x41
+	.byte	0x54
+	.byte	0x41
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x4d
+	.byte	0x41
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.1612:
+	.byte	0x63
+	.byte	0x70
+	.byte	0x79
+	.byte	0x64
+	.byte	0x6d
+	.byte	0x0
+	.align	1
+L.1611:
+	.byte	0x62
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x63
+	.byte	0x6b
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x79
+	.byte	0x20
+	.byte	0x31
+	.byte	0x32
+	.byte	0x38
+	.byte	0x20
+	.byte	0x62
+	.byte	0x79
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x66
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x6d
+	.byte	0x20
+	.byte	0x4d
+	.byte	0x41
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x44
+	.byte	0x41
+	.byte	0x54
+	.byte	0x41
+	.byte	0x0
+	.align	1
+L.1610:
+	.byte	0x63
+	.byte	0x70
+	.byte	0x79
+	.byte	0x6d
+	.byte	0x64
+	.byte	0x0
+	.align	1
+L.1609:
+	.byte	0x61
+	.byte	0x20
+	.byte	0x73
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x70
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x20
+	.byte	0x64
+	.byte	0x69
+	.byte	0x67
+	.byte	0x69
+	.byte	0x74
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x63
+	.byte	0x6b
+	.byte	0x0
+	.align	1
+L.1608:
+	.byte	0x63
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x63
+	.byte	0x6b
+	.byte	0x0
+	.align	1
+L.1607:
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x64
+	.byte	0x75
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x20
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x72
+	.byte	0x73
+	.byte	0x0
+	.align	1
+L.1606:
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x72
+	.byte	0x0
+	.align	1
+L.1605:
+	.byte	0x73
+	.byte	0x74
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x48
+	.byte	0x43
+	.byte	0x53
+	.byte	0x20
+	.byte	0x44
+	.byte	0x72
+	.byte	0x69
+	.byte	0x76
+	.byte	0x65
+	.byte	0x0
+	.align	1
+L.1604:
+	.byte	0x68
+	.byte	0x63
+	.byte	0x73
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x0
+	.align	1
+L.1603:
+	.byte	0x73
+	.byte	0x74
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x54
+	.byte	0x50
+	.byte	0x53
+	.byte	0x20
+	.byte	0x44
+	.byte	0x72
+	.byte	0x69
+	.byte	0x76
+	.byte	0x65
+	.byte	0x73
+	.byte	0x0
+	.align	1
+L.1602:
+	.byte	0x74
+	.byte	0x70
+	.byte	0x73
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x0
+	.align	1
+L.1601:
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x6b
+	.byte	0x65
+	.byte	0x79
+	.byte	0x62
+	.byte	0x6f
+	.byte	0x61
+	.byte	0x72
+	.byte	0x64
+	.byte	0x0
+	.align	1
+L.1600:
+	.byte	0x6b
+	.byte	0x62
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x0
+	.align	1
+L.1599:
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x6d
+	.byte	0x6f
+	.byte	0x75
+	.byte	0x73
+	.byte	0x65
+	.byte	0x0
+	.align	1
+L.1598:
+	.byte	0x6d
+	.byte	0x6f
+	.byte	0x75
+	.byte	0x73
+	.byte	0x0
+	.align	1
+L.1597:
+	.byte	0x65
+	.byte	0x63
+	.byte	0x68
+	.byte	0x6f
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x62
+	.byte	0x75
+	.byte	0x74
+	.byte	0x20
+	.byte	0x70
+	.byte	0x72
+	.byte	0x65
+	.byte	0x74
+	.byte	0x74
+	.byte	0x69
+	.byte	0x65
+	.byte	0x72
+	.byte	0x0
+	.align	1
+L.1596:
+	.byte	0x70
+	.byte	0x65
+	.byte	0x63
+	.byte	0x68
+	.byte	0x6f
+	.byte	0x0
+	.align	1
+L.1595:
 	.byte	0x61
 	.byte	0x20
 	.byte	0x76
@@ -6787,14 +15716,12 @@ L.904:
 	.byte	0x6f
 	.byte	0x0
 	.align	1
-L.903:
-	.byte	0x63
-	.byte	0x75
-	.byte	0x62
-	.byte	0x65
+L.1594:
+	.byte	0x33
+	.byte	0x64
 	.byte	0x0
 	.align	1
-L.902:
+L.1593:
 	.byte	0x61
 	.byte	0x20
 	.byte	0x76
@@ -6818,13 +15745,13 @@ L.902:
 	.byte	0x6f
 	.byte	0x0
 	.align	1
-L.901:
+L.1592:
 	.byte	0x62
 	.byte	0x6f
 	.byte	0x78
 	.byte	0x0
 	.align	1
-L.900:
+L.1591:
 	.byte	0x70
 	.byte	0x6c
 	.byte	0x61
@@ -6848,7 +15775,7 @@ L.900:
 	.byte	0x6e
 	.byte	0x0
 	.align	1
-L.899:
+L.1590:
 	.byte	0x74
 	.byte	0x61
 	.byte	0x6d
@@ -6857,7 +15784,7 @@ L.899:
 	.byte	0x6e
 	.byte	0x0
 	.align	1
-L.898:
+L.1589:
 	.byte	0x70
 	.byte	0x6c
 	.byte	0x61
@@ -6887,7 +15814,7 @@ L.898:
 	.byte	0x34
 	.byte	0x0
 	.align	1
-L.897:
+L.1588:
 	.byte	0x61
 	.byte	0x75
 	.byte	0x64
@@ -6895,7 +15822,7 @@ L.897:
 	.byte	0x6f
 	.byte	0x0
 	.align	1
-L.896:
+L.1587:
 	.byte	0x70
 	.byte	0x6c
 	.byte	0x61
@@ -6918,13 +15845,13 @@ L.896:
 	.byte	0x65
 	.byte	0x0
 	.align	1
-L.895:
+L.1586:
 	.byte	0x70
 	.byte	0x63
 	.byte	0x6d
 	.byte	0x0
 	.align	1
-L.894:
+L.1585:
 	.byte	0x70
 	.byte	0x6c
 	.byte	0x61
@@ -6961,7 +15888,7 @@ L.894:
 	.byte	0x74
 	.byte	0x0
 	.align	1
-L.893:
+L.1584:
 	.byte	0x66
 	.byte	0x61
 	.byte	0x6e
@@ -6971,7 +15898,7 @@ L.893:
 	.byte	0x65
 	.byte	0x0
 	.align	1
-L.892:
+L.1583:
 	.byte	0x74
 	.byte	0x65
 	.byte	0x73
@@ -7001,7 +15928,7 @@ L.892:
 	.byte	0x65
 	.byte	0x0
 	.align	1
-L.891:
+L.1582:
 	.byte	0x65
 	.byte	0x73
 	.byte	0x63
@@ -7010,7 +15937,7 @@ L.891:
 	.byte	0x65
 	.byte	0x0
 	.align	1
-L.890:
+L.1581:
 	.byte	0x64
 	.byte	0x72
 	.byte	0x6f
@@ -7051,13 +15978,13 @@ L.890:
 	.byte	0x6d
 	.byte	0x0
 	.align	1
-L.889:
+L.1580:
 	.byte	0x73
 	.byte	0x65
 	.byte	0x72
 	.byte	0x0
 	.align	1
-L.888:
+L.1579:
 	.byte	0x73
 	.byte	0x65
 	.byte	0x74
@@ -7081,14 +16008,14 @@ L.888:
 	.byte	0x79
 	.byte	0x0
 	.align	1
-L.887:
+L.1578:
 	.byte	0x70
 	.byte	0x6f
 	.byte	0x6b
 	.byte	0x65
 	.byte	0x0
 	.align	1
-L.886:
+L.1577:
 	.byte	0x70
 	.byte	0x72
 	.byte	0x69
@@ -7110,14 +16037,14 @@ L.886:
 	.byte	0x70
 	.byte	0x0
 	.align	1
-L.885:
+L.1576:
 	.byte	0x70
 	.byte	0x65
 	.byte	0x65
 	.byte	0x6b
 	.byte	0x0
 	.align	1
-L.884:
+L.1575:
 	.byte	0x65
 	.byte	0x63
 	.byte	0x68
@@ -7140,14 +16067,14 @@ L.884:
 	.byte	0x73
 	.byte	0x0
 	.align	1
-L.883:
+L.1574:
 	.byte	0x65
 	.byte	0x63
 	.byte	0x68
 	.byte	0x6f
 	.byte	0x0
 	.align	1
-L.882:
+L.1573:
 	.byte	0x70
 	.byte	0x72
 	.byte	0x69
@@ -7175,7 +16102,7 @@ L.882:
 	.byte	0x6e
 	.byte	0x0
 	.align	1
-L.881:
+L.1572:
 	.byte	0x73
 	.byte	0x79
 	.byte	0x73
@@ -7185,19 +16112,2293 @@ L.881:
 	.byte	0x6f
 	.byte	0x0
 	.align	1
-L.867:
+L.1566:
+	.byte	0x54
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x73
+	.byte	0x68
+	.byte	0x75
+	.byte	0x74
+	.byte	0x64
+	.byte	0x6f
+	.byte	0x77
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x70
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x65
+	.byte	0x6e
+	.byte	0x74
+	.byte	0x65
+	.byte	0x72
+	.byte	0x2e
+	.byte	0x20
+	.byte	0x41
+	.byte	0x6e
+	.byte	0x79
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x72
+	.byte	0x20
+	.byte	0x6b
+	.byte	0x65
+	.byte	0x79
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x65
+	.byte	0x78
+	.byte	0x69
+	.byte	0x74
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1535:
+	.byte	0x4c
+	.byte	0x65
+	.byte	0x74
+	.byte	0x73
+	.byte	0x20
+	.byte	0x64
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x73
+	.byte	0x6f
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x20
+	.byte	0x70
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x74
+	.byte	0x74
+	.byte	0x65
+	.byte	0x20
+	.byte	0x73
+	.byte	0x68
+	.byte	0x65
+	.byte	0x6e
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x69
+	.byte	0x67
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x73
+	.byte	0x21
+	.byte	0x20
+	.byte	0xa
+	.byte	0x45
+	.byte	0x73
+	.byte	0x63
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x71
+	.byte	0x75
+	.byte	0x69
+	.byte	0x74
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1507:
+	.byte	0x5b
+	.byte	0x4c
+	.byte	0x4f
+	.byte	0x41
+	.byte	0x44
+	.byte	0x45
+	.byte	0x44
+	.byte	0x20
+	.byte	0x43
+	.byte	0x4f
+	.byte	0x4c
+	.byte	0x4f
+	.byte	0x52
+	.byte	0x20
+	.byte	0x50
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x54
+	.byte	0x54
+	.byte	0x45
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1490:
+	.byte	0xa
+	.byte	0x5b
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x54
+	.byte	0x20
+	.byte	0x46
+	.byte	0x4f
+	.byte	0x4e
+	.byte	0x54
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x43
+	.byte	0x4f
+	.byte	0x44
+	.byte	0x45
+	.byte	0x20
+	.byte	0x50
+	.byte	0x41
+	.byte	0x47
+	.byte	0x45
+	.byte	0x20
+	.byte	0x31
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1481:
+	.byte	0xa
+	.byte	0x5b
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x54
+	.byte	0x20
+	.byte	0x46
+	.byte	0x4f
+	.byte	0x4e
+	.byte	0x54
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x43
+	.byte	0x4f
+	.byte	0x44
+	.byte	0x45
+	.byte	0x20
+	.byte	0x50
+	.byte	0x41
+	.byte	0x47
+	.byte	0x45
+	.byte	0x20
+	.byte	0x30
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1472:
+	.byte	0xa
+	.byte	0x5b
+	.byte	0x4d
+	.byte	0x41
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x20
+	.byte	0x46
+	.byte	0x4f
+	.byte	0x4e
+	.byte	0x54
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x43
+	.byte	0x4f
+	.byte	0x44
+	.byte	0x45
+	.byte	0x20
+	.byte	0x50
+	.byte	0x41
+	.byte	0x47
+	.byte	0x45
+	.byte	0x20
+	.byte	0x31
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1467:
+	.byte	0x5b
+	.byte	0x4d
+	.byte	0x41
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x20
+	.byte	0x46
+	.byte	0x4f
+	.byte	0x4e
+	.byte	0x54
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x43
+	.byte	0x4f
+	.byte	0x44
+	.byte	0x45
+	.byte	0x20
+	.byte	0x50
+	.byte	0x41
+	.byte	0x47
+	.byte	0x45
+	.byte	0x20
+	.byte	0x30
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1461:
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x78
+	.byte	0x20
+	.byte	0x2d
+	.byte	0x3e
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x36
+	.byte	0x78
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1460:
+	.byte	0x43
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x6e
+	.byte	0x6f
+	.byte	0x74
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x79
+	.byte	0x20
+	.byte	0x66
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x6d
+	.byte	0x20
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x78
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x4d
+	.byte	0x4d
+	.byte	0x49
+	.byte	0x4f
+	.byte	0x20
+	.byte	0x72
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x67
+	.byte	0x65
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1457:
+	.byte	0x9
+	.byte	0x3c
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x3e
+	.byte	0x9
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x68
+	.byte	0x65
+	.byte	0x78
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x79
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1456:
+	.byte	0x9
+	.byte	0x3c
+	.byte	0x64
+	.byte	0x61
+	.byte	0x74
+	.byte	0x61
+	.byte	0x2d
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x3e
+	.byte	0x9
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x68
+	.byte	0x65
+	.byte	0x78
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x79
+	.byte	0x20
+	.byte	0x66
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x6d
+	.byte	0x20
+	.byte	0x28
+	.byte	0x31
+	.byte	0x32
+	.byte	0x38
+	.byte	0x20
+	.byte	0x62
+	.byte	0x79
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x29
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1455:
+	.byte	0x55
+	.byte	0x73
+	.byte	0x61
+	.byte	0x67
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x63
+	.byte	0x70
+	.byte	0x79
+	.byte	0x64
+	.byte	0x6d
+	.byte	0x20
+	.byte	0x3c
+	.byte	0x64
+	.byte	0x61
+	.byte	0x74
+	.byte	0x61
+	.byte	0x2d
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x3e
+	.byte	0x20
+	.byte	0x3c
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x3e
+	.byte	0x20
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1451:
+	.byte	0x43
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x79
+	.byte	0x20
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x73
+	.byte	0x74
+	.byte	0x72
+	.byte	0x75
+	.byte	0x63
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x74
+	.byte	0x65
+	.byte	0x72
+	.byte	0x72
+	.byte	0x75
+	.byte	0x70
+	.byte	0x74
+	.byte	0x65
+	.byte	0x64
+	.byte	0x2e
+	.byte	0x20
+	.byte	0x43
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x69
+	.byte	0x65
+	.byte	0x64
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x62
+	.byte	0x79
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1448:
+	.byte	0x25
+	.byte	0x30
+	.byte	0x36
+	.byte	0x78
+	.byte	0x20
+	.byte	0x2d
+	.byte	0x3e
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x78
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1447:
+	.byte	0x43
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x6e
+	.byte	0x6f
+	.byte	0x74
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x79
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x78
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x4d
+	.byte	0x4d
+	.byte	0x49
+	.byte	0x4f
+	.byte	0x20
+	.byte	0x72
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x67
+	.byte	0x65
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1444:
+	.byte	0x9
+	.byte	0x3c
+	.byte	0x64
+	.byte	0x61
+	.byte	0x74
+	.byte	0x61
+	.byte	0x2d
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x3e
+	.byte	0x9
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x68
+	.byte	0x65
+	.byte	0x78
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x79
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1443:
+	.byte	0x9
+	.byte	0x3c
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x3e
+	.byte	0x9
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x68
+	.byte	0x65
+	.byte	0x78
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x79
+	.byte	0x20
+	.byte	0x66
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x6d
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x64
+	.byte	0x61
+	.byte	0x74
+	.byte	0x61
+	.byte	0x20
+	.byte	0x28
+	.byte	0x31
+	.byte	0x32
+	.byte	0x38
+	.byte	0x20
+	.byte	0x62
+	.byte	0x79
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x29
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1442:
+	.byte	0x55
+	.byte	0x73
+	.byte	0x61
+	.byte	0x67
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x63
+	.byte	0x70
+	.byte	0x79
+	.byte	0x6d
+	.byte	0x64
+	.byte	0x20
+	.byte	0x3c
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x3e
+	.byte	0x20
+	.byte	0x3c
+	.byte	0x64
+	.byte	0x61
+	.byte	0x74
+	.byte	0x61
+	.byte	0x2d
+	.byte	0x61
+	.byte	0x64
+	.byte	0x64
+	.byte	0x72
+	.byte	0x3e
+	.byte	0x20
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1437:
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x20
+	.byte	0x28
+	.byte	0x75
+	.byte	0x6e
+	.byte	0x69
+	.byte	0x78
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x64
+	.byte	0x29
+	.byte	0xd
+	.byte	0x0
+	.align	1
+L.1431:
+	.byte	0x45
+	.byte	0x73
+	.byte	0x63
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x71
+	.byte	0x75
+	.byte	0x69
+	.byte	0x74
+	.byte	0x2e
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1417:
+	.byte	0x45
+	.byte	0x73
+	.byte	0x63
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x71
+	.byte	0x75
+	.byte	0x69
+	.byte	0x74
+	.byte	0x2e
+	.byte	0x0
+	.align	1
+L.1411:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x33
+	.byte	0x3b
+	.byte	0x48
+	.byte	0x54
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x6f
+	.byte	0x75
+	.byte	0x74
+	.byte	0x21
+	.byte	0x0
+	.align	1
+L.1407:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x32
+	.byte	0x3b
+	.byte	0x48
+	.byte	0x54
+	.byte	0x69
+	.byte	0x63
+	.byte	0x6b
+	.byte	0x73
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x0
+	.align	1
+L.1391:
+	.byte	0x9
+	.byte	0x54
+	.byte	0x4f
+	.byte	0x54
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x20
+	.byte	0x43
+	.byte	0x41
+	.byte	0x50
+	.byte	0x41
+	.byte	0x43
+	.byte	0x49
+	.byte	0x54
+	.byte	0x59
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x62
+	.byte	0x79
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x28
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x4d
+	.byte	0x42
+	.byte	0x29
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1378:
+	.byte	0x5b
+	.byte	0x48
+	.byte	0x43
+	.byte	0x53
+	.byte	0x20
+	.byte	0x44
+	.byte	0x52
+	.byte	0x49
+	.byte	0x56
+	.byte	0x45
+	.byte	0x20
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x46
+	.byte	0x4f
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1364:
+	.byte	0xa
+	.byte	0x57
+	.byte	0x41
+	.byte	0x52
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x47
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x54
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x66
+	.byte	0x6f
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x77
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x67
+	.byte	0x20
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x70
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x65
+	.byte	0x72
+	.byte	0x76
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x64
+	.byte	0x61
+	.byte	0x74
+	.byte	0x61
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x6c
+	.byte	0x79
+	.byte	0x20
+	.byte	0x69
+	.byte	0x66
+	.byte	0x20
+	.byte	0x69
+	.byte	0x74
+	.byte	0x73
+	.byte	0x20
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x77
+	.byte	0x65
+	.byte	0x64
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x66
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x69
+	.byte	0x73
+	.byte	0x68
+	.byte	0x2e
+	.byte	0xa
+	.byte	0x49
+	.byte	0x66
+	.byte	0x20
+	.byte	0x79
+	.byte	0x6f
+	.byte	0x75
+	.byte	0x20
+	.byte	0x77
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x74
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x70
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x63
+	.byte	0x65
+	.byte	0x65
+	.byte	0x64
+	.byte	0x20
+	.byte	0x70
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x65
+	.byte	0x6e
+	.byte	0x74
+	.byte	0x65
+	.byte	0x72
+	.byte	0x2e
+	.byte	0x20
+	.byte	0x41
+	.byte	0x6e
+	.byte	0x79
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x72
+	.byte	0x20
+	.byte	0x6b
+	.byte	0x65
+	.byte	0x79
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x65
+	.byte	0x78
+	.byte	0x69
+	.byte	0x74
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1361:
+	.byte	0x5b
+	.byte	0x4e
+	.byte	0x4f
+	.byte	0x20
+	.byte	0x4d
+	.byte	0x45
+	.byte	0x44
+	.byte	0x49
+	.byte	0x55
+	.byte	0x4d
+	.byte	0x20
+	.byte	0x44
+	.byte	0x45
+	.byte	0x54
+	.byte	0x45
+	.byte	0x43
+	.byte	0x54
+	.byte	0x45
+	.byte	0x44
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1360:
+	.byte	0x9
+	.byte	0x54
+	.byte	0x4f
+	.byte	0x54
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x20
+	.byte	0x43
+	.byte	0x41
+	.byte	0x50
+	.byte	0x41
+	.byte	0x43
+	.byte	0x49
+	.byte	0x54
+	.byte	0x59
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x62
+	.byte	0x79
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x28
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x4b
+	.byte	0x42
+	.byte	0x29
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1359:
+	.byte	0x9
+	.byte	0x62
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x6b
+	.byte	0x73
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x28
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x73
+	.byte	0x65
+	.byte	0x63
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x73
+	.byte	0x20
+	.byte	0x70
+	.byte	0x65
+	.byte	0x72
+	.byte	0x20
+	.byte	0x62
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x6b
+	.byte	0x29
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1358:
+	.byte	0x9
+	.byte	0x73
+	.byte	0x65
+	.byte	0x63
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x73
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x28
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x62
+	.byte	0x79
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x70
+	.byte	0x65
+	.byte	0x72
+	.byte	0x20
+	.byte	0x73
+	.byte	0x65
+	.byte	0x63
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x29
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1357:
+	.byte	0x9
+	.byte	0x74
+	.byte	0x79
+	.byte	0x70
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x73
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1353:
+	.byte	0x57
+	.byte	0x52
+	.byte	0x49
+	.byte	0x54
+	.byte	0x45
+	.byte	0x20
+	.byte	0x50
+	.byte	0x52
+	.byte	0x4f
+	.byte	0x54
+	.byte	0x45
+	.byte	0x43
+	.byte	0x54
+	.byte	0x45
+	.byte	0x44
+	.byte	0x0
+	.align	1
+L.1352:
+	.byte	0x5b
+	.byte	0x4d
+	.byte	0x45
+	.byte	0x44
+	.byte	0x49
+	.byte	0x55
+	.byte	0x4d
+	.byte	0x20
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x46
+	.byte	0x4f
+	.byte	0x5d
+	.byte	0x20
+	.byte	0x25
+	.byte	0x73
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1342:
+	.byte	0x0
+	.align	1
+L.1341:
+	.byte	0x45
+	.byte	0x52
+	.byte	0x52
+	.byte	0x4f
+	.byte	0x52
+	.byte	0x0
+	.align	1
+L.1340:
+	.byte	0x9
+	.byte	0x73
+	.byte	0x74
+	.byte	0x61
+	.byte	0x74
+	.byte	0x75
+	.byte	0x73
+	.byte	0x20
+	.byte	0x5b
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x5d
+	.byte	0x20
+	.byte	0x25
+	.byte	0x73
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1333:
+	.byte	0x55
+	.byte	0x4e
+	.byte	0x4b
+	.byte	0x4e
+	.byte	0x4f
+	.byte	0x57
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.1332:
+	.byte	0x42
+	.byte	0x0
+	.align	1
+L.1331:
+	.byte	0x41
+	.byte	0x0
+	.align	1
+L.1330:
+	.byte	0x9
+	.byte	0x73
+	.byte	0x65
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x63
+	.byte	0x74
+	.byte	0x65
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x73
+	.byte	0x20
+	.byte	0x28
+	.byte	0x25
+	.byte	0x64
+	.byte	0x29
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1329:
+	.byte	0x5b
+	.byte	0x54
+	.byte	0x50
+	.byte	0x53
+	.byte	0x20
+	.byte	0x44
+	.byte	0x52
+	.byte	0x49
+	.byte	0x56
+	.byte	0x45
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x46
+	.byte	0x4f
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1317:
+	.byte	0x45
+	.byte	0x72
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x4e
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x73
+	.byte	0x75
+	.byte	0x63
+	.byte	0x68
+	.byte	0x20
+	.byte	0x64
+	.byte	0x72
+	.byte	0x69
+	.byte	0x76
+	.byte	0x65
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1314:
+	.byte	0x9
+	.byte	0x54
+	.byte	0x50
+	.byte	0x53
+	.byte	0x20
+	.byte	0x25
+	.byte	0x63
+	.byte	0x20
+	.byte	0x2d
+	.byte	0x3e
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1309:
+	.byte	0x54
+	.byte	0x50
+	.byte	0x53
+	.byte	0x20
+	.byte	0x49
+	.byte	0x44
+	.byte	0x73
+	.byte	0x20
+	.byte	0x61
+	.byte	0x72
+	.byte	0x65
+	.byte	0x20
+	.byte	0x28
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x6c
+	.byte	0x79
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x65
+	.byte	0x20
+	.byte	0x64
+	.byte	0x69
+	.byte	0x67
+	.byte	0x69
+	.byte	0x74
+	.byte	0x29
+	.byte	0x3a
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1308:
+	.byte	0x55
+	.byte	0x73
+	.byte	0x61
+	.byte	0x67
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x74
+	.byte	0x70
+	.byte	0x73
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x3c
+	.byte	0x74
+	.byte	0x70
+	.byte	0x73
+	.byte	0x5f
+	.byte	0x69
+	.byte	0x64
+	.byte	0x3e
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1304:
+	.byte	0xa
+	.byte	0x54
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x66
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x69
+	.byte	0x73
+	.byte	0x68
+	.byte	0x65
+	.byte	0x64
+	.byte	0x2e
+	.byte	0x20
+	.byte	0x54
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x65
+	.byte	0x64
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x73
+	.byte	0x65
+	.byte	0x63
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x73
+	.byte	0x20
+	.byte	0x28
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x69
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x70
+	.byte	0x65
+	.byte	0x72
+	.byte	0x61
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x73
+	.byte	0x29
+	.byte	0x2e
+	.byte	0xa
+	.byte	0x41
+	.byte	0x76
+	.byte	0x67
+	.byte	0x20
+	.byte	0x49
+	.byte	0x4f
+	.byte	0x20
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x2e
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x6d
+	.byte	0x73
+	.byte	0x20
+	.byte	0x7c
+	.byte	0x20
+	.byte	0x54
+	.byte	0x6f
+	.byte	0x74
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x20
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x6d
+	.byte	0x73
+	.byte	0xa
+	.byte	0x54
+	.byte	0x72
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x73
+	.byte	0x66
+	.byte	0x65
+	.byte	0x72
+	.byte	0x20
+	.byte	0x73
+	.byte	0x70
+	.byte	0x65
+	.byte	0x65
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x2e
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x20
+	.byte	0x4b
+	.byte	0x42
+	.byte	0x2f
+	.byte	0x73
+	.byte	0x20
+	.byte	0x7c
+	.byte	0x20
+	.byte	0x49
+	.byte	0x4f
+	.byte	0x50
+	.byte	0x53
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x2e
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1281:
+	.byte	0x74
+	.byte	0x65
+	.byte	0x6d
+	.byte	0x70
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x38
+	.byte	0x78
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x64
+	.byte	0x61
+	.byte	0x74
+	.byte	0x61
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x38
+	.byte	0x78
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x72
+	.byte	0x65
+	.byte	0x61
+	.byte	0x64
+	.byte	0x62
+	.byte	0x61
+	.byte	0x63
+	.byte	0x6b
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x38
+	.byte	0x78
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1280:
+	.byte	0x44
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x79
+	.byte	0x6f
+	.byte	0x75
+	.byte	0x20
+	.byte	0x68
+	.byte	0x61
+	.byte	0x76
+	.byte	0x65
+	.byte	0x20
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x69
+	.byte	0x67
+	.byte	0x6e
+	.byte	0x65
+	.byte	0x64
+	.byte	0x20
+	.byte	0x62
+	.byte	0x75
+	.byte	0x66
+	.byte	0x66
+	.byte	0x65
+	.byte	0x72
+	.byte	0x3f
+	.byte	0x20
+	.byte	0x49
+	.byte	0x20
+	.byte	0x64
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x27
+	.byte	0x74
+	.byte	0x2e
+	.byte	0x20
+	.byte	0x28
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x63
+	.byte	0x61
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x65
+	.byte	0x72
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x29
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1274:
+	.byte	0x2e
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1273:
+	.byte	0xa
+	.byte	0x66
+	.byte	0x61
+	.byte	0x74
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x66
+	.byte	0x61
+	.byte	0x69
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x64
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x65
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x69
+	.byte	0x67
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x20
+	.byte	0x64
+	.byte	0x61
+	.byte	0x74
+	.byte	0x61
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1270:
+	.byte	0x20
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x6b
+	.byte	0x0
+	.align	1
+L.1269:
+	.byte	0x20
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x20
+	.byte	0x6d
+	.byte	0x69
+	.byte	0x73
+	.byte	0x6d
+	.byte	0x61
+	.byte	0x74
+	.byte	0x63
+	.byte	0x68
+	.byte	0x0
+	.align	1
+L.1262:
+	.byte	0x2e
+	.byte	0x0
+	.align	1
+L.1261:
+	.byte	0x66
+	.byte	0x61
+	.byte	0x69
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x64
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1255:
+	.byte	0x48
+	.byte	0x43
+	.byte	0x53
+	.byte	0x0
+	.align	1
+L.1254:
+	.byte	0x54
+	.byte	0x50
+	.byte	0x53
+	.byte	0x0
+	.align	1
+L.1253:
+	.byte	0x74
+	.byte	0x65
+	.byte	0x73
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x67
+	.byte	0x20
+	.byte	0x73
+	.byte	0x65
+	.byte	0x63
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x20
+	.byte	0x25
+	.byte	0x73
+	.byte	0x3a
+	.byte	0x30
+	.byte	0x78
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x3a
+	.byte	0x30
+	.byte	0x78
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x20
+	.byte	0x0
+	.align	1
+L.1252:
+	.byte	0x55
+	.byte	0x6e
+	.byte	0x6b
+	.byte	0x6e
+	.byte	0x6f
+	.byte	0x77
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x49
+	.byte	0x4f
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x74
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x6c
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x72
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1153:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x20
+	.byte	0x52
+	.byte	0x45
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x41
+	.byte	0x53
+	.byte	0x45
+	.byte	0x44
+	.byte	0x0
+	.align	1
+L.1152:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x20
+	.byte	0x44
+	.byte	0x4f
+	.byte	0x57
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.1151:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x4b
+	.byte	0x9
+	.byte	0x65
+	.byte	0x76
+	.byte	0x65
+	.byte	0x6e
+	.byte	0x74
+	.byte	0x3a
+	.byte	0x9
+	.byte	0x20
+	.byte	0x25
+	.byte	0x73
+	.byte	0x9
+	.byte	0x6d
+	.byte	0x6f
+	.byte	0x64
+	.byte	0x69
+	.byte	0x66
+	.byte	0x69
+	.byte	0x65
+	.byte	0x72
+	.byte	0x73
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x30
+	.byte	0x78
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1150:
+	.byte	0x9
+	.byte	0x73
+	.byte	0x63
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x64
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x9
+	.byte	0x30
+	.byte	0x78
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x78
+	.byte	0x20
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x4b
+	.byte	0x5b
+	.byte	0x25
+	.byte	0x73
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1146:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x34
+	.byte	0x3b
+	.byte	0x48
+	.byte	0x9
+	.byte	0x63
+	.byte	0x68
+	.byte	0x61
+	.byte	0x72
+	.byte	0x61
+	.byte	0x63
+	.byte	0x74
+	.byte	0x65
+	.byte	0x72
+	.byte	0x3a
+	.byte	0x9
+	.byte	0x27
+	.byte	0x25
+	.byte	0x63
+	.byte	0x27
+	.byte	0x20
+	.byte	0x5b
+	.byte	0x25
+	.byte	0x30
+	.byte	0x33
+	.byte	0x64
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1145:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x32
+	.byte	0x3b
+	.byte	0x48
+	.byte	0x45
+	.byte	0x73
+	.byte	0x63
+	.byte	0x20
+	.byte	0x32
+	.byte	0x20
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x71
+	.byte	0x75
+	.byte	0x69
+	.byte	0x74
+	.byte	0x0
+	.align	1
+L.1142:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x32
+	.byte	0x3b
+	.byte	0x48
+	.byte	0x50
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x65
+	.byte	0x20
+	.byte	0x6d
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x65
+	.byte	0x20
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x71
+	.byte	0x75
+	.byte	0x69
+	.byte	0x74
+	.byte	0x0
+	.align	1
+L.1133:
+	.byte	0x50
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x20
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x79
+	.byte	0x20
+	.byte	0x6b
+	.byte	0x65
+	.byte	0x79
+	.byte	0x21
+	.byte	0x20
+	.byte	0xa
+	.byte	0x45
+	.byte	0x73
+	.byte	0x63
+	.byte	0x20
+	.byte	0x32
+	.byte	0x20
+	.byte	0x74
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x73
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x71
+	.byte	0x75
+	.byte	0x69
+	.byte	0x74
+	.byte	0x0
+	.align	1
+L.1115:
+	.byte	0x48
+	.byte	0x6f
+	.byte	0x76
+	.byte	0x65
+	.byte	0x72
+	.byte	0x20
+	.byte	0x79
+	.byte	0x6f
+	.byte	0x75
+	.byte	0x72
+	.byte	0x20
+	.byte	0x6d
+	.byte	0x6f
+	.byte	0x75
+	.byte	0x73
+	.byte	0x65
+	.byte	0x20
+	.byte	0x6f
+	.byte	0x76
+	.byte	0x65
+	.byte	0x72
+	.byte	0x20
+	.byte	0x74
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x73
+	.byte	0x63
+	.byte	0x72
+	.byte	0x65
+	.byte	0x65
+	.byte	0x6e
+	.byte	0x20
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x64
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6c
+	.byte	0x69
+	.byte	0x63
+	.byte	0x6b
+	.byte	0x20
+	.byte	0x61
+	.byte	0x6e
+	.byte	0x79
+	.byte	0x77
+	.byte	0x68
+	.byte	0x65
+	.byte	0x72
+	.byte	0x65
+	.byte	0x21
+	.byte	0x20
+	.byte	0xa
+	.byte	0x45
+	.byte	0x73
+	.byte	0x63
+	.byte	0x20
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x71
+	.byte	0x75
+	.byte	0x69
+	.byte	0x74
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.1111:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x33
 	.byte	0x30
 	.byte	0x3b
 	.byte	0x34
+	.byte	0x32
+	.byte	0x48
+	.byte	0x20
+	.byte	0x52
+	.byte	0x69
+	.byte	0x67
+	.byte	0x68
+	.byte	0x74
+	.byte	0x20
+	.byte	0x7b
+	.byte	0x70
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x65
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x64
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x72
+	.byte	0x65
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x61
+	.byte	0x73
+	.byte	0x65
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x64
+	.byte	0x7d
+	.byte	0x0
+	.align	1
+L.1110:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x32
+	.byte	0x39
+	.byte	0x3b
+	.byte	0x34
+	.byte	0x32
+	.byte	0x48
+	.byte	0x20
+	.byte	0x4c
+	.byte	0x65
+	.byte	0x66
+	.byte	0x74
+	.byte	0x20
+	.byte	0x20
+	.byte	0x7b
+	.byte	0x70
+	.byte	0x72
+	.byte	0x65
+	.byte	0x73
+	.byte	0x73
+	.byte	0x65
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x64
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x72
+	.byte	0x65
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x61
+	.byte	0x73
+	.byte	0x65
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x64
+	.byte	0x7d
+	.byte	0x0
+	.align	1
+L.1109:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x31
+	.byte	0x34
+	.byte	0x3b
+	.byte	0x33
+	.byte	0x34
+	.byte	0x48
+	.byte	0x52
+	.byte	0x49
+	.byte	0x47
+	.byte	0x48
+	.byte	0x54
+	.byte	0x20
+	.byte	0x52
+	.byte	0x45
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x41
+	.byte	0x53
+	.byte	0x45
+	.byte	0x44
+	.byte	0x0
+	.align	1
+L.1106:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x31
+	.byte	0x34
+	.byte	0x3b
+	.byte	0x33
+	.byte	0x34
+	.byte	0x48
+	.byte	0x52
+	.byte	0x49
+	.byte	0x47
+	.byte	0x48
+	.byte	0x54
+	.byte	0x20
+	.byte	0x50
+	.byte	0x52
+	.byte	0x45
+	.byte	0x53
+	.byte	0x53
+	.byte	0x45
+	.byte	0x44
+	.byte	0x20
+	.byte	0x0
+	.align	1
+L.1103:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x31
+	.byte	0x33
+	.byte	0x3b
+	.byte	0x33
+	.byte	0x34
+	.byte	0x48
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x46
+	.byte	0x54
+	.byte	0x20
+	.byte	0x52
+	.byte	0x45
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x41
+	.byte	0x53
+	.byte	0x45
+	.byte	0x44
+	.byte	0x0
+	.align	1
+L.1100:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x31
+	.byte	0x33
+	.byte	0x3b
+	.byte	0x33
+	.byte	0x34
+	.byte	0x48
+	.byte	0x20
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x46
+	.byte	0x54
+	.byte	0x20
+	.byte	0x50
+	.byte	0x52
+	.byte	0x45
+	.byte	0x53
+	.byte	0x53
+	.byte	0x45
+	.byte	0x44
+	.byte	0x0
+	.align	1
+L.1097:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x31
+	.byte	0x32
+	.byte	0x3b
+	.byte	0x33
+	.byte	0x33
+	.byte	0x48
+	.byte	0x7b
+	.byte	0x78
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x33
+	.byte	0x64
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x79
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x33
+	.byte	0x64
+	.byte	0x7d
+	.byte	0x0
+	.align	1
+L.1073:
+	.byte	0x1b
+	.byte	0x5b
+	.byte	0x33
+	.byte	0x34
+	.byte	0x3b
+	.byte	0x34
 	.byte	0x30
 	.byte	0x48
-	.byte	0x43
-	.byte	0x75
-	.byte	0x62
-	.byte	0x65
 	.byte	0x20
 	.byte	0x72
 	.byte	0x6f
@@ -7230,7 +18431,7 @@ L.867:
 	.byte	0x7d
 	.byte	0x0
 	.align	1
-L.839:
+L.1048:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x33
@@ -7263,7 +18464,7 @@ L.839:
 	.byte	0x7d
 	.byte	0x0
 	.align	1
-L.793:
+L.1002:
 	.byte	0x54
 	.byte	0x61
 	.byte	0x6d
@@ -7360,9 +18561,10 @@ L.793:
 	.byte	0x6f
 	.byte	0x72
 	.byte	0x29
+	.byte	0xa
 	.byte	0x0
 	.align	1
-L.685:
+L.896:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x32
@@ -7372,7 +18574,7 @@ L.685:
 	.byte	0x48
 	.byte	0x0
 	.align	1
-L.683:
+L.894:
 	.byte	0x9
 	.byte	0x3c
 	.byte	0x76
@@ -7406,7 +18608,7 @@ L.683:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.682:
+L.893:
 	.byte	0x9
 	.byte	0x3c
 	.byte	0x61
@@ -7440,7 +18642,7 @@ L.682:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.681:
+L.892:
 	.byte	0x55
 	.byte	0x73
 	.byte	0x61
@@ -7470,79 +18672,126 @@ L.681:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.668:
+L.879:
 	.byte	0x7c
-	.byte	0x25
-	.byte	0x78
 	.byte	0x20
-	.byte	0x25
-	.byte	0x78
 	.byte	0x20
-	.byte	0x25
-	.byte	0x78
-	.byte	0x20
-	.byte	0x25
-	.byte	0x78
-	.byte	0x20
-	.byte	0x25
-	.byte	0x78
-	.byte	0x20
-	.byte	0x25
-	.byte	0x78
-	.byte	0x20
-	.byte	0x25
-	.byte	0x78
-	.byte	0x20
-	.byte	0x25
-	.byte	0x78
-	.byte	0x9
 	.byte	0x0
 	.align	1
-L.667:
-	.byte	0x9
+L.878:
+	.byte	0x7c
+	.byte	0x20
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
 	.byte	0x78
 	.byte	0x20
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
 	.byte	0x78
 	.byte	0x20
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
 	.byte	0x78
 	.byte	0x20
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
 	.byte	0x78
 	.byte	0x20
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
 	.byte	0x78
 	.byte	0x20
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
 	.byte	0x78
 	.byte	0x20
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
 	.byte	0x78
 	.byte	0x20
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
 	.byte	0x78
 	.byte	0x0
 	.align	1
-L.666:
+L.877:
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x78
+	.byte	0x20
+	.byte	0x0
+	.align	1
+L.876:
+	.byte	0x25
+	.byte	0x30
+	.byte	0x36
 	.byte	0x78
 	.byte	0x3a
+	.byte	0x20
+	.byte	0x20
 	.byte	0x0
 	.align	1
-L.665:
+L.871:
 	.byte	0x25
+	.byte	0x30
+	.byte	0x36
 	.byte	0x78
 	.byte	0x20
 	.byte	0x2d
 	.byte	0x3e
 	.byte	0x20
 	.byte	0x25
+	.byte	0x30
+	.byte	0x32
 	.byte	0x78
+	.byte	0xa
 	.byte	0x0
 	.align	1
-L.660:
+L.870:
 	.byte	0x9
 	.byte	0x3c
 	.byte	0x61
@@ -7588,7 +18837,7 @@ L.660:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.659:
+L.869:
 	.byte	0x55
 	.byte	0x73
 	.byte	0x61
@@ -7611,7 +18860,7 @@ L.659:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.582:
+L.792:
 	.byte	0x30
 	.byte	0x31
 	.byte	0x32
@@ -7650,13 +18899,107 @@ L.582:
 	.byte	0x7a
 	.byte	0x0
 	.align	1
-L.535:
+L.725:
+	.byte	0x9
+	.byte	0x4c
+	.byte	0x69
+	.byte	0x6b
+	.byte	0x65
+	.byte	0x20
+	.byte	0x65
+	.byte	0x63
+	.byte	0x68
+	.byte	0x6f
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x62
+	.byte	0x75
+	.byte	0x74
+	.byte	0x20
+	.byte	0x70
+	.byte	0x72
+	.byte	0x65
+	.byte	0x74
+	.byte	0x74
+	.byte	0x79
+	.byte	0x2e
+	.byte	0x20
+	.byte	0x54
+	.byte	0x68
+	.byte	0x65
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x20
+	.byte	0x69
+	.byte	0x73
+	.byte	0x20
+	.byte	0x61
+	.byte	0x20
+	.byte	0x73
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x67
+	.byte	0x6c
+	.byte	0x65
+	.byte	0x20
+	.byte	0x63
+	.byte	0x68
+	.byte	0x61
+	.byte	0x72
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.724:
+	.byte	0x55
+	.byte	0x73
+	.byte	0x61
+	.byte	0x67
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x70
+	.byte	0x65
+	.byte	0x63
+	.byte	0x68
+	.byte	0x6f
+	.byte	0x20
+	.byte	0x3c
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x3e
+	.byte	0x20
+	.byte	0x2d
+	.byte	0x5b
+	.byte	0x68
+	.byte	0x7c
+	.byte	0x61
+	.byte	0x7c
+	.byte	0x65
+	.byte	0x5d
+	.byte	0x20
+	.byte	0x3c
+	.byte	0x61
+	.byte	0x72
+	.byte	0x67
+	.byte	0x73
+	.byte	0x3e
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.702:
 	.byte	0x1b
 	.byte	0x25
 	.byte	0x73
 	.byte	0x0
 	.align	1
-L.529:
+L.696:
 	.byte	0x9
 	.byte	0x2d
 	.byte	0x65
@@ -7692,7 +19035,7 @@ L.529:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.528:
+L.695:
 	.byte	0x9
 	.byte	0x2d
 	.byte	0x61
@@ -7746,7 +19089,7 @@ L.528:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.527:
+L.694:
 	.byte	0x9
 	.byte	0x2d
 	.byte	0x68
@@ -7769,7 +19112,7 @@ L.527:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.526:
+L.693:
 	.byte	0x55
 	.byte	0x73
 	.byte	0x61
@@ -7800,7 +19143,7 @@ L.526:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.516:
+L.683:
 	.byte	0x30
 	.byte	0x78
 	.byte	0x25
@@ -7827,7 +19170,7 @@ L.516:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.514:
+L.681:
 	.byte	0x30
 	.byte	0x78
 	.byte	0x25
@@ -7856,7 +19199,7 @@ L.514:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.512:
+L.679:
 	.byte	0x30
 	.byte	0x78
 	.byte	0x25
@@ -7882,7 +19225,7 @@ L.512:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.510:
+L.677:
 	.byte	0x30
 	.byte	0x78
 	.byte	0x25
@@ -7908,7 +19251,7 @@ L.510:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.508:
+L.675:
 	.byte	0x30
 	.byte	0x78
 	.byte	0x25
@@ -7948,7 +19291,7 @@ L.508:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.506:
+L.673:
 	.byte	0x30
 	.byte	0x78
 	.byte	0x25
@@ -7968,7 +19311,7 @@ L.506:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.504:
+L.671:
 	.byte	0x30
 	.byte	0x78
 	.byte	0x25
@@ -7990,7 +19333,7 @@ L.504:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.500:
+L.667:
 	.byte	0x4e
 	.byte	0x4f
 	.byte	0x20
@@ -8003,7 +19346,7 @@ L.500:
 	.byte	0x52
 	.byte	0x0
 	.align	1
-L.499:
+L.666:
 	.byte	0x43
 	.byte	0x41
 	.byte	0x52
@@ -8016,7 +19359,7 @@ L.499:
 	.byte	0x4b
 	.byte	0x0
 	.align	1
-L.498:
+L.665:
 	.byte	0x30
 	.byte	0x78
 	.byte	0x25
@@ -8047,7 +19390,7 @@ L.498:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.497:
+L.664:
 	.byte	0x5b
 	.byte	0x20
 	.byte	0x44
@@ -8062,7 +19405,7 @@ L.497:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.496:
+L.663:
 	.byte	0x55
 	.byte	0x70
 	.byte	0x74
@@ -8086,7 +19429,7 @@ L.496:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.495:
+L.662:
 	.byte	0x46
 	.byte	0x69
 	.byte	0x72
@@ -8120,7 +19463,7 @@ L.495:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.494:
+L.661:
 	.byte	0x4d
 	.byte	0x65
 	.byte	0x6d
@@ -8138,7 +19481,7 @@ L.494:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.488:
+L.655:
 	.byte	0x6f
 	.byte	0x66
 	.byte	0x20
@@ -8158,7 +19501,7 @@ L.488:
 	.byte	0x6e
 	.byte	0x0
 	.align	1
-L.487:
+L.654:
 	.byte	0x6f
 	.byte	0x66
 	.byte	0x20
@@ -8182,7 +19525,7 @@ L.487:
 	.byte	0x61
 	.byte	0x0
 	.align	1
-L.485:
+L.652:
 	.byte	0x75
 	.byte	0x6e
 	.byte	0x6b
@@ -8192,7 +19535,7 @@ L.485:
 	.byte	0x6e
 	.byte	0x0
 	.align	1
-L.484:
+L.651:
 	.byte	0x53
 	.byte	0x69
 	.byte	0x72
@@ -8201,7 +19544,7 @@ L.484:
 	.byte	0x73
 	.byte	0x0
 	.align	1
-L.483:
+L.650:
 	.byte	0x50
 	.byte	0x72
 	.byte	0x6f
@@ -8232,7 +19575,7 @@ L.483:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.482:
+L.649:
 	.byte	0x5b
 	.byte	0x20
 	.byte	0x43
@@ -8244,7 +19587,218 @@ L.482:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.481:
+L.643:
+	.byte	0x32
+	.byte	0x35
+	.byte	0x36
+	.byte	0x20
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x64
+	.byte	0x65
+	.byte	0x78
+	.byte	0x65
+	.byte	0x64
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x0
+	.align	1
+L.642:
+	.byte	0x6d
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x6f
+	.byte	0x63
+	.byte	0x68
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x0
+	.align	1
+L.641:
+	.byte	0x43
+	.byte	0x6f
+	.byte	0x6c
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x20
+	.byte	0x6d
+	.byte	0x6f
+	.byte	0x64
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x73
+	.byte	0x20
+	.byte	0x5b
+	.byte	0x4d
+	.byte	0x4f
+	.byte	0x44
+	.byte	0x45
+	.byte	0x20
+	.byte	0x25
+	.byte	0x78
+	.byte	0x5d
+	.byte	0xa
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.637:
+	.byte	0x44
+	.byte	0x55
+	.byte	0x4d
+	.byte	0x42
+	.byte	0x0
+	.align	1
+L.636:
+	.byte	0x41
+	.byte	0x4e
+	.byte	0x53
+	.byte	0x49
+	.byte	0x0
+	.align	1
+L.634:
+	.byte	0x54
+	.byte	0x65
+	.byte	0x72
+	.byte	0x6d
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x20
+	.byte	0x6d
+	.byte	0x6f
+	.byte	0x64
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x73
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.631:
+	.byte	0x42
+	.byte	0x49
+	.byte	0x4f
+	.byte	0x53
+	.byte	0x20
+	.byte	0x6d
+	.byte	0x6f
+	.byte	0x6e
+	.byte	0x69
+	.byte	0x74
+	.byte	0x6f
+	.byte	0x72
+	.byte	0x20
+	.byte	0x74
+	.byte	0x65
+	.byte	0x72
+	.byte	0x6d
+	.byte	0x69
+	.byte	0x6e
+	.byte	0x61
+	.byte	0x6c
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x63
+	.byte	0x6f
+	.byte	0x6c
+	.byte	0x75
+	.byte	0x6d
+	.byte	0x6e
+	.byte	0x73
+	.byte	0x2c
+	.byte	0x20
+	.byte	0x25
+	.byte	0x64
+	.byte	0x20
+	.byte	0x72
+	.byte	0x6f
+	.byte	0x77
+	.byte	0x73
+	.byte	0x2e
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.630:
+	.byte	0x5b
+	.byte	0x20
+	.byte	0x54
+	.byte	0x45
+	.byte	0x52
+	.byte	0x4d
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x20
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x46
+	.byte	0x4f
+	.byte	0x20
+	.byte	0x5d
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.629:
+	.byte	0x54
+	.byte	0x69
+	.byte	0x6d
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x3a
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x20
+	.byte	0x44
+	.byte	0x61
+	.byte	0x74
+	.byte	0x65
+	.byte	0x3a
+	.byte	0x20
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x2f
+	.byte	0x25
+	.byte	0x30
+	.byte	0x32
+	.byte	0x64
+	.byte	0x2f
+	.byte	0x25
+	.byte	0x30
+	.byte	0x34
+	.byte	0x64
+	.byte	0xa
+	.byte	0xa
+	.byte	0x0
+	.align	1
+L.628:
 	.byte	0x54
 	.byte	0x68
 	.byte	0x65
@@ -8282,10 +19836,9 @@ L.481:
 	.byte	0x74
 	.byte	0x61
 	.byte	0xa
-	.byte	0xa
 	.byte	0x0
 	.align	1
-L.480:
+L.627:
 	.byte	0x9
 	.byte	0x9
 	.byte	0x9
@@ -8310,7 +19863,7 @@ L.480:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.479:
+L.624:
 	.byte	0x55
 	.byte	0x73
 	.byte	0x61
@@ -8328,7 +19881,7 @@ L.479:
 	.byte	0xa
 	.byte	0x0
 	.align	1
-L.473:
+L.618:
 	.byte	0x44
 	.byte	0x75
 	.byte	0x6d
@@ -8344,7 +19897,7 @@ L.473:
 	.byte	0x6c
 	.byte	0x0
 	.align	1
-L.472:
+L.617:
 	.byte	0x53
 	.byte	0x79
 	.byte	0x73
@@ -8361,93 +19914,1427 @@ L.472:
 	.byte	0x65
 	.byte	0x0
 	.align	1
-L.325:
+L.470:
 	.byte	0x1b
 	.byte	0x4f
 	.byte	0x53
 	.byte	0x0
 	.align	1
-L.324:
+L.469:
 	.byte	0x1b
 	.byte	0x4f
 	.byte	0x52
 	.byte	0x0
 	.align	1
-L.323:
+L.468:
 	.byte	0x1b
 	.byte	0x4f
 	.byte	0x51
 	.byte	0x0
 	.align	1
-L.322:
+L.467:
 	.byte	0x1b
 	.byte	0x4f
 	.byte	0x50
 	.byte	0x0
 	.align	1
-L.321:
+L.466:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x36
 	.byte	0x7e
 	.byte	0x0
 	.align	1
-L.320:
+L.465:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x35
 	.byte	0x7e
 	.byte	0x0
 	.align	1
-L.319:
+L.464:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x33
 	.byte	0x7e
 	.byte	0x0
 	.align	1
-L.318:
+L.463:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x46
 	.byte	0x0
 	.align	1
-L.317:
+L.462:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x48
 	.byte	0x0
 	.align	1
-L.316:
+L.461:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x43
 	.byte	0x0
 	.align	1
-L.315:
+L.460:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x44
 	.byte	0x0
 	.align	1
-L.314:
+L.459:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x42
 	.byte	0x0
 	.align	1
-L.313:
+L.458:
 	.byte	0x1b
 	.byte	0x5b
 	.byte	0x41
 	.byte	0x0
 	.align	1
-L.238:
+L.377:
 	.byte	0x28
 	.byte	0x4e
 	.byte	0x55
 	.byte	0x4c
 	.byte	0x4c
 	.byte	0x29
+	.byte	0x0
+	.align	1
+L.130:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x55
+	.byte	0x4e
+	.byte	0x4b
+	.byte	0x4e
+	.byte	0x4f
+	.byte	0x4e
+	.byte	0x57
+	.byte	0x0
+	.align	1
+L.119:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x55
+	.byte	0x4e
+	.byte	0x4b
+	.byte	0x4e
+	.byte	0x4f
+	.byte	0x57
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.118:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x45
+	.byte	0x51
+	.byte	0x55
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x0
+	.align	1
+L.117:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x45
+	.byte	0x4e
+	.byte	0x54
+	.byte	0x45
+	.byte	0x52
+	.byte	0x0
+	.align	1
+L.116:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x41
+	.byte	0x44
+	.byte	0x44
+	.byte	0x0
+	.align	1
+L.115:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x55
+	.byte	0x42
+	.byte	0x54
+	.byte	0x52
+	.byte	0x41
+	.byte	0x43
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.114:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x4d
+	.byte	0x55
+	.byte	0x4c
+	.byte	0x54
+	.byte	0x49
+	.byte	0x50
+	.byte	0x4c
+	.byte	0x59
+	.byte	0x0
+	.align	1
+L.113:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x44
+	.byte	0x49
+	.byte	0x56
+	.byte	0x49
+	.byte	0x44
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.112:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x44
+	.byte	0x45
+	.byte	0x43
+	.byte	0x49
+	.byte	0x4d
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x0
+	.align	1
+L.111:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x39
+	.byte	0x0
+	.align	1
+L.110:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x38
+	.byte	0x0
+	.align	1
+L.109:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x37
+	.byte	0x0
+	.align	1
+L.108:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x36
+	.byte	0x0
+	.align	1
+L.107:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x35
+	.byte	0x0
+	.align	1
+L.106:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x34
+	.byte	0x0
+	.align	1
+L.105:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x33
+	.byte	0x0
+	.align	1
+L.104:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x32
+	.byte	0x0
+	.align	1
+L.103:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x31
+	.byte	0x0
+	.align	1
+L.102:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x50
+	.byte	0x5f
+	.byte	0x30
+	.byte	0x0
+	.align	1
+L.101:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x42
+	.byte	0x5f
+	.byte	0x4d
+	.byte	0x45
+	.byte	0x4e
+	.byte	0x55
+	.byte	0x0
+	.align	1
+L.100:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x52
+	.byte	0x49
+	.byte	0x47
+	.byte	0x48
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x55
+	.byte	0x50
+	.byte	0x45
+	.byte	0x52
+	.byte	0x0
+	.align	1
+L.99:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x52
+	.byte	0x49
+	.byte	0x47
+	.byte	0x48
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.98:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x52
+	.byte	0x49
+	.byte	0x47
+	.byte	0x48
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x43
+	.byte	0x4f
+	.byte	0x4e
+	.byte	0x54
+	.byte	0x52
+	.byte	0x4f
+	.byte	0x4c
+	.byte	0x0
+	.align	1
+L.97:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x52
+	.byte	0x49
+	.byte	0x47
+	.byte	0x48
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x48
+	.byte	0x49
+	.byte	0x46
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.96:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x46
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x55
+	.byte	0x50
+	.byte	0x45
+	.byte	0x52
+	.byte	0x0
+	.align	1
+L.95:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x46
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.94:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x46
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x43
+	.byte	0x4f
+	.byte	0x4e
+	.byte	0x54
+	.byte	0x52
+	.byte	0x4f
+	.byte	0x4c
+	.byte	0x0
+	.align	1
+L.93:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x46
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x48
+	.byte	0x49
+	.byte	0x46
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.92:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x31
+	.byte	0x32
+	.byte	0x0
+	.align	1
+L.91:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x31
+	.byte	0x31
+	.byte	0x0
+	.align	1
+L.90:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x31
+	.byte	0x30
+	.byte	0x0
+	.align	1
+L.89:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x39
+	.byte	0x0
+	.align	1
+L.88:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x38
+	.byte	0x0
+	.align	1
+L.87:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x37
+	.byte	0x0
+	.align	1
+L.86:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x36
+	.byte	0x0
+	.align	1
+L.85:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x35
+	.byte	0x0
+	.align	1
+L.84:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x34
+	.byte	0x0
+	.align	1
+L.83:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x33
+	.byte	0x0
+	.align	1
+L.82:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x32
+	.byte	0x0
+	.align	1
+L.81:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x31
+	.byte	0x0
+	.align	1
+L.80:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x50
+	.byte	0x41
+	.byte	0x55
+	.byte	0x53
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.79:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x50
+	.byte	0x52
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x43
+	.byte	0x52
+	.byte	0x45
+	.byte	0x45
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.78:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4e
+	.byte	0x55
+	.byte	0x4d
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x4f
+	.byte	0x43
+	.byte	0x4b
+	.byte	0x0
+	.align	1
+L.77:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x43
+	.byte	0x52
+	.byte	0x4f
+	.byte	0x4c
+	.byte	0x4c
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x4f
+	.byte	0x43
+	.byte	0x4b
+	.byte	0x0
+	.align	1
+L.76:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x43
+	.byte	0x41
+	.byte	0x50
+	.byte	0x53
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x4f
+	.byte	0x43
+	.byte	0x4b
+	.byte	0x0
+	.align	1
+L.75:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x45
+	.byte	0x4e
+	.byte	0x44
+	.byte	0x0
+	.align	1
+L.74:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x48
+	.byte	0x4f
+	.byte	0x4d
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.73:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x50
+	.byte	0x41
+	.byte	0x47
+	.byte	0x45
+	.byte	0x5f
+	.byte	0x44
+	.byte	0x4f
+	.byte	0x57
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.72:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x50
+	.byte	0x41
+	.byte	0x47
+	.byte	0x45
+	.byte	0x5f
+	.byte	0x55
+	.byte	0x50
+	.byte	0x0
+	.align	1
+L.71:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x55
+	.byte	0x50
+	.byte	0x0
+	.align	1
+L.70:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x44
+	.byte	0x4f
+	.byte	0x57
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.69:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x46
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.68:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x52
+	.byte	0x49
+	.byte	0x47
+	.byte	0x48
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.67:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x44
+	.byte	0x45
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x54
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.66:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x53
+	.byte	0x45
+	.byte	0x52
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.65:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x42
+	.byte	0x41
+	.byte	0x43
+	.byte	0x4b
+	.byte	0x53
+	.byte	0x50
+	.byte	0x41
+	.byte	0x43
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.64:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x54
+	.byte	0x41
+	.byte	0x42
+	.byte	0x0
+	.align	1
+L.63:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x45
+	.byte	0x4e
+	.byte	0x54
+	.byte	0x45
+	.byte	0x52
+	.byte	0x0
+	.align	1
+L.62:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x45
+	.byte	0x53
+	.byte	0x43
+	.byte	0x41
+	.byte	0x50
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.61:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x50
+	.byte	0x41
+	.byte	0x43
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.60:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x47
+	.byte	0x52
+	.byte	0x41
+	.byte	0x56
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.59:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x52
+	.byte	0x49
+	.byte	0x47
+	.byte	0x48
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x42
+	.byte	0x52
+	.byte	0x41
+	.byte	0x43
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.58:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x42
+	.byte	0x41
+	.byte	0x43
+	.byte	0x4b
+	.byte	0x53
+	.byte	0x4c
+	.byte	0x41
+	.byte	0x53
+	.byte	0x48
+	.byte	0x0
+	.align	1
+L.57:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x45
+	.byte	0x46
+	.byte	0x54
+	.byte	0x5f
+	.byte	0x42
+	.byte	0x52
+	.byte	0x41
+	.byte	0x43
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.56:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x5a
+	.byte	0x0
+	.align	1
+L.55:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x59
+	.byte	0x0
+	.align	1
+L.54:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x58
+	.byte	0x0
+	.align	1
+L.53:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x57
+	.byte	0x0
+	.align	1
+L.52:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x56
+	.byte	0x0
+	.align	1
+L.51:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x55
+	.byte	0x0
+	.align	1
+L.50:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.49:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x0
+	.align	1
+L.48:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x52
+	.byte	0x0
+	.align	1
+L.47:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x51
+	.byte	0x0
+	.align	1
+L.46:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x50
+	.byte	0x0
+	.align	1
+L.45:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4f
+	.byte	0x0
+	.align	1
+L.44:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.43:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4d
+	.byte	0x0
+	.align	1
+L.42:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4c
+	.byte	0x0
+	.align	1
+L.41:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4b
+	.byte	0x0
+	.align	1
+L.40:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4a
+	.byte	0x0
+	.align	1
+L.39:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x49
+	.byte	0x0
+	.align	1
+L.38:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x48
+	.byte	0x0
+	.align	1
+L.37:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x47
+	.byte	0x0
+	.align	1
+L.36:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x0
+	.align	1
+L.35:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.34:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x44
+	.byte	0x0
+	.align	1
+L.33:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x43
+	.byte	0x0
+	.align	1
+L.32:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x42
+	.byte	0x0
+	.align	1
+L.31:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x41
+	.byte	0x0
+	.align	1
+L.30:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x45
+	.byte	0x51
+	.byte	0x55
+	.byte	0x41
+	.byte	0x4c
+	.byte	0x0
+	.align	1
+L.29:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x45
+	.byte	0x4d
+	.byte	0x49
+	.byte	0x43
+	.byte	0x4f
+	.byte	0x4c
+	.byte	0x4f
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.28:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4e
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.27:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x45
+	.byte	0x49
+	.byte	0x47
+	.byte	0x48
+	.byte	0x54
+	.byte	0x0
+	.align	1
+L.26:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x45
+	.byte	0x56
+	.byte	0x45
+	.byte	0x4e
+	.byte	0x0
+	.align	1
+L.25:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x49
+	.byte	0x58
+	.byte	0x0
+	.align	1
+L.24:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x49
+	.byte	0x56
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.23:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x46
+	.byte	0x4f
+	.byte	0x55
+	.byte	0x52
+	.byte	0x0
+	.align	1
+L.22:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x54
+	.byte	0x48
+	.byte	0x52
+	.byte	0x45
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.21:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x54
+	.byte	0x57
+	.byte	0x4f
+	.byte	0x0
+	.align	1
+L.20:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4f
+	.byte	0x4e
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.19:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x5a
+	.byte	0x45
+	.byte	0x52
+	.byte	0x4f
+	.byte	0x0
+	.align	1
+L.18:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x53
+	.byte	0x4c
+	.byte	0x41
+	.byte	0x53
+	.byte	0x48
+	.byte	0x0
+	.align	1
+L.17:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x50
+	.byte	0x45
+	.byte	0x52
+	.byte	0x49
+	.byte	0x4f
+	.byte	0x44
+	.byte	0x0
+	.align	1
+L.16:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4d
+	.byte	0x49
+	.byte	0x4e
+	.byte	0x55
+	.byte	0x53
+	.byte	0x0
+	.align	1
+L.15:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x43
+	.byte	0x4f
+	.byte	0x4d
+	.byte	0x4d
+	.byte	0x41
+	.byte	0x0
+	.align	1
+L.14:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x41
+	.byte	0x50
+	.byte	0x4f
+	.byte	0x53
+	.byte	0x54
+	.byte	0x52
+	.byte	0x4f
+	.byte	0x50
+	.byte	0x48
+	.byte	0x45
+	.byte	0x0
+	.align	1
+L.13:
+	.byte	0x4b
+	.byte	0x45
+	.byte	0x59
+	.byte	0x5f
+	.byte	0x4e
+	.byte	0x55
+	.byte	0x4c
+	.byte	0x4c
+	.byte	0x0
+	.align	1
+L.9:
+	.byte	0x48
+	.byte	0x63
+	.byte	0x73
+	.byte	0x31
+	.byte	0x32
+	.byte	0x38
+	.byte	0x4d
+	.byte	0x0
+	.align	1
+L.8:
+	.byte	0x48
+	.byte	0x63
+	.byte	0x73
+	.byte	0x36
+	.byte	0x34
+	.byte	0x4d
+	.byte	0x0
+	.align	1
+L.7:
+	.byte	0x48
+	.byte	0x63
+	.byte	0x73
+	.byte	0x33
+	.byte	0x32
+	.byte	0x4d
+	.byte	0x0
+	.align	1
+L.6:
+	.byte	0x54
+	.byte	0x70
+	.byte	0x73
+	.byte	0x31
+	.byte	0x4d
+	.byte	0x0
+	.align	1
+L.5:
+	.byte	0x54
+	.byte	0x70
+	.byte	0x73
+	.byte	0x35
+	.byte	0x31
+	.byte	0x32
+	.byte	0x4b
+	.byte	0x0
+	.align	1
+L.4:
+	.byte	0x54
+	.byte	0x70
+	.byte	0x73
+	.byte	0x31
+	.byte	0x32
+	.byte	0x38
+	.byte	0x4b
+	.byte	0x0
+	.align	1
+L.3:
+	.byte	0x4e
+	.byte	0x6f
+	.byte	0x4d
+	.byte	0x65
+	.byte	0x64
+	.byte	0x69
+	.byte	0x61
 	.byte	0x0
 	.align 4

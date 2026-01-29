@@ -1,7 +1,12 @@
 #ifndef BUS_H
 #define BUS_H
 
-#include "talea.h"
+#include "logging.h"
+#include "machine_description.h"
+#include "types.h"
+
+struct TaleaMachine;
+struct TaleaMemoryView;
 
 // Unified memory access
 
@@ -19,40 +24,63 @@ typedef struct TaleaBus TaleaBus;
 #define READ_LOG(mem, dat)
 #endif
 
-u8   Machine_ReadData8(TaleaMachine *m, u16 addr);
-void Machine_WriteData8(TaleaMachine *m, u16 addr, u8 val);
+enum MemoryViewAccess {
+    BUS_ACCESS_READ  = 1 << 0,
+    BUS_ACCESS_WRITE = 1 << 1,
+};
 
-u16  Machine_ReadData16(TaleaMachine *m, u16 addr);
-void Machine_WriteData16(TaleaMachine *m, u16 addr, u16 val);
+typedef struct TaleaMemoryView {
+    uint8_t              *ptr;          // Pointer to the actual start of the requested block
+    uint32_t              guest_addr;   // The address in the Talea address space
+    size_t                length;       // How many bytes the device is allowed to touch
+    enum MemoryViewAccess access_flags; // R, W, R/W
+} TaleaMemoryView;
 
-u32  Machine_ReadData32(TaleaMachine *m, u16 addr);
-void Machine_WriteData32(TaleaMachine *m, u16 addr, u32 val);
+struct Buff2D {
+    TaleaMemoryView view;
+    u32             w, h;
+    u32             stride;
+};
 
-u8   Machine_ReadMain8(TaleaMachine *m, u32 addr);
-void Machine_WriteMain8(TaleaMachine *m, u32 addr, u8 val);
+u8   Machine_ReadData8(struct TaleaMachine *m, u16 addr);
+void Machine_WriteData8(struct TaleaMachine *m, u16 addr, u8 val);
 
-u16  Machine_ReadMain16(TaleaMachine *m, u32 addr);
-void Machine_WriteMain16(TaleaMachine *m, u32 addr, u16 val);
+u16  Machine_ReadData16(struct TaleaMachine *m, u16 addr);
+void Machine_WriteData16(struct TaleaMachine *m, u16 addr, u16 val);
 
-u32  Machine_ReadMain32(TaleaMachine *m, u32 addr);
-u32  Machine_ReadMain32Physical(TaleaMachine *m, u32 paddr);
-void Machine_WriteMain32(TaleaMachine *m, u32 addr, u32 val);
-void Machine_WriteMain32Physical(TaleaMachine *m, u32 paddr, u32 value);
+u32  Machine_ReadData32(struct TaleaMachine *m, u16 addr);
+void Machine_WriteData32(struct TaleaMachine *m, u16 addr, u32 val);
 
-void Bus_Reset(TaleaMachine *m);
-void Bus_LoadFirmware(TaleaMachine *m, u8 *firmware, size_t firmware_size);
+u8   Machine_ReadMain8(struct TaleaMachine *m, u32 addr);
+void Machine_WriteMain8(struct TaleaMachine *m, u32 addr, u8 val);
 
-TaleaMemoryView Bus_GetView(TaleaMachine *m, u32 addr, size_t len, enum MemoryViewAccess);
-void           *Bus_GetDataPointer(TaleaMachine *m, u16 addr, size_t len);
+u16  Machine_ReadMain16(struct TaleaMachine *m, u32 addr);
+void Machine_WriteMain16(struct TaleaMachine *m, u32 addr, u16 val);
 
-size_t Bus_Copy(TaleaMachine *m, TaleaMemoryView *view_src, TaleaMemoryView *view_dest, size_t len);
-size_t Bus_ReadBlock(TaleaMachine *m, TaleaMemoryView *view_src, void *restrict buff_dest,
-                     size_t len);
-size_t Bus_WriteBlock(TaleaMachine *m, void *restrict buff_src, TaleaMemoryView *view_dest,
-                      size_t len);
-size_t Bus_Memset(TaleaMachine *m, TaleaMemoryView *view_dest, u8 pattern, size_t len);
-size_t Bus_Memset16(TaleaMachine *m, TaleaMemoryView *view_dest, u16 pattern, size_t count);
-size_t Bus_Memset32(TaleaMachine *m, TaleaMemoryView *view_dest, u32 pattern, size_t count);
+u32  Machine_ReadMain32(struct TaleaMachine *m, u32 addr);
+u32  Machine_ReadMain32Physical(struct TaleaMachine *m, u32 paddr);
+void Machine_WriteMain32(struct TaleaMachine *m, u32 addr, u32 val);
+void Machine_WriteMain32Physical(struct TaleaMachine *m, u32 paddr, u32 value);
+
+void Bus_Reset(struct TaleaMachine *m);
+void Bus_LoadFirmware(struct TaleaMachine *m, u8 *firmware, size_t firmware_size);
+
+struct TaleaMemoryView Bus_GetView(struct TaleaMachine *m, u32 addr, size_t len,
+                                   enum MemoryViewAccess);
+void                  *Bus_GetDataPointer(struct TaleaMachine *m, u16 addr, size_t len);
+
+size_t Bus_Copy(struct TaleaMachine *m, struct TaleaMemoryView *view_src,
+                struct TaleaMemoryView *view_dest, size_t len);
+size_t Bus_ReadBlock(struct TaleaMachine *m, struct TaleaMemoryView *view_src,
+                     void *restrict buff_dest, size_t                len);
+size_t Bus_WriteBlock(struct TaleaMachine    *m, void *restrict buff_src,
+                      struct TaleaMemoryView *view_dest, size_t len);
+size_t Bus_Memset(struct TaleaMachine *m, struct TaleaMemoryView *view_dest, u8 pattern,
+                  size_t len);
+size_t Bus_Memset16(struct TaleaMachine *m, struct TaleaMemoryView *view_dest, u16 pattern,
+                    size_t count);
+size_t Bus_Memset32(struct TaleaMachine *m, struct TaleaMemoryView *view_dest, u32 pattern,
+                    size_t count);
 
 #if TALEA_WITH_MMU
 

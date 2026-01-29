@@ -55,15 +55,20 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\core\bus.c" />
-    <ClCompile Include="src\core\cpu-new.c" />
+    <ClCompile Include="src\core\cpu.c" />
     <ClCompile Include="src\core\system.c" />
-    <ClCompile Include="src\devices\audio.c" />
-    <ClCompile Include="src\devices\emu2413.c" />
-    <ClCompile Include="src\devices\mouse.c" />
-    <ClCompile Include="src\devices\sock.c" />
-    <ClCompile Include="src\devices\storage.c" />
-    <ClCompile Include="src\devices\terminal.c" />
-    <ClCompile Include="src\devices\video.c" />
+    <ClCompile Include="src\devices\audio\audio.c" />
+    <ClCompile Include="src\devices\audio\emu2413.c" />
+    <ClCompile Include="src\devices\mouse\mouse.c" />
+    <ClCompile Include="src\devices\storage\hcs.c" />
+    <ClCompile Include="src\devices\storage\storage.c" />
+    <ClCompile Include="src\devices\storage\tps.c" />
+    <ClCompile Include="src\devices\terminal\keyboard.c" />
+    <ClCompile Include="src\devices\terminal\modem.c" />
+    <ClCompile Include="src\devices\terminal\serial.c" />
+    <ClCompile Include="src\devices\terminal\terminal.c" />
+    <ClCompile Include="src\devices\terminal\timer.c" />
+    <ClCompile Include="src\devices\video\video.c" />
     <ClCompile Include="src\frontend\config.c" />
     <ClCompile Include="src\frontend\frontend.c" />
     <ClCompile Include="src\main.c" />
@@ -79,9 +84,16 @@
     <ClInclude Include="external\include\toml-c.h" />
     <ClInclude Include="include\need-from-raylib.h" />
     <ClInclude Include="include\talea.h" />
+    <ClInclude Include="include\types.h" />
     <ClInclude Include="src\core\bus.h" />
     <ClInclude Include="src\core\cpu.h" />
-    <ClInclude Include="src\devices\audio.h" />
+    <ClInclude Include="src\devices\audio\audio.h" />
+    <ClInclude Include="src\devices\mouse\mouse.h" />
+    <ClInclude Include="src\devices\storage\storage.h" />
+    <ClInclude Include="src\devices\terminal\net_compat.h" />
+    <ClInclude Include="src\devices\terminal\terminal.h" />
+    <ClInclude Include="src\devices\testfont.h" />
+    <ClInclude Include="src\devices\video\video.h" />
     <ClInclude Include="src\frontend\config.h" />
     <ClInclude Include="src\frontend\frontend.h" />
   </ItemGroup>

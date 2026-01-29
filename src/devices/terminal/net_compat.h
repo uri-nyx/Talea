@@ -16,7 +16,6 @@ typedef SOCKET talea_net_t;
         u_long mode = 1;                \
         ioctlsocket(s, FIONBIO, &mode); \
     }
-    
 
 // Check if the error is just "nothing ready yet"
 inline bool net_would_block()
@@ -25,10 +24,12 @@ inline bool net_would_block()
     // printf("NET WOULD BLOCK ERROR %d\n", err);
     return err == WSAEWOULDBLOCK;
 }
+
 inline void net_close(talea_net_t s)
 {
     closesocket(s);
 }
+
 #else
 #include <errno.h>
 #include <fcntl.h>

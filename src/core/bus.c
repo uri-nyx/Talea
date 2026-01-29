@@ -1,6 +1,8 @@
 #include "bus.h"
 #include "core/cpu.h"
+#include "machine_description.h"
 #include "talea.h"
+#include "types.h"
 
 #define BUS_MAIN_POINTER_MASK 0xFFFFFFU // 24 bit pointer
 #define BUS_DATA_POINTER_MASK 0xFFFFU   // 16 bit pointer
@@ -14,7 +16,7 @@
 
 typedef struct TaleaBus {
     u8     main_memory[TALEA_MAIN_MEM_SZ]; // TODO: get sizes from config
-    u8     rom[TALEA_MAX_FIRMWARE_SIZE];
+    u8     rom[TALEA_ROM_SIZE];
     u8     data_memory[TALEA_DATA_MEM_SZ];
     size_t mainsz;
     size_t main_end;
@@ -57,7 +59,7 @@ void Bus_LoadFirmware(TaleaMachine *m, u8 *firmware, size_t firmware_size)
 
     // Don't bother zeroing out the bss, its already 0
     u8 *stripped = firmware + 32; // the actual code starts at offset 32 in the a.out header
-    memcpy(m->bus->rom, stripped, MIN(code_size, TALEA_MAX_FIRMWARE_SIZE)); // load code
+    memcpy(m->bus->rom, stripped, MIN(code_size, TALEA_ROM_SIZE)); // load code
     memcpy(m->bus->main_memory + TALEA_FIRMWARE_DATA_ADDRESS, stripped + code_size,
            MIN(data_size, TALEA_MAIN_MEM_SZ - TALEA_FIRMWARE_DATA_ADDRESS)); // load data
     // and we're done!
@@ -77,12 +79,12 @@ u8 Machine_ReadData8(TaleaMachine *m, u16 addr)
     device = addr & BUS_IO_DEV_MASK;
 
     switch (device) {
-    case DEV_TTY_BASE: value = Terminal_ReadHandler(m, addr); break;
-    case DEV_VIDEO_BASE: value = Video_ReadHandler(m, addr); break;
-    case DEV_TPS_BASE: value = Storage_ReadHandler(m, addr); break;
-    case DEV_MOUSE_BASE: value = Mouse_ReadHandler(m, addr); break;
-    case DEV_AUDIO_BASE: value = Synth_ReadHandler(m, addr); break;
-    case DEV_SYSTEM_BASE: value = System_ReadHandler(m, addr); break;
+    case DEV_BASE_TERMINAL: value = Terminal_Read(m, port); break;
+    case DEV_BASE_VIDEO: value = Video_Read(m, port); break;
+    case DEV_BASE_STORAGE: value = Storage_Read(m, port); break;
+    case DEV_BASE_MOUSE: value = Mouse_Read(m, port); break;
+    case DEV_BASE_AUDIO: value = Audio_Read(m, port); break;
+    case TALEA_DATA_SYSTEM_START: value = System_Read(m, addr); break;
     default: value = (m->bus->data_memory[addr]);
     }
 
@@ -98,12 +100,12 @@ void Machine_WriteData8(TaleaMachine *m, u16 addr, u8 value)
     u16 device = addr & 0xfff0;
 
     switch (device) {
-    case DEV_TTY_BASE: Terminal_WriteHandler(m, addr, value); break;
-    case DEV_VIDEO_BASE: Video_WriteHandler(m, addr, value); break;
-    case DEV_TPS_BASE: Storage_WriteHandler(m, addr, value); break;
-    case DEV_MOUSE_BASE: Mouse_WriteHandler(m, addr, value); break;
-    case DEV_AUDIO_BASE: Synth_WriteHandler(m, addr, value); break;
-    case DEV_SYSTEM_BASE: System_WriteHandler(m, addr, value); break;
+    case DEV_BASE_TERMINAL: Terminal_Write(m, port, value); break;
+    case DEV_BASE_VIDEO: Video_Write(m, port, value); break;
+    case DEV_BASE_STORAGE: Storage_Write(m, port, value); break;
+    case DEV_BASE_MOUSE: Mouse_Write(m, port, value); break;
+    case DEV_BASE_AUDIO: Audio_Write(m, port, value); break;
+    case TALEA_DATA_SYSTEM_START: System_Write(m, addr, value); break;
     default: {
         DATA_BUS_ACCESS(addr) = value;
         break;
@@ -122,7 +124,8 @@ u16 Machine_ReadData16(TaleaMachine *m, u16 addr)
         return (0xdead);
     }
 
-    value = ((u16)Machine_ReadData8(m, addr) << 8 | Machine_ReadData8(m, addr + 1));
+    value = (u16)Machine_ReadData8(m, addr) << 8;
+    value |= Machine_ReadData8(m, addr + 1);
 
     READ_LOG("data", 4);
     return value;
@@ -152,8 +155,10 @@ u32 Machine_ReadData32(TaleaMachine *m, u16 addr)
         return (0xdeadbeef);
     }
 
-    value = ((u32)Machine_ReadData8(m, addr) << 24 | (u32)Machine_ReadData8(m, addr + 1) << 16 |
-             (u32)Machine_ReadData8(m, addr + 2) << 8 | Machine_ReadData8(m, addr + 3));
+    value = (u32)Machine_ReadData8(m, addr) << 24;
+    value |= (u32)Machine_ReadData8(m, addr + 1) << 16;
+    value |= (u32)Machine_ReadData8(m, addr + 2) << 8; 
+    value |= Machine_ReadData8(m, addr + 3);
 
     READ_LOG("data", 8);
     return value;
@@ -174,21 +179,22 @@ void Machine_WriteData32(TaleaMachine *m, u16 addr, u32 value)
     Machine_WriteData8(m, addr + 3, value & 0xFF);
 }
 
-void Bus_RegisterDevices(TaleaMachine *m, const int *id_array, u8 start_index, u8 end_index)
+void Bus_RegisterDevices(TaleaMachine *m)
 {
     TaleaBus *bus = m->bus;
-    TALEA_LOG_TRACE("Registering %d devices:\n", end_index - start_index);
-    for (size_t i = start_index; i < (end_index + 1); i++) {
-        DATA_BUS_ACCESS(DEV_MAP_BASE + i) = id_array[i];
+    TALEA_LOG_TRACE("Registering %d devices:\n", DEV_SLOT_COUNT);
+    for (size_t i = 0; i < DEV_SLOT_COUNT; i++) {
+        DATA_BUS_ACCESS(TALEA_DATA_DEV_MAP + i) = Talea_DeviceMap[i];
         TALEA_LOG_TRACE("Registered device 0x%x: 0x%02x (%c == %c)\n", i,
-                        DATA_BUS_ACCESS(DEV_MAP_BASE + i), DATA_BUS_ACCESS(DEV_MAP_BASE + i),
-                        id_array[i]);
+                        DATA_BUS_ACCESS(TALEA_DATA_DEV_MAP + i),
+                        DATA_BUS_ACCESS(TALEA_DATA_DEV_MAP + i), Talea_DeviceMap[i]);
     }
 
     TALEA_LOG_TRACE("DEVICE MAP REGISTRY\n");
-    for (size_t i = start_index; i < (end_index + 1); i++) {
-        TALEA_LOG_TRACE("0x%04x: 0x%02x (%c)\n", DEV_MAP_BASE + i,
-                        DATA_BUS_ACCESS(DEV_MAP_BASE + i), DATA_BUS_ACCESS(DEV_MAP_BASE + i));
+    for (size_t i = 0; i < DEV_SLOT_COUNT; i++) {
+        TALEA_LOG_TRACE("0x%04x: 0x%02x (%c)\n", TALEA_DATA_DEV_MAP + i,
+                        DATA_BUS_ACCESS(TALEA_DATA_DEV_MAP + i),
+                        DATA_BUS_ACCESS(TALEA_DATA_DEV_MAP + i));
     }
 }
 
@@ -442,7 +448,7 @@ void *Bus_GetDataPointer(TaleaMachine *m, u16 addr, size_t len)
 {
     size_t start = addr & BUS_DATA_POINTER_MASK;
 
-    if (start < TALEA_DATA_MMIO_END) return NULL;
+    if (start < TALEA_DATA_FIRMWARE_RES) return NULL;
     if (start + len >= TALEA_DATA_MEM_SZ) return NULL;
 
     return &m->bus->data_memory[start];
@@ -596,7 +602,12 @@ size_t Bus_Memset32(TaleaMachine *m, TaleaMemoryView *view_dest, u32 pattern, si
     }
 
     size_t elements_to_set = (MIN(count * 4, view_dest->length)) / 4;
-    u32   *raw_ptr         = (u32 *)view_dest->ptr;
+    if (count != elements_to_set) {
+        TALEA_LOG_TRACE(
+            "Out of bounds prevented in Memset32, wanted to set %d elements, view only has %d",
+            view_dest->length);
+    }
+    u32 *raw_ptr = (u32 *)view_dest->ptr;
     for (size_t i = 0; i < elements_to_set; i++) raw_ptr[i] = pattern;
     return elements_to_set;
 }

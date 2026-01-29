@@ -91,5 +91,6 @@ typedef struct Vector2 {
 
 
 RLAPI const char *TextFormat(const char *text, ...);
+RLAPI double GetTime(void);   
 
 #endif /* NEED_FROM_RAYLIB_H */
