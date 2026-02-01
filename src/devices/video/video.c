@@ -861,7 +861,6 @@ static void Video_DrawCircle(TaleaMachine *m, DeviceVideo *v, struct Buff2D *des
                              u8 colorLine, u8 colorFill, i16 xm, i16 ym, i16 r)
 {
     // from http://members.chello.at/easyfilter/bresenham.html
-    // TODO: implement filling
 
     int x = -r, y = 0, err = 2 - 2 * r; /* II. Quadrant */
     int lastY = -1;
@@ -1577,7 +1576,13 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
             if (!v->framebuffer.view.ptr ||
                 v->framebuffer.view.length !=
                     v->framebuffer.w * v->framebuffer.h * v->framebuffer.stride) {
-                TALEA_LOG_WARNING("Could not set address for framebuffer, dma denied\n");
+                TALEA_LOG_WARNING(
+                    "Could not set address for framebuffer at 0x%06x (required %d bytes, %d bpp), dma denied (max mem: 0x%08x)\n",
+                    fb, 
+                    v->framebuffer.w * v->framebuffer.h * v->framebuffer.stride,
+                    v->framebuffer.stride,
+                    TALEA_MAIN_MEM_SZ
+                    );
                 v->error = VIDEO_ERROR_DMA;
             }
         }
@@ -2220,6 +2225,8 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         // Takes 1 halfword in GPU6-7 for the buffer h
         // Cannot bind slot 0!
 
+        if (v->error == VIDEO_ERROR_BIND || v->error == VIDEO_ERROR_DMA) return;
+
         u8 slot = v->currentCmd.args[0] >> 56;
 
         if (slot == 0) return;
@@ -2280,10 +2287,19 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         u8 ctx = v->currentCmd.args[0] >> 56;
         if (value == VIDEO_COMMAND_STRETCH_BLIT || value == VIDEO_COMMAND_PATTERN_FILL) ctx &= 0x1f;
 
+        // Beware of null pointer dereferences!
         if (ctx != 0) {
             v->currentCmd.op = value;
+            if (!v->ctx[ctx].view.ptr) {
+                v->currentCmd.argc = 0;
+                return VIDEO_ERROR_DMA;
+            }
             Video_ExecuteCommand(m, v, &v->currentCmd);
         } else {
+            if (!v->framebuffer.view.ptr) {
+                v->currentCmd.argc = 0;
+                return VIDEO_ERROR_DMA;
+            }
             Video_PushCommandQueue(m, value, &v->currentCmd);
         }
         break;
@@ -2368,7 +2384,7 @@ void Video_Write(TaleaMachine *m, u8 port, u8 value)
 
         break;
     }
-    case P_VIDEO_ERROR: break;
+    case P_VIDEO_ERROR: v->error = VIDEO_NO_ERROR; // Writing to error clears it
     default: v->ports[port & 0xf] = value;
     }
 }

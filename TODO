@@ -36,14 +36,14 @@ Hardware:
         ✔ geometric primitives @done(26-01-18 12:25)
         ✔ vertex mesh renderer @done(26-01-18 12:25)
         ✔ text modes @done(26-01-18 12:25)
-        ☐ font loading 
-        ☐ pallete loading
-        ☐ pallete shades calculation
+        ✔ font loading @done(26-01-29 21:14)
+        ✔ pallete loading @done(26-01-29 21:14)
+        ✔ pallete shades calculation @done(26-01-29 21:14)
         ☐ optimize
     5. Polish everithing:
-        ☐ Make memory size able to be configurable and not hardcoded
-        ☐ Make Rom non writable at 16MB - 32K in the address space
-        ☐ Make sure all memory writes pass through WriteMain or WriteData
+        ✔ Make memory size able to be configurable and not hardcoded @done(26-01-29 21:38)
+        ✔ Make Rom non writable at 16MB - 64K in the address space @done(26-01-29 21:38)
+        ✔ Make sure all memory writes pass through WriteMain or WriteData @done(26-01-29 21:38)
         ☐ Implement a tiered logging system (INFO, WARN, ERROR).
         ✘ Implement loading a sesqui. @cancelled(25-12-31 21:36)
         ☐ Standardize error handling (replace exit(1) with safe defaults).
@@ -51,8 +51,8 @@ Hardware:
         ✔ Add a standard Open Source License file (e.g., MIT or GPL). @done(25-12-27 03:22)
         ☐ Fix hardcoded paths to allow the app to run from any directory.
         ☐ Include a "Hello World" assembly sample for new users.
-        ☐ use a texture for the rich text mode rendering like with the framebuffer
-        ☐ Check bounds on every memory access directly through the array
+        ✔ use a texture for the rich text mode rendering like with the framebuffer @done(26-01-29 21:38)
+        ✔ Check bounds on every memory access directly through the array @done(26-01-29 21:39)
     ☐ 6. Make a website
     ☐ 7. Package a distribution and use a well structured git
 
@@ -108,7 +108,7 @@ Bugs:
     ☐ In init window, we have to hack the hidpi, seems it broke a little bit ago in raylib?
     ☐ Wireframe 3d rendering works but draws some garbage
     ☐ Not a bug per se, but if ATE1 (echo) is enabled on the modem, and the CPU dares to echo back what it gets on the serial line, when answering a call and then escaping to command mode, a feedback loop will be triggered and possibly crash the emulator. This to say that if ATE1 is enabled you DONT NEVER EVER echo again.
-    ☐ How does the video subsytem do DMA? all pointers passed to it are physical
+    ✔ How does the video subsytem do DMA? all pointers passed to it are physical @done(26-01-29 21:39)
     tiny:
         ✔ modem result codes are a mess @done(26-01-24 14:30)
         ✔ if mouse goes outside the bounding box, and then returns OS mouse is constanly showing over the sprite @done(26-01-24 14:30)

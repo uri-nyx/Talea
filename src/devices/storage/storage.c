@@ -40,6 +40,16 @@ void Storage_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
         }
     }
 
+    if (!is_restart) {
+        if (config->TPS_A_path) {
+            Storage_InsertTps(STORAGE_TPS_ID_A, config->TPS_A_path);
+        }
+
+        if (config->TPS_B_path) {
+            Storage_InsertTps(STORAGE_TPS_ID_B, config->TPS_B_path);
+        }
+    }
+
     TALEA_LOG_WARNING("Should reset to a known state\n");
 }
 

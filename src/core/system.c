@@ -212,7 +212,7 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
         if (value == TALEA_MAGIC_ARM_SEQUENCE && !poweroffSequenceArmed) {
             poweroffSequenceArmed = true;
         } else if (value == TALEA_MAGIC_TRIGGER_SEQUENCE && poweroffSequenceArmed) {
-            TALEA_LOG_TRACE("Powering off!\n"); // TODO: implement this
+            TALEA_LOG_TRACE("Powering off!\n");
             Machine_Poweroff(m);
             poweroffSequenceArmed = false;
         } else {
@@ -275,7 +275,6 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
     case REG_SYSTEM_CWP: break;
     case REG_SYSTEM_WIN_SEL: m->sys.winSel = value & 0x3;
     case REG_SYSTEM_WIN_OP:
-        // TODO: handle this
         if (value == TALEA_SYSTEM_WIN_OP_LOAD) {
             for (size_t i = 0; i < 32; i++) {
                 u32 reg = 0;

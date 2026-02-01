@@ -296,6 +296,10 @@ static inline void parseATCommand(TaleaMachine *m, char *cmd_buff)
     if (!(cmd_buff[0] == 'A' && cmd_buff[1] == 'T')) {
         response = TERMINAL_HAYES_ERROR;
         goto end;
+    } else if (cmd_buff[0] == 'A' && cmd_buff[1] == 'T' && cmd_buff[2] == modem->sRegs[3]) {
+        // Just AT. custom is to say OK
+        response = TERMINAL_HAYES_OK;
+        goto end;
     }
 
     char *p = cmd_buff + 2;

@@ -835,17 +835,21 @@ static void instr_Ror(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4
                       u16 imm_15, u32 imm_20)
 {
     EXEC_LOG("Ror");
-    GPR_SET(m, r1, GPR_GET(m, r2) * (GPR_GET(m, r3) % 32)); // FIXME not
-                                                            // implemente)d
-    printf("ROR: NOT IMPLEMENTED\n");
+    u32 val = GPR_GET(m, r2);
+    u32 amt = GPR_GET(m, r3) & 31;
+    u32 res = (amt == 0) ? val : (val >> amt) | (val << (32 - amt));
+
+    GPR_SET(m, r1, res);
 }
 static void instr_Rol(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
                       u16 imm_15, u32 imm_20)
 {
     EXEC_LOG("Rol");
-    GPR_SET(m, r1, GPR_GET(m, r2) * (GPR_GET(m, r3) % 32)); // FIXME: not
-                                                            // implemente)d
-    printf("ROL: NOT IMPLEMENTED\n");
+    u32 val = GPR_GET(m, r2);
+    u32 amt = GPR_GET(m, r3) & 31;
+    u32 res = (amt == 0) ? val : (val << amt) | (val >> (32 - amt));
+
+    GPR_SET(m, r1, res);
 }
 static void instr_Sb(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
                      u16 imm_15, u32 imm_20)

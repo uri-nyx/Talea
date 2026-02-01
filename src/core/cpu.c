@@ -212,8 +212,6 @@ static bool CheckInterrupts(TaleaMachine *m)
 }
 
 /* fetch, decode, execute cycle */
-// TODO: we aren't setting dirty bits nor accounting for the x flag with MMU.
-// It's too slow anyways, we have to change implementation
 
 #if TALEA_WITH_MMU
 

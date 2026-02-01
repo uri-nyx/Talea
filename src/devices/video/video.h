@@ -315,6 +315,8 @@ typedef struct DeviceVideo {
     struct Buff2D textbuffer;
     struct Buff2D ctx[256];
 
+    
+
     u16 cursorCellIndex;
 
     VideoRenderer renderer;

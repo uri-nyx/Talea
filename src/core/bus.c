@@ -15,7 +15,7 @@
 #define BUS_IO_PORT_MASK 0xF
 
 typedef struct TaleaBus {
-    u8     main_memory[TALEA_MAIN_MEM_SZ]; // TODO: get sizes from config
+    u8     main_memory[TALEA_MAIN_MEM_SZ];
     u8     rom[TALEA_ROM_SIZE];
     u8     data_memory[TALEA_DATA_MEM_SZ];
     size_t mainsz;

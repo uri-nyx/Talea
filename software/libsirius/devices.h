@@ -367,7 +367,6 @@ enum StorageCommand {
 };
 
 /* AUDIO DEVICE PORTS */
-/* TODO: Support not yet documented */
 enum PortsAudio {
     AUDIO_ADDR           = 0x0,
     AUDIO_DATA           = 0x1,

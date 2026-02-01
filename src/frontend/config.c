@@ -41,7 +41,7 @@ TaleaConfig Config_Load(const char *config_path)
     if (!window_size.ok) window_size.u.s = "windowed";
     if (!hardware_font.ok) hardware_font.u.s = "default.fnt";
     if (!firmware_path.ok) {
-        firmware_path.u.s = "resources/emulated/firmware/bios.bin";
+        firmware_path.u.s = "resources/emulated/firmware/demo.bin";
     }
     if (!crt_shader.ok) crt_shader.u.b = true;
     if (!sync_on_eject.ok) sync_on_eject.u.b = true;
