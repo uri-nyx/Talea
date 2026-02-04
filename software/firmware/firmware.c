@@ -10,6 +10,7 @@
 
 #include "libsirius/devices.h"
 #include "libsirius/types.h"
+#include "libsirius/discovery.h"
 
 #define FIRMWARE_VERSION_MAJOR 0
 #define FIRMWARE_VERSION_MINOR 9
@@ -23,40 +24,6 @@ extern u32   _lwd(u16 addr);
 extern usize _copydm(u16 data_addr_src, void *buff_dest, usize sz);
 extern usize _copymd(void *buff_src, u16 data_addr_dest, usize sz);
 extern void *memcpy(void *dest, const void *src, usize n);
-
-struct SystemInfo {
-    u8    version;     // [7:4] Major [3:0] Minor
-    usize memory_size; // memory size in bytes
-
-    // devices
-    u8 installed_devices; // number of installed devices
-    u8 terminal;          // terminal device base address
-    u8 video;             // video device base address
-    u8 storage;           // storage device base address
-    u8 audio;             // audio device base address
-    u8 mouse;             // mouse device base address
-
-    // Video buffers
-    struct FrameBuffer {
-        u32 addr; // Base address of framebuffer
-        u16 w, h; // size of framebuffer (in pixels)
-    } framebuffer;
-
-    struct TextBuffer {
-        u32 addr; // Base address of text buffer
-        u8  w, h; // size of text buffer (in characters)
-        u8  bpc;  // bytes per character
-    } textbuffer;
-
-    u8 video_mode;
-
-    // Boot
-    u8 boot_device; // 0: TPS A, 1: TPS B, 2: HCS. Also, this is the boot order
-
-    u32 kernel_load_addr;
-    u32 kernel_sectors;
-    u32 kernel_entry;
-};
 
 static struct SystemInfo sys;
 
@@ -194,6 +161,8 @@ void firmware_start(void)
 
     // 3. set up the video buffers (at the top of memory)
     {
+        usize framebuffer_sz, textbuffer_sz; // size in bytes of the buffers aligned to pages
+
         // Set the video mode to 5
         _sbd(sys.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
         _sbd(sys.video + VIDEO_GPU0, VIDEO_MODE_TEXT_AND_GRAPHIC);
@@ -208,24 +177,32 @@ void firmware_start(void)
         sys.textbuffer.w   = _lbud(sys.video + VIDEO_GPU4);
         sys.textbuffer.h   = _lbud(sys.video + VIDEO_GPU5);
 
-        sys.framebuffer.w = 640;
-        sys.framebuffer.h = 480;
+        sys.framebuffer.w = _lhud(sys.video + VIDEO_GPU6);
+        sys.framebuffer.h = _lhud(sys.video + VIDEO_GPU8);
+        ;
+
+        framebuffer_sz = (sys.framebuffer.w * sys.framebuffer.h + (PAGE_SIZE - 1)) &
+                         ~(PAGE_SIZE - 1);
+        textbuffer_sz =
+            (sys.textbuffer.w * sys.textbuffer.h * sys.textbuffer.bpc * 2 + (PAGE_SIZE - 1)) &
+            ~(PAGE_SIZE - 1);
 
         // set buffers and clear
-        if (sys.memory_size < sys.textbuffer.w * sys.textbuffer.h * sys.textbuffer.bpc * 2) {
+        if (sys.memory_size < textbuffer_sz + PAGE_SIZE) {
             sys.framebuffer.addr = 0; // NO FRAMEBUFFER
             sys.textbuffer.addr  = 0; // NO TEXT BUFFER
             beep(1);
-        } else if (sys.memory_size < sys.framebuffer.w * sys.framebuffer.h * 2) {
+        } else if (sys.memory_size > textbuffer_sz + framebuffer_sz + (PAGE_SIZE * 3)) {
+            u32 current_top      = sys.memory_size - PAGE_SIZE;
+            sys.framebuffer.addr = (current_top - framebuffer_sz) & ~(PAGE_SIZE - 1);
+            current_top          = sys.framebuffer.addr - PAGE_SIZE;
+            sys.textbuffer.addr  = (current_top - textbuffer_sz) & ~(PAGE_SIZE - 1);
+        } else {
+            u32 current_top      = sys.memory_size - PAGE_SIZE;
             sys.framebuffer.addr = 0; // NO FRAMEBUFFER
             // ONLY TEXT BUFFER
-            sys.textbuffer.addr =
-                sys.memory_size - (sys.textbuffer.w * sys.textbuffer.h * sys.textbuffer.bpc) - 512;
+            sys.textbuffer.addr = (current_top - textbuffer_sz) & ~(PAGE_SIZE - 1);
             beep(2);
-        } else {
-            sys.framebuffer.addr = sys.memory_size - (sys.framebuffer.w * sys.framebuffer.h) - 512;
-            sys.textbuffer.addr  = (sys.framebuffer.addr - 512) -
-                                  (sys.textbuffer.w * sys.textbuffer.h * sys.textbuffer.bpc * 2);
         }
 
         _sbd(sys.video + VIDEO_COMMAND, COMMAND_BEGIN_DRAWING);
@@ -282,6 +259,7 @@ transfer: {
     // 0x108    4 bytes     Load address (code+data+bss is assumed)
     // 0x10C    4 bytes     Image size, in sectors, of the kernel
     // 0x110    4 bytes     Offset, in sectors, of the kernel start in disk
+    // 0x114    4 bytes     Minimum ram requirement to load this kernel
 
     // The firmware will read from sector 1 till sector size, and jump to the
     // offset, pasing a pointer to sys in x12. If the offset is larger than
@@ -290,11 +268,12 @@ transfer: {
     // larger than 1 bank -1 sectors of the boot media, boot will fail with poweroff.
     // If the magic number is not present, boot will fail with poweroff. If loading any sector
     // fails, boot will fail with poweroff. If the offset is > than 1 bank -ofsset of the boot media
-    // boot wil fail with poweroff. And pray that nothing faults.
+    // boot wil fail with poweroff. If main memory size is less than minimum ram, boot will fail
+    // with poweroffAnd pray that nothing faults.
 
     static u8 sector[512];
     u32      *header;
-    u32       magic, entry, load_addr, size, offset;
+    u32       magic, entry, load_addr, size, offset, min_ram;
 
     if (sys.boot_device < 2) {
         // BOOT from TPS. current drive is set already
@@ -316,6 +295,12 @@ transfer: {
     load_addr = header[2];
     size      = header[3];
     offset    = header[4] ? header[4] - 1 : header[4];
+    min_ram   = header[5];
+
+    if (sys.memory_size < min_ram) {
+        beep(10);
+        poweroff();
+    }
 
     if (size > 32 * 1024) {
         // TODO: RELOCATE THE STACK TO THE TOP OF MEMORY SO IT DOES NOT GET BURNT

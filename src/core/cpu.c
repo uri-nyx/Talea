@@ -40,6 +40,16 @@ static const char *ExceptionNames[] = {
     [INT_AUDIO_NOTE_END] = "INT_AUDIO_NOTE_END",
 };
 
+static inline const char *getExceptionName(u8 vector)
+{
+    if (vector < EXCEPTION_RESET || (vector > EXCEPTION_UNDERSPILL && vector < INT_SER_RX) ||
+        vector > INT_AUDIO_NOTE_END || vector == 2) {
+        return "Unknown";
+    } else {
+        return ExceptionNames[vector];
+    }
+}
+
 static inline u32 sext(u32 n, u8 bits)
 {
     int mask = 1U << (bits - 1);
@@ -69,8 +79,10 @@ static inline u32 GET_PC(TaleaMachine *m)
 
 static inline void trace(TaleaMachine *m, u8 r1, u8 r2, u8 r3, u8 r4)
 {
-    TALEA_LOG_TRACE("[TRACE] R%d: %08x | R%d: %08x | R%d: %08x | R%d: %08x \n", r1, GPR_GET(m, r1),
-                    r2, GPR_GET(m, r2), r3, GPR_GET(m, r3), r4, GPR_GET(m, r4));
+    TALEA_LOG_TRACE(
+        "[TRACE] R%d: %08x | R%d: %08x | R%d: %08x | R%d: %08x --- at %08x (ra: %08x) cwp: %d\n",
+        r1, GPR_GET(m, r1), r2, GPR_GET(m, r2), r3, GPR_GET(m, r3), r4, GPR_GET(m, r4), GET_PC(m),
+        GPR_GET(m, x1), m->cpu.cwp);
 }
 
 static inline void SetSupervisor(TaleaMachine *m)
@@ -100,34 +112,41 @@ static inline u32 PopW(TaleaMachine *m)
     return word;
 }
 
-//#define DEBUG_LOG_EXCEPTIONS
-//#define DEBUG_LOG_INTERRUPTS
+#define DEBUG_LOG_EXCEPTIONS
+// #define DEBUG_LOG_INTERRUPTS
 
-static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
+static void Exception(TaleaMachine *m, u8 vector, int trap_type)
 {
     CpuState *cpu = &m->cpu;
 
     // double fault
-    if (cpu->isProcessingException && !is_interrupt) {
+    if (cpu->isProcessingException && trap_type == TRAP_TYPE_EXCEPTION) {
         TALEA_LOG_ERROR("CPU Halted: double fault\n");
         m->cpu.poweroff = true;
         return;
     }
 
-    if (is_interrupt && !SR_GET_INTERRUPT(m->cpu.status)) return;
+    if (trap_type == TRAP_TYPE_INTERRUPT && !SR_GET_INTERRUPT(m->cpu.status)) return;
 
     // m->cpu.isProcessingException = !is_interrupt;
-    m->cpu.exception = vector;
 
     // normal exception
+    int exception_cached = m->cpu.exception;
+    m->cpu.exception     = EXCEPTION_NONE;
 
     u32 pc         = GET_PC(m);
-    pc             = is_interrupt ? pc : pc - 4;
+    pc             = trap_type != TRAP_TYPE_EXCEPTION ? pc : pc - 4;
     const u32 stat = cpu->status;
     m->cpu.status &= ~CPU_STATUS_DEBUG_STEP;
     SetSupervisor(m);
     PushW(m, pc);
     PushW(m, stat);
+    if (cpu->exception != EXCEPTION_NONE) {
+        TALEA_LOG_TRACE("Exception occured while pushing pc and status!, %s (0x%x)\n",
+                        getExceptionName(cpu->exception), cpu->exception);
+                        m->cpu.poweroff = true;
+                        return;
+    }
 
     /*
     if (is_interrupt) {
@@ -141,11 +160,15 @@ static void Exception(TaleaMachine *m, u8 vector, bool is_interrupt)
 #ifdef DEBUG_LOG_EXCEPTIONS
     TALEA_LOG_TRACE(
         "%s %s (0x%x), jumping from 0x%06x to 0x%06x, fault at: 0x%06x, cwp: %d, spilled: %d\n",
-        is_interrupt ? "Interrupt" : "Exception", ExceptionNames[vector], vector,
-        is_interrupt ? pc - 4 : pc, handler_addr, cpu->faultAddr, cpu->cwp, cpu->spilledWindows);
+        trap_type == TRAP_TYPE_INTERRUPT ? "Interrupt" :
+        trap_type == TRAP_TYPE_SYSCALL   ? "Syscall" :
+                                           "Exception",
+        getExceptionName(vector), vector, trap_type != TRAP_TYPE_EXCEPTION ? pc - 4 : pc,
+        handler_addr, cpu->faultAddr, cpu->cwp, cpu->spilledWindows);
 #endif
 
-    m->cpu.exception = EXCEPTION_NONE;
+    m->cpu.exception     = EXCEPTION_NONE;
+    m->cpu.LastException = exception_cached;
     m->cpu.cycles += CYCLES_EXCEPTION;
 }
 
@@ -166,20 +189,17 @@ static bool CheckInterrupts(TaleaMachine *m)
 {
     // It is ugly, but naive, to check this here in this way
     if (m->storage.currentTps->justInserted) {
-        puts("Raise TPS INSERTED \n");
         m->storage.currentTps->justInserted = false;
         Machine_RaiseInterrupt(m, INT_TPS_INSERTED, PRIORITY_STORAGE_INTERRUPT);
     }
 
     if (m->storage.currentTps->justEjected) {
-        puts("Raise TPS Ejected \n");
         m->storage.currentTps->justEjected = false;
         Machine_RaiseInterrupt(m, INT_TPS_EJECTED, PRIORITY_STORAGE_INTERRUPT);
     }
 
     u8 old_tps_status = atomic_fetch_and(&m->storage.currentTps->status, ~STORAGE_STATUS_DONE);
     if (old_tps_status & STORAGE_STATUS_DONE) {
-        puts("Raise TPS FINISH\n");
         Machine_RaiseInterrupt(m, INT_TPS_FINISH, PRIORITY_STORAGE_INTERRUPT);
     }
 
@@ -203,7 +223,7 @@ static bool CheckInterrupts(TaleaMachine *m)
             m->cpu.highestPendingInterrupt -= 1;
         }
 
-        Exception(m, vector, true);
+        Exception(m, vector, TRAP_TYPE_INTERRUPT);
         return true;
     }
 
@@ -215,14 +235,17 @@ static bool CheckInterrupts(TaleaMachine *m)
 
 #if TALEA_WITH_MMU
 
-static void MMU_FlushTLB(TaleaMachine *m)
+void MMU_FlushTLB(TaleaMachine *m)
 {
     memset(m->cpu.tlb, 0, sizeof(m->cpu.tlb));
 }
 
 static inline bool MMU_VerifyPerms(u16 perm, enum MemAccessType access_type, bool is_supervisor)
 {
-    if (!is_supervisor && !(perm & PTE_U)) return false;
+    if (!is_supervisor && !(perm & PTE_U)) {
+        TALEA_LOG_TRACE("Required supervisor\n");
+        return false;
+    }
 
     switch (access_type) {
     case ACCESS_READ: return perm & PTE_R;
@@ -233,32 +256,53 @@ static inline bool MMU_VerifyPerms(u16 perm, enum MemAccessType access_type, boo
     }
 }
 
-u32 MMU_TranslateAddr(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type)
+static bool enabled = false;
+u32         MMU_TranslateAddr(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type)
 {
     CpuState *cpu    = &m->cpu;
-    u32       vpn    = vaddr >> 12;
+    u32       vpn    = (vaddr & 0xffffff) >> 12;
     TLBEntry *cached = &cpu->tlb[vpn];
+
+    if (!enabled) {
+        TALEA_LOG_TRACE("MMU Switched ON. Translating 0x%08x virtual ", vaddr);
+    }
 
     if (cached->valid) {
         if (!MMU_VerifyPerms(cached->perm, access_type, SR_GET_SUPERVISOR(cpu->status))) {
             m->cpu.faultAddr = vaddr;
             m->cpu.exception = EXCEPTION_ACCESS_VIOLATION_TALEA;
+            TALEA_LOG_TRACE("error no perm to access 0x%08x\n", vaddr);
             return 0;
         }
 
         if (access_type != ACCESS_WRITE || (cached->perm & PTE_D)) {
+            if (!enabled) {
+                TALEA_LOG_TRACE("(cached) 0x%08x\n", cached->phys | (vaddr & 0xfff));
+                enabled = true;
+            }
             return cached->phys | (vaddr & 0xFFF);
         }
     }
 
     u32 phys = MMU_WalkPageTable(m, vaddr, access_type);
-    if (m->cpu.exception != EXCEPTION_NONE) return 0;
-
+    if (m->cpu.exception != EXCEPTION_NONE) {
+        if (!enabled) {
+            TALEA_LOG_TRACE("Exception %d\n", m->cpu.exception);
+            enabled = true;
+        }
+        return 0;
+    }
     cached->phys  = phys & 0xFFF000;
     cached->perm  = phys & 0xFF;
     cached->valid = true;
 
-    return phys | (vaddr & 0xFFF);
+    if (!enabled) {
+        TALEA_LOG_TRACE("-> 0x%08x (phys: %x, vaddr: %x)\n", (phys & 0xFFF000) | (vaddr & 0xFFF),
+                        phys, vaddr & 0xFFF);
+        enabled = true;
+    }
+
+    return (phys & 0xFFF000) | (vaddr & 0xFFF);
 }
 
 static u32 MMU_WalkPageTable(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type)
@@ -266,12 +310,18 @@ static u32 MMU_WalkPageTable(TaleaMachine *m, u32 vaddr, enum MemAccessType acce
     u32 vpn1 = (vaddr >> 22) & 0x3FF;
     u32 vpn0 = (vaddr >> 12) & 0x3FF;
 
-    u16 root = SR_GET_PDT(m->cpu.status);
+    u16 root = SR_GET_PDT(m->cpu.status) << 4;
     u32 pte1 = Machine_ReadData32(m, root + (vpn1 * 4));
+
+    if (!enabled)
+        TALEA_LOG_TRACE("\n\tPTE1: (root: 0x%04x) 0x%08x (valid: %d)\n", root, pte1, pte1 & PTE_V);
 
     if (!(pte1 & PTE_V)) {
         m->cpu.faultAddr = vaddr;
         m->cpu.exception = EXCEPTION_PAGE_FAULT;
+        TALEA_LOG_TRACE("Page Fault cause: root mapping not valid\n");
+        TALEA_LOG_TRACE("\tPTE1: (root: 0x%04x, vpn1: 0x%x) 0x%08x (valid: %d) accessing: 0x%08x\n",
+                        root, vpn1, pte1, pte1 & PTE_V, vaddr);
         return 0;
     }
 
@@ -279,9 +329,18 @@ static u32 MMU_WalkPageTable(TaleaMachine *m, u32 vaddr, enum MemAccessType acce
     u32 pte0_addr = leaf + (vpn0 * 4);
     u32 pte0      = Machine_ReadMain32Physical(m, pte0_addr);
 
+    if (!enabled)
+        TALEA_LOG_TRACE("\n\tPTE0: (leaf: 0x%04x) 0x%08x (valid: %d)\n", pte0_addr, pte0,
+                        pte0 & PTE_V);
+
     if (!(pte0 & PTE_V)) {
         m->cpu.faultAddr = vaddr;
         m->cpu.exception = EXCEPTION_PAGE_FAULT;
+        TALEA_LOG_TRACE("Page Fault cause: leaf mapping not valid\n");
+        TALEA_LOG_TRACE("\tPTE1: (root: 0x%04x, vpn1: 0x%x) 0x%08x (valid: %d) accessing: 0x%08x\n",
+                        root, vpn1, pte1, pte1 & PTE_V, vaddr);
+        TALEA_LOG_TRACE("\tPTE0: (leaf: 0x%04x, vpn0: 0x%x) 0x%08x (valid: %d) accessing 0x%08x\n",
+                        pte0_addr, vpn0, pte0, pte0 & PTE_V, vaddr);
         return 0;
     }
 
@@ -299,9 +358,10 @@ static u32 MMU_WalkPageTable(TaleaMachine *m, u32 vaddr, enum MemAccessType acce
 
 static bool MMU_ValidateWriteAccessRange(TaleaMachine *m, u32 vaddr, size_t size)
 {
-    if (size > 0 && (vaddr > (0xFFFFFFFFU - size + 1))) {
+    if (size > 0 && ((u64)vaddr > (0xFFFFFFFFULL - size + 1))) {
         m->cpu.exception = EXCEPTION_ACCESS_VIOLATION_TALEA;
         m->cpu.faultAddr = vaddr;
+        TALEA_LOG_TRACE("Cannot validate write access range, out of address space\n");
         return false;
     }
 
@@ -330,9 +390,10 @@ static bool MMU_ValidateWriteAccessRange(TaleaMachine *m, u32 vaddr, size_t size
 
 static bool MMU_ValidateReadAccessRange(TaleaMachine *m, u32 vaddr, size_t size)
 {
-    if (size > 0 && (vaddr > (0xFFFFFFFFU - size + 1))) {
+    if (size > 0 && ((u64)vaddr > (0xFFFFFFFFULL - size + 1))) {
         m->cpu.exception = EXCEPTION_ACCESS_VIOLATION_TALEA;
         m->cpu.faultAddr = vaddr;
+        TALEA_LOG_TRACE("Cannot validate write access range, out of address space\n");
         return false;
     }
 
@@ -363,7 +424,8 @@ static bool MMU_ValidateReadAccessRange(TaleaMachine *m, u32 vaddr, size_t size)
 static inline u32 Fetch(TaleaMachine *m)
 {
     CpuState *cpu         = &m->cpu;
-    const u32 instruction = Machine_ReadMain32(m, GET_PC(m));
+    const u32 instruction = Machine_ReadMain32(m, GET_PC(m)); // TODO: this does not take into
+                                                              // account the X bit
     ON_FAULT_RETURN0
     SET_PC(m, GET_PC(m) + 4);
     return instruction;
@@ -498,7 +560,7 @@ static bool Execute(TaleaMachine *m)
 
 #ifdef DEBUG_LOG_EXCEPTIONS
     if (m->cpu.exception == EXCEPTION_ILLEGAL_INSTRUCTION_TALEA) {
-        TALEA_LOG_TRACE("ILLEGAL INSTRUCTION REPORT: (0x%08x)\n", instruction);
+        TALEA_LOG_TRACE("ILLEGAL INSTRUCTION REPORT: (0x%08x) at address 0x%08x\n", instruction, GET_PC(m));
         TALEA_LOG_TRACE("\tgroup: %01x, opcode: %02x\n", group, opcode);
         TALEA_LOG_TRACE("\tr1: %d, r2: %d, r3: %d, r4: %d\n", r1, r2, r3, r4);
         TALEA_LOG_TRACE("\tvector: %02x, imm15: %04x, imm20: %05x\n", vector, imm_15, imm_20);
@@ -553,20 +615,20 @@ void Cpu_RunCycles(TaleaMachine *m, u32 cycles)
 {
     u64 target_cycles = cycles + m->cpu.cycles;
 
-    while (m->cpu.cycles < target_cycles) {
+    while ((m->cpu.cycles < target_cycles) && !m->cpu.poweroff) {
         bool debug_step    = m->cpu.status & CPU_STATUS_DEBUG_STEP;
         u64  cycles_before = m->cpu.cycles;
         bool exception     = Execute(m);
         m->cpu.instructionsRetired++;
 
         if (exception) {
-            Exception(m, m->cpu.exception, false);
+            Exception(m, m->cpu.exception, TRAP_TYPE_EXCEPTION);
             continue;
         }
 
         Timer_Update(m, m->cpu.cycles - cycles_before);
         bool interrupt = CheckInterrupts(m);
 
-        if (debug_step && !interrupt) Exception(m, EXCEPTION_DEBUG_STEP, false);
+        if (debug_step && !interrupt) Exception(m, EXCEPTION_DEBUG_STEP, TRAP_TYPE_EXCEPTION);
     }
 }

@@ -3,6 +3,8 @@
 
 #define HAS_LIBSIRIUS_TYPES
 
+#define PAGE_SIZE 4096
+
 typedef unsigned char  u8;
 typedef unsigned short u16;
 typedef unsigned int   u32;
@@ -48,5 +50,9 @@ struct akai_natural_ringbufferu32 {
     u8   head;
     u8   tail;
 };
+
+#define BIT_TEST(bitmap, bit) (((bitmap)[(bit) >> 3] >> (bit & 0x7)) & 1)
+#define BIT_SET(bitmap, bit)  ((bitmap)[(bit) >> 3] |= 1 << (bit & 0x7))
+#define BIT_CLR(bitmap, bit)  ((bitmap)[(bit) >> 3] &= ~(1 << (bit & 0x7)))
 
 #endif /* TYPES_H */

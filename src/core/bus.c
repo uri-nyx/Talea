@@ -84,8 +84,14 @@ u8 Machine_ReadData8(TaleaMachine *m, u16 addr)
     case DEV_BASE_STORAGE: value = Storage_Read(m, port); break;
     case DEV_BASE_MOUSE: value = Mouse_Read(m, port); break;
     case DEV_BASE_AUDIO: value = Audio_Read(m, port); break;
-    case TALEA_DATA_SYSTEM_START: value = System_Read(m, addr); break;
-    default: value = (m->bus->data_memory[addr]);
+    default:
+        if (addr >= TALEA_DATA_SYSTEM_START && addr <= TALEA_DATA_SYSTEM_END) {
+            value = System_Read(m, addr);
+        } else {
+            value = (m->bus->data_memory[addr]);
+        }
+
+        break;
     }
 
     READ_LOG("data", 2);
@@ -96,8 +102,8 @@ void Machine_WriteData8(TaleaMachine *m, u16 addr, u8 value)
     TaleaBus *bus = m->bus;
     WRITE_LOG("data", 2);
 
-    u8  port   = addr & 0x0f;
-    u16 device = addr & 0xfff0;
+    u8  port   = addr & BUS_IO_PORT_MASK;
+    u16 device = addr & BUS_IO_DEV_MASK;
 
     switch (device) {
     case DEV_BASE_TERMINAL: Terminal_Write(m, port, value); break;
@@ -105,9 +111,12 @@ void Machine_WriteData8(TaleaMachine *m, u16 addr, u8 value)
     case DEV_BASE_STORAGE: Storage_Write(m, port, value); break;
     case DEV_BASE_MOUSE: Mouse_Write(m, port, value); break;
     case DEV_BASE_AUDIO: Audio_Write(m, port, value); break;
-    case TALEA_DATA_SYSTEM_START: System_Write(m, addr, value); break;
     default: {
-        DATA_BUS_ACCESS(addr) = value;
+        if (addr >= TALEA_DATA_SYSTEM_START && addr <= TALEA_DATA_SYSTEM_END) {
+            System_Write(m, addr, value);
+        } else {
+            DATA_BUS_ACCESS(addr) = value;
+        }
         break;
     }
     }
@@ -157,7 +166,7 @@ u32 Machine_ReadData32(TaleaMachine *m, u16 addr)
 
     value = (u32)Machine_ReadData8(m, addr) << 24;
     value |= (u32)Machine_ReadData8(m, addr + 1) << 16;
-    value |= (u32)Machine_ReadData8(m, addr + 2) << 8; 
+    value |= (u32)Machine_ReadData8(m, addr + 2) << 8;
     value |= Machine_ReadData8(m, addr + 3);
 
     READ_LOG("data", 8);
@@ -246,9 +255,11 @@ u16 Machine_ReadMain16(TaleaMachine *m, u32 addr)
     }
 
     if ((paddr + 1) < bus->main_end) {
-        value = ((u16)MAIN_BUS_ACCESS(paddr) << 8 | MAIN_BUS_ACCESS(paddr + 1));
+        value = (u16)MAIN_BUS_ACCESS(paddr) << 8;
+        value |= MAIN_BUS_ACCESS(paddr + 1);
     } else if ((paddr + 1) >= bus->rom_start && (paddr + 1) < bus->rom_end) {
-        value = ((u16)ROM_ACCESS(paddr) << 8 | ROM_ACCESS(paddr + 1));
+        value = (u16)ROM_ACCESS(paddr) << 8;
+        value |= ROM_ACCESS(paddr + 1);
     }
 #ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_READ
     else {
@@ -281,11 +292,15 @@ u32 Machine_ReadMain32(TaleaMachine *m, u32 addr)
     }
 
     if ((paddr + 3) < bus->main_end) {
-        value = ((u32)MAIN_BUS_ACCESS(paddr) << 24 | (u32)MAIN_BUS_ACCESS(paddr + 1) << 16 |
-                 (u32)MAIN_BUS_ACCESS(paddr + 2) << 8 | MAIN_BUS_ACCESS(paddr + 3));
+        value = (u32)MAIN_BUS_ACCESS(paddr) << 24;
+        value |= (u32)MAIN_BUS_ACCESS(paddr + 1) << 16;
+        value |= (u32)MAIN_BUS_ACCESS(paddr + 2) << 8;
+        value |= MAIN_BUS_ACCESS(paddr + 3);
     } else if ((paddr + 3) >= bus->rom_start && (paddr + 3) < bus->rom_end) {
-        value = ((u32)ROM_ACCESS(paddr) << 24 | (u32)ROM_ACCESS(paddr + 1) << 16 |
-                 (u32)ROM_ACCESS(paddr + 2) << 8 | ROM_ACCESS(paddr + 3));
+        value = (u32)ROM_ACCESS(paddr) << 24;
+        value |= (u32)ROM_ACCESS(paddr + 1) << 16;
+        value |= (u32)ROM_ACCESS(paddr + 2) << 8;
+        value |= ROM_ACCESS(paddr + 3);
     }
 #ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_READ
     else {
@@ -305,11 +320,15 @@ u32 Machine_ReadMain32Physical(TaleaMachine *m, u32 paddr)
     paddr           = paddr & BUS_MAIN_POINTER_MASK;
 
     if ((paddr + 3) < bus->main_end) {
-        value = ((u32)MAIN_BUS_ACCESS(paddr) << 24 | (u32)MAIN_BUS_ACCESS(paddr + 1) << 16 |
-                 (u32)MAIN_BUS_ACCESS(paddr + 2) << 8 | MAIN_BUS_ACCESS(paddr + 3));
+        value = (u32)MAIN_BUS_ACCESS(paddr) << 24;
+        value |= (u32)MAIN_BUS_ACCESS(paddr + 1) << 16;
+        value |= (u32)MAIN_BUS_ACCESS(paddr + 2) << 8;
+        value |= MAIN_BUS_ACCESS(paddr + 3);
     } else if ((paddr + 3) >= bus->rom_start && (paddr + 3) < bus->rom_end) {
-        value = ((u32)ROM_ACCESS(paddr) << 24 | (u32)ROM_ACCESS(paddr + 1) << 16 |
-                 (u32)ROM_ACCESS(paddr + 2) << 8 | ROM_ACCESS(paddr + 3));
+        value = (u32)ROM_ACCESS(paddr) << 24;
+        value |= (u32)ROM_ACCESS(paddr + 1) << 16;
+        value |= (u32)ROM_ACCESS(paddr + 2) << 8;
+        value |= ROM_ACCESS(paddr + 3);
     }
 #ifdef TALEA_DEBUG_BUS_ERROR_ON_ILLEGAL_READ
     else {

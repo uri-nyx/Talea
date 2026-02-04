@@ -102,7 +102,7 @@ typedef struct CpuState {
     u64 instructionsRetired;
 
     // Interrupts
-    enum TaleaInterrupt exception;
+    enum TaleaInterrupt exception, LastException;
     bool                isProcessingException;
     u8                  currentIpl, pendingIpl;
     u8                  pendingInterrupts[8];
@@ -133,6 +133,7 @@ typedef struct DeviceSystem {
     bool calendarMode;
     bool millisMode;
     bool microsMode;
+    bool instMode;
     u64  uptime;
     u8   winSel;
     u8   winOp;

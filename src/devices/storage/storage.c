@@ -212,7 +212,6 @@ void Storage_Write(TaleaMachine *m, u8 port, u8 value)
             atomic_fetch_or(&m->storage.currentTps->status, STORAGE_STATUS_ERROR);
             break;
         };
-        TALEA_LOG_TRACE("Pointh: %02x\n", value);
         m->storage.currentTps->point = (m->storage.currentTps->point & 0x00ff) | (u16)value << 8;
         break; // TODO: proper sector alignment based on sector_size
     }
@@ -221,7 +220,6 @@ void Storage_Write(TaleaMachine *m, u8 port, u8 value)
             atomic_fetch_or(&m->storage.currentTps->status, STORAGE_STATUS_ERROR);
             break;
         };
-        TALEA_LOG_TRACE("Pointl: %02x\n", value);
         m->storage.currentTps->point = (m->storage.currentTps->point & 0xff00) | value;
         break;
     }

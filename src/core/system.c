@@ -2,6 +2,7 @@
 #include <time.h>
 
 #include "bus.h"
+#include "cpu.h"
 #include "talea.h"
 
 static inline u8 freq_to_byte(float targetMhz)
@@ -21,6 +22,7 @@ u8 System_Read(TaleaMachine *m, u16 addr)
     static time_t     rawtime; // Make this more precise
     static double     uptime;
     static u64        instructionsRetired;
+    static u64        cycles;
 
     switch (addr) {
     case REG_SYSTEM_ARCH_ID: return TAELA_ARCH_ID;
@@ -127,7 +129,7 @@ u8 System_Read(TaleaMachine *m, u16 addr)
         }
 
     /* Exceptions */
-    case REG_SYSTEM_EXCEPTION: return m->cpu.exception;
+    case REG_SYSTEM_EXCEPTION: return m->cpu.LastException;
 
     case REG_SYSTEM_FAULT_ADDR: return (m->cpu.faultAddr >> 24);
     case REG_SYSTEM_FAULT_ADDR + 1: return (m->cpu.faultAddr >> 16);
@@ -137,21 +139,68 @@ u8 System_Read(TaleaMachine *m, u16 addr)
     /* CPU State */
     case REG_SYSTEM_CYCLES_INSTRET: {
         instructionsRetired = m->cpu.instructionsRetired;
-        return (instructionsRetired >> 56);
+        cycles              = m->cpu.cycles;
+
+        if (m->sys.instMode) {
+            return (instructionsRetired >> 56);
+
+        } else {
+            return (cycles >> 56);
+        }
     }
-    case REG_SYSTEM_CYCLES_INSTRET + 1: return (instructionsRetired >> 48);
-    case REG_SYSTEM_CYCLES_INSTRET + 2: return (instructionsRetired >> 40);
-    case REG_SYSTEM_CYCLES_INSTRET + 3: return (instructionsRetired >> 32);
-    case REG_SYSTEM_CYCLES_INSTRET + 4: return (instructionsRetired >> 24);
-    case REG_SYSTEM_CYCLES_INSTRET + 5: return (instructionsRetired >> 16);
-    case REG_SYSTEM_CYCLES_INSTRET + 6: return (instructionsRetired >> 8);
-    case REG_SYSTEM_CYCLES_INSTRET + 7: return (instructionsRetired);
+    case REG_SYSTEM_CYCLES_INSTRET + 1:
+        if (m->sys.instMode)
+            return (instructionsRetired >> 48);
+        else
+            return (cycles >> 48);
+    case REG_SYSTEM_CYCLES_INSTRET + 2:
+        if (m->sys.instMode)
+            return (instructionsRetired >> 40);
+        else
+            return (cycles >> 40);
+    case REG_SYSTEM_CYCLES_INSTRET + 3:
+        if (m->sys.instMode)
+            return (instructionsRetired >> 32);
+        else
+            return (cycles >> 32);
+    case REG_SYSTEM_CYCLES_INSTRET + 4:
+        if (m->sys.instMode)
+            return (instructionsRetired >> 24);
+        else
+            return (cycles >> 24);
+    case REG_SYSTEM_CYCLES_INSTRET + 5:
+        if (m->sys.instMode)
+            return (instructionsRetired >> 16);
+        else
+            return (cycles >> 16);
+    case REG_SYSTEM_CYCLES_INSTRET + 6:
+        if (m->sys.instMode)
+            return (instructionsRetired >> 8);
+        else
+            return (cycles >> 8);
+    case REG_SYSTEM_CYCLES_INSTRET + 7:
+        if (m->sys.instMode)
+            return (instructionsRetired);
+        else
+            return (cycles);
 
     /* Context Windowing */
     case REG_SYSTEM_CWP: return m->cpu.cwp;
     case REG_SYSTEM_WIN_SPILLED: return m->cpu.spilledWindows;
     case REG_SYSTEM_WIN_SEL: return m->sys.winSel;
     case REG_SYSTEM_WIN_OP: return m->sys.winOp;
+
+    /* MMU */
+    case REG_SYSTEM_PDT: return SR_GET_PDT(m->cpu.status) >> 4;
+    case REG_SYSTEM_PDT + 1: return SR_GET_PDT(m->cpu.status) & 0xf;
+    case REG_SYSTEM_TLB: return 0;
+    case REG_SYSTEM_MMU: return SR_GET_MMU(m->cpu.status) >> 29;
+
+    /* Context switching */
+    case REG_SYSTEM_USP: return (m->cpu.usp >> 24);
+    case REG_SYSTEM_USP + 1: return (m->cpu.usp >> 16);
+    case REG_SYSTEM_USP + 2: return (m->cpu.usp >> 8);
+    case REG_SYSTEM_USP + 3: return (m->cpu.usp);
 
     default:
         if (addr >= REG_SYSTEM_WIN_BUFF && addr < REG_SYSTEM_WIN_BUFF + (32 * 4)) {
@@ -168,6 +217,8 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
     FILE       *fp;
     static bool save_block_to_firmware_armed = false;
     static bool poweroffSequenceArmed        = false;
+
+    //TALEA_LOG_TRACE("SYSTEM WRITE TO %d, v: %x\n", addr, value);
 
     switch (addr) {
     case REG_SYSTEM_ARCH_ID:
@@ -263,6 +314,12 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
 
     /* CPU State */
     case REG_SYSTEM_CYCLES_INSTRET:
+        if (value == TALEA_SYSTEM_INST_MODE) {
+            m->sys.instMode = true;
+        } else if (value == 0) {
+            m->sys.instMode = false;
+        }
+        break;
     case REG_SYSTEM_CYCLES_INSTRET + 1:
     case REG_SYSTEM_CYCLES_INSTRET + 2:
     case REG_SYSTEM_CYCLES_INSTRET + 3:
@@ -273,7 +330,7 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
 
     /* Context Windowing */
     case REG_SYSTEM_CWP: break;
-    case REG_SYSTEM_WIN_SEL: m->sys.winSel = value & 0x3;
+    case REG_SYSTEM_WIN_SEL: m->sys.winSel = value & 0x3; break;;
     case REG_SYSTEM_WIN_OP:
         if (value == TALEA_SYSTEM_WIN_OP_LOAD) {
             for (size_t i = 0; i < 32; i++) {
@@ -287,7 +344,7 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
 
                 if (m->sys.winSel < m->cpu.spilledWindows)
                     Machine_WriteData32(
-                        m, TALEA_DATA_FIRMWARE_RES + (m->sys.winSel * 32 * 4) + (i*4), reg);
+                        m, TALEA_DATA_FIRMWARE_RES + (m->sys.winSel * 32 * 4) + (i * 4), reg);
                 else
                     m->cpu.gpr[(m->sys.winSel * 32) + i] = reg;
             }
@@ -296,8 +353,8 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
                 u32 reg;
 
                 if (m->sys.winSel < m->cpu.spilledWindows)
-                    reg = Machine_ReadData32(m, TALEA_DATA_FIRMWARE_RES +
-                                                    (m->sys.winSel * 32 * 4) + (i*4));
+                    reg = Machine_ReadData32(m, TALEA_DATA_FIRMWARE_RES + (m->sys.winSel * 32 * 4) +
+                                                    (i * 4));
                 else
                     reg = m->cpu.gpr[(m->sys.winSel * 32) + i];
 
@@ -313,6 +370,38 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
         }
 
         m->sys.winOp = value;
+        break;
+
+    /* MMU */
+    case REG_SYSTEM_PDT:
+        m->cpu.status = (m->cpu.status & 0xFFF0FFFF) | (u32)((value & 0xf) << 16);
+        break;
+    case REG_SYSTEM_PDT + 1:
+        m->cpu.status = (m->cpu.status & 0xFFFF00FF) | ((u32)value << 8);
+        break;
+    case REG_SYSTEM_TLB:
+        TALEA_LOG_TRACE("TLB REG written %x\n", value);
+        if (value == 0xFF) {
+            // TODO: document this
+            MMU_FlushTLB(m);
+        }
+        break;
+    case REG_SYSTEM_MMU:
+        TALEA_LOG_TRACE("MMU REG written %x\n", value);
+        if (value == 0xFF) {
+            // TODO: document this
+            TALEA_LOG_TRACE("Switching MMU ON!\n");
+            m->cpu.status |= 0x20000000;
+        } else if (value == 0) {
+            m->cpu.status &= ~(0x20000000);
+        }
+        break;
+
+    /* context switching */
+    case REG_SYSTEM_USP: m->cpu.usp = (m->cpu.usp & 0x00ffffff) | ((u32)value << 24); break;
+    case REG_SYSTEM_USP + 1: m->cpu.usp = (m->cpu.usp & 0xff00ffff) | ((u32)value << 16); break;
+    case REG_SYSTEM_USP + 2: m->cpu.usp = (m->cpu.usp & 0xffff00ff) | ((u32)value << 8); break;
+    case REG_SYSTEM_USP + 3: m->cpu.usp = (m->cpu.usp & 0xffffff00) | ((u32)value); break;
 
     default: break;
     }

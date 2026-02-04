@@ -104,8 +104,7 @@ enum {
     REG_SYSTEM_FAULT_ADDR, // Last address where an exception originated
 
     /* CPU State */
-    REG_SYSTEM_CYCLES_INSTRET = REG_SYSTEM_FAULT_ADDR + 4, // number of cycñes/ instructions
-                                                           // executed
+    REG_SYSTEM_CYCLES_INSTRET = REG_SYSTEM_FAULT_ADDR + 4, // number of cycles/instructions executed
 
     /* Context Windowing */
     REG_SYSTEM_CWP = REG_SYSTEM_CYCLES_INSTRET + 8,
@@ -113,6 +112,14 @@ enum {
     REG_SYSTEM_WIN_SEL,
     REG_SYSTEM_WIN_OP,
     REG_SYSTEM_WIN_BUFF,
+
+    /* MMU registers */
+    REG_SYSTEM_PDT = REG_SYSTEM_WIN_BUFF + 128, // Current pdt base in DATA memory
+    REG_SYSTEM_TLB = REG_SYSTEM_PDT + 2,        // Writing flushes the TLB
+    REG_SYSTEM_MMU,                             // enable/disable MMU
+
+    /* Context switching */
+    REG_SYSTEM_USP, // Saved user stack pointer
 };
 
 enum {
@@ -120,6 +127,7 @@ enum {
     TALEA_SYSTEM_UNIXTIME_MODE,
     TALEA_SYSTEM_MICROS_MODE,
     TALEA_SYSTEM_MILLIS_MODE,
+    TALEA_SYSTEM_INST_MODE
 };
 
 enum {

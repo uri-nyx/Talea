@@ -3,6 +3,8 @@
 
 #include "talea.h"
 
+void MMU_FlushTLB(TaleaMachine *m);
+
 typedef u32 Register;
 enum TaleaRegisters {
     x0,
@@ -47,9 +49,15 @@ enum TaleaStatus {
     CPU_STATUS_INTERRUPT_ENABLE = (1U << 30U),
     CPU_STATUS_MMU_ENABLE       = (1U << 29U),
     CPU_STATUS_PRIORITY_MASK    = 0x1C000000,
-    CPU_STATUS_IVT_ADDR_MASK    = 0x03F00000,
-    CPU_STATUS_PDT_ADDR_MASK    = 0x000FF000,
+    CPU_STATUS_IVT_ADDR_MASK    = 0x03F00000, // NOTE: NOT USED
+    CPU_STATUS_PDT_ADDR_MASK    = 0x000FFF00,
     CPU_STATUS_DEBUG_STEP       = (1U << 1U),
+};
+
+enum {
+    TRAP_TYPE_EXCEPTION,
+    TRAP_TYPE_INTERRUPT,
+    TRAP_TYPE_SYSCALL,
 };
 
 // GETTERS
@@ -57,8 +65,8 @@ enum TaleaStatus {
 #define SR_GET_INTERRUPT(tsr)  ((tsr) & 0x40000000)
 #define SR_GET_MMU(tsr)        ((tsr) & 0x20000000)
 #define SR_GET_PRIORITY(tsr)   ((((tsr) & 0x1C000000) >> 26) & 0x7)
-#define SR_GET_IVT(tsr)        ((((tsr) & 0x03F00000) >> 20) & 0x3f)
-#define SR_GET_PDT(tsr)        ((((tsr) & 0x000FF000) >> 12) & 0xff)
+#define SR_GET_IVT(tsr)        ((((tsr) & 0x03F00000) >> 20) & 0x3f) // NOTE: NOT USED
+#define SR_GET_PDT(tsr)        ((((tsr) & 0x000FFF00) >> 8) & 0xfff)
 #define SR_GET_RESERVED(tsr)   ((tsr) & 0x000000FF)
 
 // SETTERS

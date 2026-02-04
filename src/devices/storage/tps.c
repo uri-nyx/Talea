@@ -130,7 +130,6 @@ void Tps_ProcessCommand(TaleaMachine *m, u8 command)
         break;
     case STORAGE_COMMAND_LOAD:
     case STORAGE_COMMAND_STORE: {
-        TALEA_LOG_TRACE("Written Tps load or store!\n");
         if (!t->inserted) return;
         if (command == STORAGE_COMMAND_STORE && t->writeProtected) {
             atomic_fetch_or(&t->status, STORAGE_STATUS_ERROR | STORAGE_STATUS_WPROT);

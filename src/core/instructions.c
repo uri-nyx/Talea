@@ -6,15 +6,16 @@
 #include "machine_description.h"
 #include "talea.h"
 
-// #define DEBUG_LOG_INSTRUCTION_EXEC
+//#define DEBUG_LOG_INSTRUCTION_EXEC
 
 #ifdef DEBUG_LOG_INSTRUCTION_EXEC
-#define EXEC_LOG(s)                                                                                \
-    do {                                                                                           \
-        if ((strcmp(s, "Restore") == 0) || (strcmp(s, "Save") == 0) || (strcmp(s, "Sysret") == 0)) \
-            TALEA_LOG_TRACE("[EXEC LOG]: " s "\t\t at 0x%x, retired: %d, ra: 0x%08x\n",            \
-                            cpu->pc - 4, cpu->instructionsRetired, GPR_GET(m, x1));                \
-                                                                                                   \
+#define EXEC_LOG(s)                                                                     \
+    do {                                                                                \
+        if ((strcmp(s, "Restore") == 0) || (strcmp(s, "Save") == 0) ||                  \
+            (strcmp(s, "Syscall") == 0) || (strcmp(s, "Sysret") == 0))                  \
+            TALEA_LOG_TRACE("[EXEC LOG]: " s "\t\t at 0x%x, retired: %d, ra: 0x%08x\n", \
+                            cpu->pc - 4, cpu->instructionsRetired, GPR_GET(m, x1));     \
+                                                                                        \
     } while (0);
 #else
 #define EXEC_LOG(s) (void)(s)
@@ -31,11 +32,12 @@ static void instr_Syscall(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u
 {
     EXEC_LOG("Syscall");
     if (r1 == x0) {
-        Exception(m, vector, 0);
+        Exception(m, vector, TRAP_TYPE_SYSCALL);
     } else {
-        Exception(m, GPR_GET(m, r1), 0);
+        Exception(m, GPR_GET(m, r1), TRAP_TYPE_SYSCALL);
     }
 }
+
 static void instr_GsReg(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4, u8 vector,
                         u16 imm_15, u32 imm_20)
 {
@@ -66,12 +68,17 @@ static void instr_Sysret(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8
         SR_SET_INTERRUPT(m->cpu.status, 1);
     } else {
         EXEC_LOG("Sysret");
-        m->cpu.status = PopW(m);
-        u32 pc        = PopW(m);
+        u32 sp1  = GPR_GET(m, x2);
+        u32 stat = PopW(m);
+        u32 sp2  = GPR_GET(m, x2);
+        u32 pc   = PopW(m);
+        u32 sp3  = GPR_GET(m, x2);
         SET_PC(m, pc);
+        m->cpu.status = stat;
         SetUsermode(m);
         m->cpu.isProcessingException = false;
-        // TALEA_LOG_TRACE("\tTo: %06x\n", pc);
+        TALEA_LOG_TRACE("Sysret to: %06x (status: 0x%08x, sp1: 0x%08x, sp2: 0x%08x, sp3: 0x%08x)\n",
+                        pc, m->cpu.status, sp1, sp2, sp3);
     };
 }
 
@@ -360,7 +367,8 @@ static void instr_Save(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
     u32 reg2 = GPR_GET(m, r2);
     u32 reg3 = GPR_GET(m, r3);
 
-    // TALEA_LOG_TRACE("Saving, cwp: %d, spill: %d\n", cpu->cwp, cpu->spilledWindows);
+    TALEA_LOG_TRACE("Saving, cwp: %d, spill: %d. Transfer R%d: %x, R%d: %x, R%d: %x\n", cpu->cwp,
+                    cpu->spilledWindows, r1, reg1, r2, reg2, r3, reg3);
 
     if (m->cpu.cwp < 7) {
         m->cpu.cwp++;
@@ -395,7 +403,8 @@ static void instr_Restore(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u
     u32 reg2 = GPR_GET(m, r2);
     u32 reg3 = GPR_GET(m, r3);
 
-    // TALEA_LOG_TRACE("Restoring, cwp: %d, spill: %d\n", cpu->cwp, cpu->spilledWindows);
+    TALEA_LOG_TRACE("Restoring, cwp: %d, spill: %d. Transfer R%d: %x, R%d: %x, R%d: %x\n", cpu->cwp,
+                    cpu->spilledWindows, r1, reg1, r2, reg2, r3, reg3);
 
     if (m->cpu.spilledWindows > 0) {
         m->cpu.spilledWindows--;
@@ -897,4 +906,4 @@ static void instr_Swd(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r4
     ON_FAULT_RETURN
 }
 
-#endif
+#endif /* INSTRUCTIONS_C */

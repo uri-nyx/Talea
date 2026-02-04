@@ -342,7 +342,13 @@ enum StorageStatus {
 enum TpsId { TPS_ID_A, TPS_ID_B, TPS_TOTAL_DRIVES };
 
 /* TPS DEVICE PORTS */
-enum PortsTps { TPS_COMMAND = 0x00, TPS_DATA = 0x01, TPS_POINT = 0x02, TPS_RESULT = 0x04, TPS_STATUS = 0x05 };
+enum PortsTps {
+    TPS_COMMAND = 0x00,
+    TPS_DATA    = 0x01,
+    TPS_POINT   = 0x02,
+    TPS_RESULT  = 0x04,
+    TPS_STATUS  = 0x05
+};
 
 /* HCS DEVICE PORTS */
 enum PortsHCS {
@@ -421,12 +427,12 @@ enum AudioCsr {
     AUDIO_CSR_GATE       = 1 << 6, // changes mode to release note inmediately
 };
 
-
 enum {
     TALEA_SYSTEM_CALENDAR_MODE,
     TALEA_SYSTEM_UNIXTIME_MODE,
     TALEA_SYSTEM_MICROS_MODE,
     TALEA_SYSTEM_MILLIS_MODE,
+    TALEA_SYSTEM_INST_MODE
 };
 
 enum {
@@ -474,7 +480,25 @@ enum PortsSystem {
     REG_SYSTEM_WIN_SEL,
     REG_SYSTEM_WIN_OP,
     REG_SYSTEM_WIN_BUFF,
+
+    
+    /* MMU registers */
+    REG_SYSTEM_PDT = REG_SYSTEM_WIN_BUFF + 128, // Current pdt base in DATA memory
+    REG_SYSTEM_TLB = REG_SYSTEM_PDT + 2,        // Writing flushes the TLB
+    REG_SYSTEM_MMU,                             // enable/disable MMU
+
+    /* Context switching */
+    REG_SYSTEM_USP, // Saved user stack pointer // NOTE; 4 bytes
 };
 
+enum PTEFlags {
+    PTE_V = (1 << 0), // Valid
+    PTE_R = (1 << 1), // Read
+    PTE_W = (1 << 2), // Write
+    PTE_X = (1 << 3), // Execute
+    PTE_U = (1 << 4), // User
+    PTE_A = (1 << 6), // Accessed (Hardware sets this)
+    PTE_D = (1 << 7), // Dirty (Hardware sets this on write)
+};
 
 #endif /* DEVICES_H */
