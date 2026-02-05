@@ -53,24 +53,31 @@ void main()
     // 5. Final Atlas Sampling
     // We add 0.5 to the character index and use floor to ensure we
     // land in the dead center of the intended character row.
-    vec2 atlasUV = vec2((float(fontColumn) + clamp(localUV.x, 0.0, 1.0)) / 4.0,
-                        (256.0 - floor(character) - clamp(localUV.y, 0.0, 1.0)) / 256.0);
+    vec2 atlasUV = vec2((float(fontColumn) + clamp(localUV.x, 0.0, 0.99)) / 4.0,
+                        (256.0 - floor(character) - clamp(localUV.y, 0.0, 0.99)) / 256.0);
     // PSF fonts are 1-bit; Raylib LoadTextureFromImage usually puts data in ALL channels
     float fontRead = texture(font_atlas, atlasUV).r;
     if (!inside_bounding_box) fontRead = 0.0;
 
-    if (bold && fontRead < 0.5) {
-        float offX = 0.5 / (4.0 * charSize.x);
-        fontRead   = texture(font_atlas, atlasUV - vec2(offX, 0.0)).r;
-    }
+    /*
+        if (bold && fontRead < 0.5) {
+            float offX = 0.5 / (3.5 * charSize.x);
+            fontRead   = texture(font_atlas, atlasUV - vec2(offX, 0.0)).r;
+        }
+    */
 
     // 7. Colors & Output
     vec4 fgColor = vec4(palette[uint(cell.g)]) / 255.0;
     vec4 bgColor = vec4(palette[uint(cell.b)]) / 255.0;
-    if (dim) fgColor.rgb *= 0.5;
 
-    if (blink) {
-        finalColor.a = abs(sin(uTime));
+    if (bold && fontRead < 0.5) {
+        float oneTexel = 0.25 / charSize.x;
+        float leftNeighbor = texture(font_atlas, atlasUV - vec2(oneTexel, 0.0)).r;
+        
+        // If the neighbor is ON, this pixel becomes "Glow"
+        if (leftNeighbor > 0.5) {
+            fontRead = 0.6; // 60% brightness "bleed"
+        }
     }
 
     vec4 outColor;
@@ -82,8 +89,9 @@ void main()
     bool  cursor_enabled = (csr & 4) != 0;
     bool  cursor_blink   = (csr & 8) != 0;
 
-    if (fontRead > 0.5 || isUnderlinePixel) {
+    if (fontRead > 0.1 || isUnderlinePixel) {
         outColor = fgColor;
+        if (fontRead < 1.0) outColor.rgb *= fontRead;
         if (dim) outColor.rgb *= 0.5; // Apply DIM attribute
     } else {
         if (transparent && !(cursor_enabled && cursor_here)) discard;
@@ -91,7 +99,9 @@ void main()
     }
 
     if (blink) {
-        outColor.a = abs(sin(uTime));
+        float blinkFactor = (sin(uTime * 3.14159) * 0.5) + 0.5;
+        outColor.a        = mix(outColor.a, 1.0, blinkFactor);
+        outColor.rgb      = mix(outColor.rgb, 1.0 - outColor.rgb, blinkFactor);
     }
 
     if (cursor_here && cursor_enabled) {

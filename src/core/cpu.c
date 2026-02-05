@@ -113,7 +113,7 @@ static inline u32 PopW(TaleaMachine *m)
 }
 
 #define DEBUG_LOG_EXCEPTIONS
-// #define DEBUG_LOG_INTERRUPTS
+#define DEBUG_LOG_INTERRUPTS
 
 static void Exception(TaleaMachine *m, u8 vector, int trap_type)
 {

@@ -126,23 +126,28 @@ _interrupt:
     # save user pc and status
     lw x5, 4(x2) # user pc
     swd x5, 0x1000(x0) # stora at DATA[0x1000]
+    trace x0, x0, x0, x5
     lw x5, 0(x2) # user status
+    trace x0, x0, x5, x2
     swd x5, 0x1004(x0) # store at DATA[0x1004]
 
-    lbud x12, 288(x0)   # REG_SYSTEM_EXCEPTION (the interrupt raised)
+    lbud x12, 288(x0)   # REG_SYSTEM_EXCEPTION (the interrupt raised) NOT CORRECT
     call    akai_interrupt
 
     restore x0, x0, x0
+
+    swd x5, 0x1010(x0)
+    lwd x5, 0x1008(x0)
+    trace x5, x0, x0, x0
+    sw x5, 4(x2)
+    lwd x5, 0x100C(x0)
+    trace x5, x0, x0, x0
+    sw x5, 0(x2)
+    lwd x5, 0x1010(x0)
     sysret
 
  .globl akai_syscall
 _syscall:
-    pop x5, x2
-    pop x6, x2
-    trace x2, x5, x6, x31
-    push x6, x2
-    push x5, x2
-    trace x2, x5, x6, x31
     save x2, x12, x0     # TODO: define syscall abi
 
     # save user pc and status
@@ -155,7 +160,6 @@ _syscall:
 
     call    akai_syscall
     
-    trace x0, x31, x25, x0
     restore x10, x0, x0
     sysret
 

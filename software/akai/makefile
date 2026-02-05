@@ -18,6 +18,13 @@ kernel: src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/
 	rm entry.o kernel.o mmu.o hw.o mem.o process.o exception.o syscall.o interrupt.o
 	mcopy -i build/akai.img build/kernel.bin "::KERNEL"
 
+check:
+	clang -nostdinc -nobuiltininc  -I../ -I../freestanding -fsyntax-only -std=c89 -Wall -Wextra -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c
+
+check-errors:
+	clang -nostdinc -nobuiltininc  -I../ -I../freestanding -fsyntax-only -std=c89 -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c
+
+
 tps: kernel
 	python3 $(TOOLS)/tpstools/tps_wrap.py build/akai.img build/kernel.map _kstart
 

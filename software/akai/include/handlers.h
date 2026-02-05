@@ -1,7 +1,9 @@
-#ifndef SYSCALL_H
-#define SYSCALL_H
+#ifndef HANDLERS_H
+#define HANDLERS_H
 
 #include "../include/system.h"
+#include "../include/process.h"
+#include "libsirius/discovery.h"
 #include "libsirius/types.h"
 
 extern struct Processes  processes;
@@ -47,4 +49,6 @@ u32  akai_syscall(u32 service);
 void akai_exception(u8 vector, u32 fault_addr);
 void akai_interrupt(u8 vector);
 
-#endif /* SYSCALL_H */
+void kernel_panic(u8 vector, u32 fault_addr, struct ThreadCtx *ctx);
+
+#endif /* HANDLERS_H */

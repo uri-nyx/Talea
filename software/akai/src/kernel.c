@@ -17,6 +17,7 @@ u32      *video_pt;
 
 struct PhysicalPages pages;
 struct Processes processes;
+#define SIZE_PROC sizeof(processes);
 struct SystemInfo sys;
 
 void puts(struct SystemInfo *s, const char *str)
@@ -104,7 +105,6 @@ void kmain(u16 sys_info_data_addr)
     // Copy the struct handed down by the firmware
     _copydm(sys_info_data_addr, &sys, sizeof(sys));
 
-    _trace(*(u32*)(0x3cc));
     // init mmu
     mmu_init(&sys);
 
@@ -113,7 +113,8 @@ void kmain(u16 sys_info_data_addr)
 
     // init the process manager
     process_init(&processes, AKAI_IDLE_BASE);
-/*
+
+    // CRASH
     {
         // test the processes
         struct Process *test;
@@ -134,7 +135,7 @@ void kmain(u16 sys_info_data_addr)
         code = alloc_pages_contiguous(&pages, test_pid, 1);
 
         if (!code) {
-            process_kill(&processes, test_pid);
+            process_terminate(&processes, test_pid);
             result = 2;
             goto proc_test_failed;
         }
@@ -155,12 +156,12 @@ void kmain(u16 sys_info_data_addr)
         tlb_flush();
 
         // pray, and run
-        process_run(&processes, test_pid);
+        process_run(&processes, test_pid, PARENT_KEEP_RUNNING);
 
 proc_test_failed:
         _trace(0xdead, result);
     }
-*/
+
 _trace(0xb000b);
 l:
     goto l;

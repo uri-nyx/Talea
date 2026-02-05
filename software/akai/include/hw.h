@@ -4,6 +4,8 @@
 #include "libsirius/types.h"
 #include "../include/system.h"
 
+extern void _cli(void);
+extern void _sti(void);
 extern void  _ssreg(u32 new_sreg);
 extern u32   _gsreg(void);
 extern void  _sbd(u16 addr, u8 value);

@@ -25,6 +25,8 @@ void process_init(struct Processes *p, u32 idle_base)
 
     memset(p, 0, sizeof(struct Processes));
 
+    _trace(0xdaaaaa, idle_base);
+
     p->count       = 1;
     p->proc[0].pid = 0;
 
@@ -77,6 +79,13 @@ ProcessPID process_create(struct Processes *p, const char *name, ProcessEntry en
     usize      i;
     ProcessPID pid;
     u32       *pt0;
+
+    // reap zombies
+    for (i = 0; i < MAX_PROCESS; i++) {
+        if (p->proc[i].state == ZOMBIE && p->proc[i].parent == 0) {
+            process_reap(p, i);
+        }
+    }
 
     if (p->count >= MAX_PROCESS) return 0;
 
@@ -168,22 +177,39 @@ void process_run(struct Processes *p, ProcessPID pid, enum ParentState parent_ne
     u32 sreg;
 
     struct Process *target = &p->proc[pid];
-    struct Process *parent = p->curr;
 
-    if (parent && parent->pid != pid) {
-        if (parent->pid == 0 || parent->state == NEWBORN) goto skip;
+    _trace(0xAAAAAAAA, pid, p->curr->pid, target->state);
 
-        switch (parent_new_state) {
-        case PARENT_KEEP_RUNNING: break;
-        case PARENT_WAIT: process_wait(p, p->curr->pid); break;
-        case PARENT_DIE: break;
-        case PARENT_DETACH: break;
-        default: break;
+    if (target->state == ZOMBIE) {
+        _trace(0xBADC0DE, pid);
+        return;
+    }
+
+    if (p->curr && p->curr->pid != pid) {
+        if (p->curr->pid == 0 || p->curr->state == NEWBORN) goto skip;
+        if (target->state == NEWBORN) {
+            // should, in the odd case that a process creates,
+            // and another runs for the first time, the latter process adopt the child?
+            struct Process *parent = &p->proc[p->proc[pid].parent];
+
+            if (target->pid == parent->pid) goto skip;
+
+            switch (parent_new_state) {
+            case PARENT_WAIT: process_wait(p, parent->pid); break;
+            case PARENT_DIE: process_terminate(p, parent->pid); break;
+            case PARENT_DETACH:
+                process_stop(p, parent->pid);
+                target->parent = 0;
+                break;
+            case PARENT_KEEP_RUNNING:
+            default: process_stop(p, parent->pid); break;
+            }
+        } else {
+            process_stop(p, p->curr->pid);
         }
     }
 
 skip:
-
     p->curr = target;
 
     // switch pdt. There should be no problem, since the kernel is mapped there too
@@ -206,26 +232,53 @@ skip:
 
 u32 process_stop(struct Processes *p, ProcessPID pid)
 {
+    if (p->proc[pid].state == ZOMBIE) return;
     process_set_ready(p, pid);
     return save_ctx(&p->proc[pid]);
 }
 
 u32 process_wait(struct Processes *p, ProcessPID pid)
 {
+    if (p->proc[pid].state == ZOMBIE) return;
     p->proc[pid].state = WAITING;
     return save_ctx(&p->proc[pid]);
 }
 
 void process_set_ready(struct Processes *p, ProcessPID pid)
 {
+    if (p->proc[pid].state == ZOMBIE) return;
     p->proc[pid].state = READY;
 }
 
-void process_kill(struct Processes *p, ProcessPID pid)
+void process_terminate(struct Processes *p, ProcessPID pid)
 {
+    usize i;
     if (pid == 0) return; // idle process is not killable
-    p->proc[pid].state = FREE;
+
+    for (i = 0; i < MAX_PROCESS; i++) {
+        if (p->proc[i].parent == pid) p->proc[i].parent = 0;
+    }
     free_pages_by_owner(&pages, pid);
+
+    if (p->proc[pid].parent == 0) {
+        p->proc[pid].state = FREE;
+        p->count--;
+    } else {
+        p->proc[pid].state = ZOMBIE;
+    }
+}
+
+void process_reap(struct Processes *p, ProcessPID pid)
+{
+    if (pid == 0 || p->proc[pid].state == FREE) return; // idle process is not killable
+
+    if (p->proc[pid].state != ZOMBIE) {
+        process_terminate(p, pid);
+    }
+
+    if (p->proc[pid].state == FREE) return;
+
+    p->proc[pid].state = FREE;
     p->count--;
 }
 
@@ -241,14 +294,15 @@ void process_yield(struct Processes *p)
 
     for (i = 0; i < MAX_PROCESS; i++) {
         ProcessPID k = (n + i) % MAX_PROCESS;
-        if (p->proc[k].state == READY && p->proc[k].pid != 0) process_run(p, k);
+        if (p->proc[k].state == READY && p->proc[k].pid != 0)
+            process_run(p, k, PARENT_KEEP_RUNNING);
     }
 
     // if we got here, no processes to run, so we go to idle
     if (p->curr->state == READY)
-        process_run(p, p->curr->pid);
+        process_run(p, p->curr->pid, PARENT_KEEP_RUNNING);
     else
-        process_run(p, 0);
+        process_run(p, 0, PARENT_KEEP_RUNNING);
 }
 
 void *load_window(u8 wp, void *buf)
@@ -289,18 +343,16 @@ u32 save_ctx(struct Process *p)
         p->ctx.status = ((p->pdt >> 4) << 8) | AKAI_PROCESS_STATUS;
     } else if (sirius_cwp == 0 && p->pid != 0 && p->state != NEWBORN) {
         // panic here
-        _trace(0xdeadbeef, p->state, p->pid, 1);
-l:
-        goto l;
     } else {
-        _trace(0x67, p->pid);
-        p->ctx.wp = sirius_cwp - 1;
-        load_window(p->ctx.wp, p->ctx.regs);
-        // Assume it was saved upon entering the kernel. Otherwise this will fault
+        u8 cwp = sirius_cwp;
         p->ctx.pc = _lwd(AKAI_KERNEL_PC_SAVE); // 0x1000); // save user pc
-        _trace(0x1001, p->ctx.pc);
         p->ctx.status = _lwd(AKAI_KERNEL_STATUS_SAVE); // 0x1004); // save user status register
         p->ctx.usp    = _lwd(REG_SYSTEM_USP);
+        _trace(0x1001, p->ctx.pc, p->ctx.status, p->ctx.usp);
+        _trace(0x67, p->pid, cwp);
+        p->ctx.wp = cwp ? cwp - 1 : cwp;
+        load_window(p->ctx.wp, p->ctx.regs);
+        // Assume it was saved upon entering the kernel. Otherwise this will fault
     }
 
     return 0;

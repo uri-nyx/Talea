@@ -1,5 +1,6 @@
 #include "../include/handlers.h"
 #include "../include/process.h"
+#include "../include/hw.h"
 
 
 u32 akai_syscall(u32 service)
@@ -11,11 +12,13 @@ u32 akai_syscall(u32 service)
     _trace(0xFef0);
     save_ctx(processes.curr);
 
-    load_window(sirius_cwp - 1, &win);
+    //load_window(sirius_cwp - 1, &win);
+    memcpy(win, processes.curr->ctx.regs, sizeof(win));
 
     switch (service) {
     case SYSCALL_EXIT: {
         u32 exit_code = win[13];
+
         _trace(0xe1, exit_code);
         puts(&sys, "Exit ");
         puts(&sys, processes.curr->name);
@@ -23,12 +26,12 @@ u32 akai_syscall(u32 service)
 
         processes.curr->exit_code = exit_code;
 
-        process_kill(&processes, processes.curr->pid);
+        process_terminate(&processes, processes.curr->pid);
 
         if (processes.proc[processes.curr->parent].state == WAITING) {
             // here, waiting means that a process has spawned another.
             // waiting for anything else does not make sense without a scheduler
-            process_run(&processes, processes.proc[processes.curr->parent].pid);
+            process_run(&processes, processes.proc[processes.curr->parent].pid, PARENT_KEEP_RUNNING);
         } else {
             process_yield(&processes);
         }

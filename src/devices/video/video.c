@@ -2439,13 +2439,13 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
     Video_BuildShadesTable(&m->video.colorShades, &m->video.renderer.shaderPalette, 256);
 
     Video_PrepareFont(m, &m->video, VIDEO_FONT_BASE_CP0,
-                      TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
+                      TextFormat("%s%s", FONT_PATH, config->hardware_font)); // put a list in toml
     Video_PrepareFont(m, &m->video, VIDEO_FONT_BASE_CP1,
-                      TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
+                      TextFormat("%s%s", FONT_PATH, config->hardware_font)); // put a list in toml
     Video_PrepareFont(m, &m->video, VIDEO_ALT_FONT_CP0,
-                      TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
+                      TextFormat("%s%s", FONT_PATH, config->hardware_font)); // put a list in toml
     Video_PrepareFont(m, &m->video, VIDEO_ALT_FONT_CP1,
-                      TextFormat("%s%s", FONT_PATH, "spleen/spleen-5x8.psfu"));
+                      TextFormat("%s%s", FONT_PATH, config->hardware_font)); // put a list in toml
 
     m->video.framebuffer.view =
         Bus_GetView(m, VIDEO_FRAMEBUFFER_ADDR,

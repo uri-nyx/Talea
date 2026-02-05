@@ -1,6 +1,16 @@
 # Hardware wrappers for the Sirius ISA
     .align 4
     .text
+    .globl _cli
+_cli:
+    cli
+    ret
+
+.globl _sti
+_sti:
+    sti
+    ret
+
    .globl _trace
 _trace:
     trace   x12, x13, x14, x15

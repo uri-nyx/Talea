@@ -19,7 +19,6 @@ enum {
     CPU_STATUS_DEBUG_STEP       = (1U << 1U),
 };
 
-
 struct ThreadCtx {
     u32 regs[NUM_REGS];
     u32 status;
@@ -44,7 +43,7 @@ struct Process {
     u32             *page_tables[4];
     u16              pdt;
     char             name[10];
-    enum { FREE, NEWBORN, WAITING, READY, RUNNING } state;
+    enum { FREE, NEWBORN, WAITING, READY, RUNNING, ZOMBIE } state;
     void *brk;
     u32   flags;
     i32   exit_code;
@@ -64,18 +63,18 @@ enum ParentState {
 };
 
 extern void _load_window(u8 wp, void *buf);
-void *load_window(u8 wp, void *buf);
-void  store_window(u8 wp, void *buf);
+void       *load_window(u8 wp, void *buf);
+void        store_window(u8 wp, void *buf);
 
 void process_init(struct Processes *p, u32 idle_base);
 
-ProcessPID process_create(struct Processes *p, const char *name,
-                          ProcessEntry entry);
-void       process_run(struct Processes *p, ProcessPID pid);
+ProcessPID process_create(struct Processes *p, const char *name, ProcessEntry entry);
+void       process_run(struct Processes *p, ProcessPID pid, enum ParentState parent_new_state);
 u32        process_stop(struct Processes *p, ProcessPID pid);
 u32        process_wait(struct Processes *p, ProcessPID pid);
 void       process_set_ready(struct Processes *p, ProcessPID pid);
-void       process_kill(struct Processes *p, ProcessPID pid);
+void       process_terminate(struct Processes *p, ProcessPID pid);
+void       process_reap(struct Processes *p, ProcessPID pid);
 void       process_yield(struct Processes *p);
 
 u32  save_ctx(struct Process *p);
