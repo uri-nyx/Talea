@@ -1,4 +1,5 @@
 #include "../include/process.h"
+#include "../include/handlers.h"
 #include "../include/hw.h"
 #include "../include/mem.h"
 #include "../include/mmu.h"
@@ -44,10 +45,9 @@ void process_init(struct Processes *p, u32 idle_base)
 
     code = alloc_pages_contiguous(&pages, 0, 1);
     if (!code) {
-        // panic
-        _trace(0xdeadbee0);
-l:
-        goto l;
+        //TODO: implement -> kernel_panic_internal("In process init: could not allocate pages for idle process.");
+        _trace(0xDEADC0DE);
+        l:goto l;
     }
 
     p->proc[0].pdt = AKAI_PDT_BASE;
@@ -172,6 +172,36 @@ ProcessPID process_create(struct Processes *p, const char *name, ProcessEntry en
     return pid;
 }
 
+bool process_check_addr(struct Processes *p, ProcessPID pid, u32 addr, u32 acces_flags,
+                        bool executable)
+{
+    u32 addr_pt   = addr >> 22; // this is the page table number
+    u32 mapped_pt = (AKAI_PROCESS_PT0 + (addr_pt * 0x1000));
+    u32 entry_idx = (addr >> 12) & 0x3FF;
+    u32 entry     = 0;
+
+    _trace(0xfbbba, addr_pt, addr, mapped_pt);
+    if (!addr) return false;
+    if (addr >= AKAI_IDLE_BASE && addr < AKAI_IDLE_BASE + PAGE_SIZE) return false;
+    if (executable && ((addr & 0x3) != 0)) return false;
+    if (addr_pt > 3) return false;
+    if (!p->proc[pid].page_tables[addr_pt]) return false;
+
+    // map the pt to the kernel to read the entry
+    map_pt_entry(kernel_pt, mapped_pt >> 12, (u32)p->proc[pid].page_tables[addr_pt], PTE_V | PTE_R);
+    tlb_flush();
+    // read the entry
+    entry = ((u32 *)mapped_pt)[entry_idx];
+    _trace(0xfbbba, entry, entry_idx);
+    // unmap from kernel
+    unmap_pt_entry(kernel_pt, mapped_pt >> 12);
+    tlb_flush();
+
+    if ((entry & acces_flags) != acces_flags) return false;
+
+    return true;
+}
+
 void process_run(struct Processes *p, ProcessPID pid, enum ParentState parent_new_state)
 {
     u32 sreg;
@@ -220,11 +250,24 @@ skip:
     tlb_flush();
 
     if (target->state == NEWBORN) {
+        // a newborn cannot possibly run an event
         process_set_ready(p, pid);
         _load_and_switch(p->curr->ctx.pc, p->curr->ctx.status, p->curr->ctx.regs);
     } else {
+        u32 active_events = p->curr->event_mask & p->curr->pending_events;
+
         _trace(0xf1A, p->curr->ctx.pc, p->curr->ctx.status);
         restore_ctx(p->curr);
+
+        if (active_events && process_check_addr(p, p->curr->pid, (u32)p->curr->event_handler,
+                                                PTE_V | PTE_U | PTE_X, true)) {
+            _trace(0xf19, p->curr->ctx.pc, p->curr->ctx.status);
+            p->curr->ctx.regs[31] = p->curr->ctx.pc;
+            p->curr->ctx.pc       = (u32)p->curr->event_handler;
+            // SHOULD I PUSH ALL REGISTERS HERE? ITS EASIER THAN WHEN THEY ARE LOADED
+            p->curr->pending_events &= ~active_events;
+        }
+
         _trace(0xf10, p->curr->ctx.pc, p->curr->ctx.status);
         _switch(p->curr->ctx.pc, p->curr->ctx.status);
     }
@@ -344,8 +387,8 @@ u32 save_ctx(struct Process *p)
     } else if (sirius_cwp == 0 && p->pid != 0 && p->state != NEWBORN) {
         // panic here
     } else {
-        u8 cwp = sirius_cwp;
-        p->ctx.pc = _lwd(AKAI_KERNEL_PC_SAVE); // 0x1000); // save user pc
+        u8 cwp        = sirius_cwp;
+        p->ctx.pc     = _lwd(AKAI_KERNEL_PC_SAVE);     // 0x1000); // save user pc
         p->ctx.status = _lwd(AKAI_KERNEL_STATUS_SAVE); // 0x1004); // save user status register
         p->ctx.usp    = _lwd(REG_SYSTEM_USP);
         _trace(0x1001, p->ctx.pc, p->ctx.status, p->ctx.usp);

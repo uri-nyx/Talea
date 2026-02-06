@@ -10,6 +10,17 @@ static const char *interrupt_names[] = {
 
 };
 
+static KernelInterruptHook kernel_interrupt_hooks[AKAI_NUM_INTERRUPTS];
+
+KernelInterruptHook kernel_hook_interrupt(enum TaleaInterrupt interrupt, KernelInterruptHook hook)
+{
+    usize               idx  = interrupt - INT_SER_RX;
+    KernelInterruptHook prev = kernel_interrupt_hooks[idx];
+
+    kernel_interrupt_hooks[idx] = hook;
+    return prev;
+}
+
 void akai_interrupt(u8 vector)
 {
     static u32 win[32];
@@ -22,8 +33,20 @@ void akai_interrupt(u8 vector)
 
     load_window(sirius_cwp - 1, &win);
 
-    switch (vector) {
-    default: break;
+    if (vector >= INT_SER_RX && vector < AKAI_INVALID_INTERRUPT) {
+        usize idx  = vector - INT_SER_RX;
+        usize i    = 0;
+        u32   flag = (1 << idx);
+
+        if (kernel_interrupt_hooks[idx] != NULL) kernel_interrupt_hooks[idx](win);
+
+        for (i = 0; i < MAX_PROCESS; i++) {
+            if (processes.proc[i].event_mask & flag) processes.proc[i].pending_events |= flag;
+        }
+        
+    } else {
+        // TODO: better error, but this should never happen unless I add hardware
+        _trace(0xBADC0DE, vector);
     }
 
     _trace(0x4503, status, pc);

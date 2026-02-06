@@ -27,13 +27,13 @@ struct ThreadCtx {
     u8  wp;
 };
 
-enum ProcessFlags {
-    PROC_TSR = 1 << 0,
-};
-
 typedef u8 ProcessPID;
 
 typedef int (*ProcessEntry)(int, char **);
+
+enum ProcessFlags {
+    PROC_TSR = 1 << 0,
+};
 
 struct Process {
     struct ThreadCtx ctx;
@@ -47,6 +47,11 @@ struct Process {
     void *brk;
     u32   flags;
     i32   exit_code;
+
+    // Event and interrupt code
+    void *event_handler;
+    u32   pending_events;
+    u32   event_mask;
 };
 
 struct Processes {
@@ -77,6 +82,8 @@ void       process_terminate(struct Processes *p, ProcessPID pid);
 void       process_reap(struct Processes *p, ProcessPID pid);
 void       process_yield(struct Processes *p);
 
+bool process_check_addr(struct Processes *p, ProcessPID pid, u32 addr, u32 acces_flags,
+                        bool executable);
 u32  save_ctx(struct Process *p);
 void restore_ctx(struct Process *p);
 

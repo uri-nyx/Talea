@@ -1,7 +1,6 @@
 #include "../include/handlers.h"
-#include "../include/process.h"
 #include "../include/hw.h"
-
+#include "../include/process.h"
 
 u32 akai_syscall(u32 service)
 {
@@ -12,7 +11,7 @@ u32 akai_syscall(u32 service)
     _trace(0xFef0);
     save_ctx(processes.curr);
 
-    //load_window(sirius_cwp - 1, &win);
+    // load_window(sirius_cwp - 1, &win);
     memcpy(win, processes.curr->ctx.regs, sizeof(win));
 
     switch (service) {
@@ -31,10 +30,12 @@ u32 akai_syscall(u32 service)
         if (processes.proc[processes.curr->parent].state == WAITING) {
             // here, waiting means that a process has spawned another.
             // waiting for anything else does not make sense without a scheduler
-            process_run(&processes, processes.proc[processes.curr->parent].pid, PARENT_KEEP_RUNNING);
+            process_run(&processes, processes.proc[processes.curr->parent].pid,
+                        PARENT_KEEP_RUNNING);
         } else {
             process_yield(&processes);
         }
+        result = 0;
         break;
     }
     case SYSCALL_YIELD: {
@@ -46,10 +47,32 @@ u32 akai_syscall(u32 service)
             puts(&sys, "\n");
         }
         process_yield(&processes);
+        result = 0;
+        break;
+    }
+
+    case SYSCALL_HOOK: {
+        u32 event_mask    = win[13];
+        u32 event_handler = win[14];
+
+        if (processes.curr->pid == 0) break; // Do not hook the idle task
+
+        result = processes.curr->event_mask;
+        processes.curr->event_mask |= event_mask;
+        processes.curr->event_handler = (void *)event_handler;
+        break;
+    }
+    case SYSCALL_UNHOOK: {
+        u32 event_mask = win[13];
+
+        if (processes.curr->pid == 0) break; // Do not unhook the idle task
+
+        result = processes.curr->event_mask;
+        processes.curr->event_mask &= ~event_mask;
         break;
     }
     default: break;
     }
 
-    return 0;
+    return result;
 }
