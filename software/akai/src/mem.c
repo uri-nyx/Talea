@@ -4,7 +4,7 @@
 void mem_init(struct PhysicalPages *pages, struct SystemInfo *sys)
 {
     usize i;
-    usize tbsz = sys->textbuffer.h * sys->textbuffer.w * sys->textbuffer.bpc * 2;
+    usize tbsz = sys->textbuffer.h * sys->textbuffer.w * sys->textbuffer.bpc;
     usize fbsz = sys->framebuffer.h * sys->framebuffer.w;
 
     usize tb_pages = (tbsz + (PAGE_SIZE - 1)) >> 12;
@@ -14,7 +14,7 @@ void mem_init(struct PhysicalPages *pages, struct SystemInfo *sys)
     usize fb_start_page = sys->framebuffer.addr >> 12;
 
     // mark the kernel pages as not free and owned by PID 0 (the Kernel)
-    for (i = 0; i < (KERNEL_END >> 12); i++) {
+    for (i = 0; i < (AKAI_KERNEL_END >> 12); i++) {
         BIT_SET(pages->free, i);
         pages->owners[i] = KERNEL_PID;
         pages->allocated++;
@@ -34,9 +34,16 @@ void mem_init(struct PhysicalPages *pages, struct SystemInfo *sys)
         pages->allocated++;
     }
 
+    // mark the firmware pages as not free and owned by the kernel, and NEVER MAP THEM R
+    for (i = 0xff0000 >> 12; i < 0x1000000 >> 12; i++) {
+        BIT_SET(pages->free, i);
+        pages->owners[i] = KERNEL_PID;
+        pages->allocated++;
+    }
+
     // mark also the kernel stack guard
-    BIT_SET(pages->free, (KERNEL_END >> 12));
-    pages->owners[(KERNEL_END >> 12)] = KERNEL_PID;
+    BIT_SET(pages->free, (AKAI_KERNEL_END >> 12));
+    pages->owners[(AKAI_KERNEL_END >> 12)] = KERNEL_PID;
     pages->allocated++;
 }
 
@@ -63,7 +70,7 @@ void *alloc_pages_contiguous(struct PhysicalPages *p, ProcessPID pid, usize coun
         if (++i >= NUM_PHYSICAL_PAGES) break;
     } while (remaining);
 
-    // FIXME: actually (void*)(0) would be a valid page, but its claimed by the kernel
+    // actually (void*)(0) would be a valid page, but its claimed by the kernel
     if (first < 0) return NULL; // Not found a contiguous region
 
     for (i = 0; i < count; i++) {

@@ -127,25 +127,30 @@ static void Exception(TaleaMachine *m, u8 vector, int trap_type)
     }
 
     if (trap_type == TRAP_TYPE_INTERRUPT && !SR_GET_INTERRUPT(m->cpu.status)) return;
-
     // m->cpu.isProcessingException = !is_interrupt;
 
     // normal exception
     int exception_cached = m->cpu.exception;
-    m->cpu.exception     = EXCEPTION_NONE;
+    if (trap_type == TRAP_TYPE_EXCEPTION)
+        m->cpu.exception = EXCEPTION_NONE;
+    else if (trap_type == TRAP_TYPE_INTERRUPT)
+        m->cpu.interrupt = vector;
 
     u32 pc         = GET_PC(m);
     pc             = trap_type != TRAP_TYPE_EXCEPTION ? pc : pc - 4;
     const u32 stat = cpu->status;
     m->cpu.status &= ~CPU_STATUS_DEBUG_STEP;
+
+    if (trap_type != TRAP_TYPE_INTERRUPT) SR_CLEAR_INTERRUPT(m->cpu.status);
+
     SetSupervisor(m);
     PushW(m, pc);
     PushW(m, stat);
     if (cpu->exception != EXCEPTION_NONE) {
         TALEA_LOG_TRACE("Exception occured while pushing pc and status!, %s (0x%x)\n",
                         getExceptionName(cpu->exception), cpu->exception);
-                        m->cpu.poweroff = true;
-                        return;
+        m->cpu.poweroff = true;
+        return;
     }
 
     /*
@@ -177,9 +182,9 @@ void Machine_RaiseInterrupt(TaleaMachine *m, u8 vector, u8 priority)
     m->cpu.pendingInterrupts[priority] = vector;
 
 #ifdef DEBUG_LOG_INTERRUPTS
-    TALEA_LOG_TRACE("Raised interrupt: %s (0x%x), priority: %u, pending: %u, cpu: %u\n",
+    TALEA_LOG_TRACE("Raised interrupt: %s (0x%x), priority: %u, pending: %u, cpu: %u, eabled: %d\n",
                     ExceptionNames[vector], vector, priority, m->cpu.highestPendingInterrupt,
-                    SR_GET_PRIORITY(m->cpu.status));
+                    SR_GET_PRIORITY(m->cpu.status), SR_GET_INTERRUPT(m->cpu.status));
 #endif
 
     if (priority > m->cpu.highestPendingInterrupt) m->cpu.highestPendingInterrupt = priority;
@@ -204,7 +209,7 @@ static bool CheckInterrupts(TaleaMachine *m)
     }
 
     u8 old_hcs_status = atomic_fetch_and(&m->storage.hcs.status, ~STORAGE_STATUS_DONE);
-    if (old_tps_status & STORAGE_STATUS_DONE) {
+    if (old_hcs_status & STORAGE_STATUS_DONE) {
         Machine_RaiseInterrupt(m, INT_HCS_FINISH, PRIORITY_STORAGE_INTERRUPT);
     }
 
@@ -340,7 +345,7 @@ static u32 MMU_WalkPageTable(TaleaMachine *m, u32 vaddr, enum MemAccessType acce
         TALEA_LOG_TRACE("\tPTE1: (root: 0x%04x, vpn1: 0x%x) 0x%08x (valid: %d) accessing: 0x%08x\n",
                         root, vpn1, pte1, pte1 & PTE_V, vaddr);
         TALEA_LOG_TRACE("\tPTE0: (leaf: 0x%04x, vpn0: 0x%x) 0x%08x (valid: %d) accessing 0x%08x\n",
-                        pte0_addr, vpn0, pte0, pte0 & PTE_V, vaddr);
+                        leaf, vpn0, pte0, pte0 & PTE_V, vaddr);
         return 0;
     }
 
@@ -560,7 +565,8 @@ static bool Execute(TaleaMachine *m)
 
 #ifdef DEBUG_LOG_EXCEPTIONS
     if (m->cpu.exception == EXCEPTION_ILLEGAL_INSTRUCTION_TALEA) {
-        TALEA_LOG_TRACE("ILLEGAL INSTRUCTION REPORT: (0x%08x) at address 0x%08x\n", instruction, GET_PC(m));
+        TALEA_LOG_TRACE("ILLEGAL INSTRUCTION REPORT: (0x%08x) at address 0x%08x\n", instruction,
+                        GET_PC(m));
         TALEA_LOG_TRACE("\tgroup: %01x, opcode: %02x\n", group, opcode);
         TALEA_LOG_TRACE("\tr1: %d, r2: %d, r3: %d, r4: %d\n", r1, r2, r3, r4);
         TALEA_LOG_TRACE("\tvector: %02x, imm15: %04x, imm20: %05x\n", vector, imm_15, imm_20);

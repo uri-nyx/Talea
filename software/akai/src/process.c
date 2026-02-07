@@ -6,7 +6,7 @@
 #include "libsirius/devices.h"
 
 extern u32                 *kernel_pt;
-extern u32                 *video_pt;
+extern u32                 *high_mem_pt;
 extern struct PhysicalPages pages;
 
 /*
@@ -45,9 +45,11 @@ void process_init(struct Processes *p, u32 idle_base)
 
     code = alloc_pages_contiguous(&pages, 0, 1);
     if (!code) {
-        //TODO: implement -> kernel_panic_internal("In process init: could not allocate pages for idle process.");
+        // TODO: implement -> kernel_panic_internal("In process init: could not allocate pages for
+        // idle process.");
         _trace(0xDEADC0DE);
-        l:goto l;
+l:
+        goto l;
     }
 
     p->proc[0].pdt = AKAI_PDT_BASE;
@@ -55,9 +57,9 @@ void process_init(struct Processes *p, u32 idle_base)
     p->proc[0].page_tables[0] = kernel_pt;
     p->proc[0].page_tables[1] = NULL;
     p->proc[0].page_tables[2] = NULL;
-    p->proc[0].page_tables[3] = video_pt;
+    p->proc[0].page_tables[3] = high_mem_pt;
 
-    map_pt_entry(video_pt, idle_base >> 12, (u32)code, PTE_V | PTE_U | PTE_X | PTE_R | PTE_W);
+    map_pt_entry(high_mem_pt, idle_base >> 12, (u32)code, PTE_V | PTE_U | PTE_X | PTE_R | PTE_W);
     memcpy((u8 *)idle_base, idle_code, sizeof(idle_code));
     tlb_flush();
 
@@ -78,7 +80,7 @@ ProcessPID process_create(struct Processes *p, const char *name, ProcessEntry en
 {
     usize      i;
     ProcessPID pid;
-    u32       *pt0;
+    u32       *pt0, *pt3;
 
     // reap zombies
     for (i = 0; i < MAX_PROCESS; i++) {
@@ -102,12 +104,12 @@ ProcessPID process_create(struct Processes *p, const char *name, ProcessEntry en
     // clear the struct
     memset(&p->proc[pid], 0, sizeof(struct Process));
 
-    // Give page tables. for now, only page table 0 (0-4mb),
-    // and page table 3 is shared (pointer to video_pt)
+    // Give page tables, for the high memory and the kernel/process mappings
     // Do it here, because if it bails we have to undo the PID allocation
     pt0 = alloc_pages_contiguous(&pages, pid, 1);
+    pt3 = alloc_pages_contiguous(&pages, pid, 1);
 
-    if (!pt0) {
+    if (!pt0 || !pt3) {
         p->proc[pid].state = FREE;
         // how do I decrement count here?
         p->count--;
@@ -121,31 +123,37 @@ ProcessPID process_create(struct Processes *p, const char *name, ProcessEntry en
     // Set the pdt as pid AKAI_BASE_PDT + (0-255) << 4
     p->proc[pid].pdt = AKAI_PDT_BASE + ((u16)pid << 4);
 
-    // map pt0 and video_pt in the page directory.
+    // map pt0 and high_mem_pt in the page directory.
     // the index in the page directory is (pid << 2) + pt_number,
     // since the kernel has pdt pointer to AKAI_PDT_BASE
     map_pdt_entry(((u16)pid << 2) + 0, (u32)pt0, PTE_V);
 
-    // map the video_pt in the same way
-    map_pdt_entry(((u16)pid << 2) + 3, (u32)video_pt, PTE_V);
+    // map the high_mem_pt in the same way
+    map_pdt_entry(((u16)pid << 2) + 3, (u32)pt3, PTE_V);
 
     // assing pt0 to pid.page_tables[0]
     p->proc[pid].page_tables[0] = pt0;
+    // assign pt3 to pid.page_tabls[3] and map it in pt0 to the PT3 address
+    p->proc[pid].page_tables[3] = pt3;
 
     // map the pt to the kernel to copy and access it
     map_pt_entry(kernel_pt, AKAI_PROCESS_PT0 >> 12, (u32)pt0, PTE_V | PTE_R | PTE_W);
+    map_pt_entry(kernel_pt, AKAI_PROCESS_PT3 >> 12, (u32)pt3, PTE_V | PTE_R | PTE_W);
+    tlb_flush();
+
     // map the pt into itself
     memset((u8 *)AKAI_PROCESS_PT0, 0, PAGE_SIZE);
     memcpy((u8 *)AKAI_PROCESS_PT0, kernel_pt, PAGE_SIZE);
+    memset((u8 *)AKAI_PROCESS_PT3, 0, PAGE_SIZE);
+    memcpy((u8 *)AKAI_PROCESS_PT3, high_mem_pt, PAGE_SIZE);
+
     map_pt_entry((u32 *)AKAI_PROCESS_PT0, AKAI_PROCESS_PT0 >> 12, (u32)pt0, PTE_V | PTE_R | PTE_W);
-    // assign video_pt to pid.page_tabls[3] and map it in pt0 to the PT3 address
-    p->proc[pid].page_tables[3] = video_pt;
-    map_pt_entry((u32 *)AKAI_PROCESS_PT0, AKAI_PROCESS_PT3 >> 12, (u32)video_pt,
-                 PTE_V | PTE_R | PTE_W);
+    map_pt_entry((u32 *)AKAI_PROCESS_PT0, AKAI_PROCESS_PT3 >> 12, (u32)pt3, PTE_V | PTE_R | PTE_W);
 
     _trace(0x555);
     // unmap from kernel
     unmap_pt_entry(kernel_pt, AKAI_PROCESS_PT0 >> 12);
+    unmap_pt_entry(kernel_pt, AKAI_PROCESS_PT3 >> 12);
     tlb_flush();
 
     // Set it to NEWBORN
@@ -202,6 +210,37 @@ bool process_check_addr(struct Processes *p, ProcessPID pid, u32 addr, u32 acces
     return true;
 }
 
+static void inject_event(struct Processes *p, u32 active_events)
+{
+    u8 semaphore;
+
+    // load semaphore
+    semaphore = *(u8 *)AKAI_IPC_KERNEL_IN;
+
+    if (semaphore == 0) {
+        // inject!
+        if (process_check_addr(p, p->curr->pid, (u32)p->curr->event_handler, PTE_V | PTE_U | PTE_X,
+                               true)) {
+            p->curr->ctx.regs[31] = p->curr->ctx.pc;
+            _trace(0xf19, p->curr->ctx.pc, p->curr->ctx.regs[31], p->curr->ctx.status);
+            p->curr->ctx.pc = (u32)p->curr->event_handler;
+            semaphore       = 1;
+        }
+    } else if (semaphore == 1) {
+        // never inject! just clear active events
+    } else if (semaphore == 2) {
+        // inject next time
+        semaphore = 0;
+    } else {
+        // cooldown
+        semaphore--;
+    }
+
+    *(u8 *)AKAI_IPC_KERNEL_IN = semaphore;
+
+    p->curr->pending_events &= ~active_events;
+}
+
 void process_run(struct Processes *p, ProcessPID pid, enum ParentState parent_new_state)
 {
     u32 sreg;
@@ -211,7 +250,7 @@ void process_run(struct Processes *p, ProcessPID pid, enum ParentState parent_ne
     _trace(0xAAAAAAAA, pid, p->curr->pid, target->state);
 
     if (target->state == ZOMBIE) {
-        _trace(0xBADC0DE, pid);
+        _trace(0xBADC0DE, pid, 0XDEAD);
         return;
     }
 
@@ -257,18 +296,11 @@ skip:
         u32 active_events = p->curr->event_mask & p->curr->pending_events;
 
         _trace(0xf1A, p->curr->ctx.pc, p->curr->ctx.status);
+
+        if (active_events) inject_event(p, active_events);
+
         restore_ctx(p->curr);
-
-        if (active_events && process_check_addr(p, p->curr->pid, (u32)p->curr->event_handler,
-                                                PTE_V | PTE_U | PTE_X, true)) {
-            _trace(0xf19, p->curr->ctx.pc, p->curr->ctx.status);
-            p->curr->ctx.regs[31] = p->curr->ctx.pc;
-            p->curr->ctx.pc       = (u32)p->curr->event_handler;
-            // SHOULD I PUSH ALL REGISTERS HERE? ITS EASIER THAN WHEN THEY ARE LOADED
-            p->curr->pending_events &= ~active_events;
-        }
-
-        _trace(0xf10, p->curr->ctx.pc, p->curr->ctx.status);
+        _trace(0xf10, p->curr->ctx.pc, p->curr->ctx.status, p->curr->ctx.usp);
         _switch(p->curr->ctx.pc, p->curr->ctx.status);
     }
 }
@@ -382,8 +414,9 @@ u32 save_ctx(struct Process *p)
         u32 stat;
         load_window(p->ctx.wp, p->ctx.regs);
         p->ctx.pc     = (u32)p->entry;
-        p->ctx.usp    = AKAI_PROCESS_STACK;
+        p->ctx.usp    = AKAI_PROCESS_STACK_TOP;
         p->ctx.status = ((p->pdt >> 4) << 8) | AKAI_PROCESS_STATUS;
+        _swd(REG_SYSTEM_USP, p->ctx.usp);
     } else if (sirius_cwp == 0 && p->pid != 0 && p->state != NEWBORN) {
         // panic here
     } else {
@@ -414,3 +447,117 @@ void restore_ctx(struct Process *p)
         _swd(REG_SYSTEM_USP, p->ctx.usp); // store saved usp
     }
 };
+
+bool process_check_recv(struct Processes *p, ProcessPID sender_pid, ProcessPID target_pid,
+                        u8 signal)
+{
+    struct Process *target = &p->proc[target_pid];
+
+    u32   signal_bit;
+    bool  is_signal = false;
+    usize i;
+
+    if (target_pid == 0)
+        return false; // idle does not receive messages (for now).
+                      // it does not send them either, but the sender_pid 0 is interpreted as
+                      // the kernel
+
+    if (signal < AKAI_INVALID_INTERRUPT) {
+        signal_bit = (1UL << signal); // Interrupt
+    } else if (signal == SIGDOOR) {
+        signal_bit = 1UL << 15;
+    } else if (signal > SIGDOOR) {
+        is_signal  = true;
+        signal_bit = (u32)(1UL << (signal - SIGGP0)) << 16;
+    } else {
+        return false; // unsupported signal
+    }
+
+    if (target->event_mask & signal_bit) return true; // event_mask is a master override
+
+    if (!is_signal) return false;
+
+    signal_bit >>= 16;
+
+    for (i = 0; i < 4; i++) {
+        if (target->subs[i].publisher == sender_pid && target->subs[i].signal_mask & signal_bit)
+            return true;
+    }
+
+    return false;
+}
+
+bool process_queue_msg(struct Processes *p, ProcessPID pid, struct IPCMessage *msg)
+{
+    u8                 msgbuf[IPC_MSG_SIZE], hdrbuf[INBOX_HEADER_SIZE];
+    bool               overflow = false;
+    struct InboxHeader header;
+
+    if (pid == 0) return false; // dont send messages to the Kernel, syscalls exist
+    if (p->proc[pid].state == FREE || p->proc[pid].state == ZOMBIE) return false;
+    if (!(p->proc[pid].flags & PROC_IPC)) return false;
+    if (!(p->proc[pid].inbox)) return false;
+    if (!msg) return false;
+    if (msg->type == 0) return false; // its a NULL message
+
+    msgbuf[IPC_MSG_SENDER]      = msg->sender;
+    msgbuf[IPC_MSG_TYPE]        = msg->type;
+    msgbuf[IPC_MSG_ID]          = msg->msgid >> 8;
+    msgbuf[IPC_MSG_ID + 1]      = msg->msgid;
+    msgbuf[IPC_MSG_SUBJECT]     = msg->subject >> 24;
+    msgbuf[IPC_MSG_SUBJECT + 1] = msg->subject >> 16;
+    msgbuf[IPC_MSG_SUBJECT + 2] = msg->subject >> 8;
+    msgbuf[IPC_MSG_SUBJECT + 3] = msg->subject;
+    msgbuf[IPC_MSG_CONTENT]     = (u32)msg->content >> 24;
+    msgbuf[IPC_MSG_CONTENT + 1] = (u32)msg->content >> 16;
+    msgbuf[IPC_MSG_CONTENT + 2] = (u32)msg->content >> 8;
+    msgbuf[IPC_MSG_CONTENT + 3] = (u32)msg->content;
+
+    // map this process inbox into the shadow scratchpad
+    map_pt_entry((u32 *)AKAI_PROCESS_PT3, AKAI_IPC_KERNEL_IN >> 12, (u32)p->proc[pid].inbox,
+                 PTE_V | PTE_R | PTE_W);
+    tlb_flush();
+
+    // TODO: this memcpy calls are superfluous, use the pointer directly
+    memcpy(hdrbuf, (u8 *)AKAI_IPC_KERNEL_IN, INBOX_HEADER_SIZE);
+
+    header.semaphore = hdrbuf[INBOX_HEADER_SEM];
+    header.tail      = (u16)hdrbuf[INBOX_HEADER_TAIL] << 8;
+    header.tail |= hdrbuf[INBOX_HEADER_TAIL + 1];
+    header.head = (u16)hdrbuf[INBOX_HEADER_HEAD] << 8;
+    header.head |= hdrbuf[INBOX_HEADER_HEAD + 1];
+    header.missed    = hdrbuf[INBOX_HEADER_MISSED];
+    header.flags     = hdrbuf[INBOX_HEADER_FLAGS];
+    header.queue_max = (u16)hdrbuf[INBOX_HEADER_QUEUE_MAX] << 8;
+    header.queue_max |= hdrbuf[INBOX_HEADER_QUEUE_MAX + 1];
+
+    /* insert */
+    {
+        u16 next_head = (header.head + 1) % header.queue_max;
+        if (next_head == header.tail) {
+            // overrun
+            header.flags |= INBOX_FLAG_QUEUE_OVERFLOW;
+            overflow = true;
+        } else {
+            memcpy((u8 *)AKAI_IPC_KERNEL_IN + INBOX_HEADER_SIZE + (header.head * IPC_MSG_SIZE),
+                   msgbuf, IPC_MSG_SIZE);
+            header.head = next_head;
+        }
+
+        header.missed++;
+
+        // store changed values
+        hdrbuf[INBOX_HEADER_HEAD]     = header.head >> 8;
+        hdrbuf[INBOX_HEADER_HEAD + 1] = header.head;
+        hdrbuf[INBOX_HEADER_FLAGS]    = header.flags;
+        hdrbuf[INBOX_HEADER_MISSED]   = header.missed;
+    }
+
+    memcpy((u8 *)AKAI_IPC_KERNEL_IN, hdrbuf, INBOX_HEADER_SIZE);
+
+    // unmap this process inbox into the shadow scratchpad by mapping p->curr's
+    map_pt_entry((u32 *)AKAI_PROCESS_PT3, AKAI_IPC_KERNEL_IN >> 12, (u32)p->curr->inbox,
+                 PTE_V | PTE_R | PTE_W);
+    tlb_flush();
+    return overflow;
+}

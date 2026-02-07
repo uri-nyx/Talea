@@ -12,7 +12,7 @@ u8 Terminal_Read(TaleaMachine *m, u8 port)
     switch (port & 0xf) {
     case P_TERMINAL_SERIAL_DATA: {
         u8 c = Serial_PopByte(&m->terminal.serial);
-        TALEA_LOG_TRACE("CHARACTER: %d, %c\n" , c, c);
+        TALEA_LOG_TRACE("CHARACTER: %d, %c\n", c, c);
         return c;
     }
     case P_TERMINAL_SERIAL_STATUS: return m->terminal.serial.status;
@@ -30,6 +30,7 @@ u8 Terminal_Read(TaleaMachine *m, u8 port)
     case P_TERMINAL_TIMER_PRESCALER: return m->terminal.timer.prescaler;
     case P_TERMINAL_TIMER_CSR: return m->terminal.timer.csr; break;
     case P_TERMINAL_KBD_CSR: {
+        TALEA_LOG_TRACE("READ_FROM_KBD_CSR\n");
         if (m->terminal.kb.csr & TERMINAL_KB_GET_CSR) {
             // If bit 4 is set: Return Config (bits 0-3)
             u8 config = m->terminal.kb.csr;
@@ -110,7 +111,13 @@ void Terminal_Write(TaleaMachine *m, u8 port, u8 value)
         break;
     case P_TERMINAL_TIMER_PRESCALER: m->terminal.timer.prescaler = value; break;
     case P_TERMINAL_TIMER_CSR: m->terminal.timer.csr = value; break;
-    case P_TERMINAL_KBD_CSR: m->terminal.kb.csr = value; break;
+    case P_TERMINAL_KBD_CSR:
+        TALEA_LOG_TRACE("WRITTEN TO TERMINAL CSR %x\n", value);
+        if (value & TERMINAL_KB_GET_CSR)
+            m->terminal.kb.csr |= TERMINAL_KB_GET_CSR;
+        else
+            m->terminal.kb.csr = value;
+        break;
     default: break;
     }
 }

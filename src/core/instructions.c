@@ -6,7 +6,7 @@
 #include "machine_description.h"
 #include "talea.h"
 
-//#define DEBUG_LOG_INSTRUCTION_EXEC
+// #define DEBUG_LOG_INSTRUCTION_EXEC
 
 #ifdef DEBUG_LOG_INSTRUCTION_EXEC
 #define EXEC_LOG(s)                                                                     \
@@ -68,6 +68,7 @@ static void instr_Sysret(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8
         SR_SET_INTERRUPT(m->cpu.status, 1);
     } else {
         EXEC_LOG("Sysret");
+        SR_SET_INTERRUPT(m->cpu.status, 1);
         u32 sp1  = GPR_GET(m, x2);
         u32 stat = PopW(m);
         u32 sp2  = GPR_GET(m, x2);

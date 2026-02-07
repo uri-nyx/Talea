@@ -24,7 +24,7 @@
 #define DEVICE_ID_AUDIO   'A'
 #define DEVICE_ID_MOUSE   'M'
 
-/* STANDARD TALEA DEVICE MAP */
+/* STANDARD TALEA DEVICE MAP DEPRECATED */
 struct device_map {
     u8 tty;
     u8 timer;
@@ -48,7 +48,7 @@ enum SerialControl {
     SER_CONTROL_MASTER_RESET = 0x80, // Master reset (clear all buffers)
 };
 
-/* TTY DEVICE PORTS */
+/* TTY DEVICE PORTS DEPRECATED */
 enum PortsSerial {
     SER_DATA    = 0X0, /* R/W */
     SER_TX      = 0x0, /* W */
@@ -64,7 +64,7 @@ enum TimerCSR {
     TIM_GLOBAL_EN   = 0x80, // global enable
 };
 
-/* TIMER DEVICE PORTS */
+/* TIMER DEVICE PORTS DEPRECATED */
 enum PortsTimer {
     TIM_TIMEOUT   = 0x0, /* R/W */
     TIM_INTERVAL  = 0x2, /* R/W */
@@ -92,11 +92,26 @@ enum KeyboardCSR {
                          // //TODO: Document this
 };
 
-/* KEYBOARD DEVICE PORTS */
+/* KEYBOARD DEVICE PORTS DEPRECATED*/
 enum PortsKeyboard {
     KBD_CSR  = 0x0, /* R/W */
     KBD_CHAR = 0x1, /* R */
     KBD_SCAN = 0x2  /* R */
+};
+
+/* USE THIS ONE */
+enum PortsTerminal {
+    TERMINAL_SERIAL_DATA     = 0x0,
+    TERMINAL_SERIAL_STATUS   = 0x1,
+    TERMINAL_SERIAL_CTRL     = 0x2,
+    TERMINAL_SERIAL_RXCOUNT  = 0x3,
+    TERMINAL_TIMER_TIMEOUT   = 0x6,
+    TERMINAL_TIMER_INTERVAL  = 0x8,
+    TERMINAL_TIMER_PRESCALER = 0xa,
+    TERMINAL_TIMER_CSR       = 0xb,
+    TERMINAL_KBD_CSR         = 0xc,
+    TERMINAL_KBD_CHAR        = 0xd,
+    TERMINAL_KBD_CODE        = 0xe,
 };
 
 enum PortsMouse {
@@ -481,7 +496,6 @@ enum PortsSystem {
     REG_SYSTEM_WIN_OP,
     REG_SYSTEM_WIN_BUFF,
 
-    
     /* MMU registers */
     REG_SYSTEM_PDT = REG_SYSTEM_WIN_BUFF + 128, // Current pdt base in DATA memory
     REG_SYSTEM_TLB = REG_SYSTEM_PDT + 2,        // Writing flushes the TLB

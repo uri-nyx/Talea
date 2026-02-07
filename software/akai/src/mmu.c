@@ -3,11 +3,9 @@
 #include "../libsirius/devices.h"
 #include "../libsirius/types.h"
 
-
 extern u32 *kernel_pt_align;
 extern u32 *kernel_pt;
-extern u32 *video_pt;
-
+extern u32 *high_mem_pt;
 
 void map_pdt_entry(u32 id, u32 page, u32 flags)
 {
@@ -22,6 +20,13 @@ void unmap_pdt_entry(u32 id)
 void map_pt_entry(u32 *pt, u32 id, u32 page, u32 flags)
 {
     pt[id & 0x3FF] = (page & 0xFFF000) | flags;
+    _trace(0x666, pt[id & 0x3FF], (u32)pt, id);
+}
+
+void chperm_pt_entry(u32 *pt, u32 id, u32 flags)
+{
+    pt[id & 0x3FF] &= ~0x1f;
+    pt[id & 0x3FF] |= flags;
     _trace(0x666, pt[id & 0x3FF], (u32)pt, id);
 }
 

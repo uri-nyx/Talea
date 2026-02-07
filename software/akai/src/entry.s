@@ -131,7 +131,7 @@ _interrupt:
     trace x0, x0, x5, x2
     swd x5, 0x1004(x0) # store at DATA[0x1004]
 
-    lbud x12, 288(x0)   # REG_SYSTEM_EXCEPTION (the interrupt raised) NOT CORRECT
+    lbud x12, 441(x0)   # REG_SYSTEM_INTERRUPT (last interrupt ack)
     call    akai_interrupt
 
     restore x0, x0, x0
@@ -161,6 +161,14 @@ _syscall:
     call    akai_syscall
     
     restore x10, x0, x0
+    swd x5, 0x1010(x0)
+    lwd x5, 0x1008(x0)
+    trace x5, x0, x0, x0
+    sw x5, 4(x2)
+    lwd x5, 0x100C(x0)
+    trace x5, x0, x0, x0
+    sw x5, 0(x2)
+    lwd x5, 0x1010(x0)
     sysret
 
 ################################################################################
@@ -208,7 +216,7 @@ _switch:
     swd x12, 0x1008(x0) # store pc at DATA[0x1008]
     swd x13, 0x100C(x0) # store status at DATA[0x100C]
 
-    trace x0, x31, x12, x13
+    trace x0, x30, x12, x13
 
     restore x0, x0, x0
 

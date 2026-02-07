@@ -103,6 +103,7 @@ typedef struct CpuState {
 
     // Interrupts
     enum TaleaInterrupt exception, LastException;
+    enum TaleaInterrupt interrupt;
     bool                isProcessingException;
     u8                  currentIpl, pendingIpl;
     u8                  pendingInterrupts[8];

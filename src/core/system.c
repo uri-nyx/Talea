@@ -202,6 +202,8 @@ u8 System_Read(TaleaMachine *m, u16 addr)
     case REG_SYSTEM_USP + 2: return (m->cpu.usp >> 8);
     case REG_SYSTEM_USP + 3: return (m->cpu.usp);
 
+    case REG_SYSTEM_INTERRUPT: return m->cpu.interrupt;
+
     default:
         if (addr >= REG_SYSTEM_WIN_BUFF && addr < REG_SYSTEM_WIN_BUFF + (32 * 4)) {
             return m->sys.winBuff[addr - REG_SYSTEM_WIN_BUFF];
@@ -218,7 +220,7 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
     static bool save_block_to_firmware_armed = false;
     static bool poweroffSequenceArmed        = false;
 
-    //TALEA_LOG_TRACE("SYSTEM WRITE TO %d, v: %x\n", addr, value);
+    // TALEA_LOG_TRACE("SYSTEM WRITE TO %d, v: %x\n", addr, value);
 
     switch (addr) {
     case REG_SYSTEM_ARCH_ID:
@@ -326,25 +328,28 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
     case REG_SYSTEM_CYCLES_INSTRET + 4:
     case REG_SYSTEM_CYCLES_INSTRET + 5:
     case REG_SYSTEM_CYCLES_INSTRET + 6:
-    case REG_SYSTEM_CYCLES_INSTRET + 7: break;
+    case REG_SYSTEM_CYCLES_INSTRET + 7:
+        break;
 
-    /* Context Windowing */
+        /* Context Windowing */
+        /* clang-format off */
     case REG_SYSTEM_CWP: break;
-    case REG_SYSTEM_WIN_SEL: m->sys.winSel = value & 0x3; break;;
+    case REG_SYSTEM_WIN_SEL: m->sys.winSel = value & 0x3; break;
+    
     case REG_SYSTEM_WIN_OP:
         if (value == TALEA_SYSTEM_WIN_OP_LOAD) {
             for (size_t i = 0; i < 32; i++) {
                 u32 reg = 0;
-                reg     = (u32)m->sys.winBuff[(i * 4)] << 24;
+
+                reg = (u32)m->sys.winBuff[(i * 4)] << 24;
                 reg |= (u32)m->sys.winBuff[(i * 4) + 1] << 16;
-                reg |= m->sys.winBuff[(i * 4) + 2] << 8;
+                reg |= (u32)m->sys.winBuff[(i * 4) + 2] << 8;
                 reg |= m->sys.winBuff[(i * 4) + 3];
 
                 reg = i ? reg : 0;
 
                 if (m->sys.winSel < m->cpu.spilledWindows)
-                    Machine_WriteData32(
-                        m, TALEA_DATA_FIRMWARE_RES + (m->sys.winSel * 32 * 4) + (i * 4), reg);
+                    Machine_WriteData32(m, TALEA_DATA_FIRMWARE_RES + (m->sys.winSel * 32 * 4) + (i * 4), reg);
                 else
                     m->cpu.gpr[(m->sys.winSel * 32) + i] = reg;
             }
@@ -353,8 +358,7 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
                 u32 reg;
 
                 if (m->sys.winSel < m->cpu.spilledWindows)
-                    reg = Machine_ReadData32(m, TALEA_DATA_FIRMWARE_RES + (m->sys.winSel * 32 * 4) +
-                                                    (i * 4));
+                    reg = Machine_ReadData32(m, TALEA_DATA_FIRMWARE_RES + (m->sys.winSel * 32 * 4) + (i * 4));
                 else
                     reg = m->cpu.gpr[(m->sys.winSel * 32) + i];
 
@@ -403,6 +407,11 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
     case REG_SYSTEM_USP + 2: m->cpu.usp = (m->cpu.usp & 0xffff00ff) | ((u32)value << 8); break;
     case REG_SYSTEM_USP + 3: m->cpu.usp = (m->cpu.usp & 0xffffff00) | ((u32)value); break;
 
-    default: break;
+    case REG_SYSTEM_INTERRUPT: break;
+    default: 
+        if (addr >= REG_SYSTEM_WIN_BUFF && addr < REG_SYSTEM_WIN_BUFF + (32 * 4)) {
+            m->sys.winBuff[addr - REG_SYSTEM_WIN_BUFF]=value;
+        }
+        break;
     }
 }

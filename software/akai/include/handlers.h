@@ -6,14 +6,17 @@
 #include "libsirius/discovery.h"
 #include "libsirius/types.h"
 
-extern struct Processes  processes;
-extern struct SystemInfo sys;
+extern struct Processes     processes;
+extern struct SystemInfo    sys;
+extern struct PhysicalPages pages;
 
 enum AkaiSyscalls {
     SYSCALL_EXIT,
     SYSCALL_YIELD,
     SYSCALL_HOOK,
     SYSCALL_UNHOOK,
+    SYSCALL_IPC_INIT,
+    SYSCALL_PUTC,
 };
 
 enum TaleaException {
@@ -71,9 +74,10 @@ void akai_interrupt(u8 vector);
 void kernel_panic(u8 vector, u32 fault_addr, struct ThreadCtx *ctx);
 void kernel_panic_internal(const char *msg);
 
-typedef void *(*KernelInterruptHook)(void *);
+typedef void (*KernelInterruptHook)(u32 *, struct IPCMessage *);
 
 // Returns the address of the previous handler or NULL if there is non
 KernelInterruptHook kernel_hook_interrupt(enum TaleaInterrupt interrupt, KernelInterruptHook hook);
+void                kbd_scan_hook(u32 *win, struct IPCMessage *msg_out);
 
 #endif /* HANDLERS_H */
