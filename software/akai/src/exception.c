@@ -1,14 +1,18 @@
-#include "../include/handlers.h"
-#include "../include/hw.h"
-#include "../include/process.h"
+#include "hw.h"
+#include "kernel.h"
 
 static const char *exception_names[] = {
     "EXCEPTION_RESET0",
-    "EXCEPTION_RESET",         "EXCEPTION_BUS_ERROR",
-    "EXCEPTION_ADDRESS_ERROR", "EXCEPTION_ILLEGAL_INSTRUCTION_TALEA",
-    "EXCEPTION_DIVISION_ZERO", "EXCEPTION_PRIVILEGE_VIOLATION",
-    "EXCEPTION_PAGE_FAULT",    "EXCEPTION_ACCESS_VIOLATION_TALEA",
-    "EXCEPTION_DEBUG_STEP",    "EXCEPTION_OVERSPILL",
+    "EXCEPTION_RESET",
+    "EXCEPTION_BUS_ERROR",
+    "EXCEPTION_ADDRESS_ERROR",
+    "EXCEPTION_ILLEGAL_INSTRUCTION_TALEA",
+    "EXCEPTION_DIVISION_ZERO",
+    "EXCEPTION_PRIVILEGE_VIOLATION",
+    "EXCEPTION_PAGE_FAULT",
+    "EXCEPTION_ACCESS_VIOLATION_TALEA",
+    "EXCEPTION_DEBUG_STEP",
+    "EXCEPTION_OVERSPILL",
     "EXCEPTION_UNDERSPILL",
 };
 
@@ -17,14 +21,14 @@ static u32 panic_att = 0x000FFF00UL;
 
 static void panic_putc(char c)
 {
-    u32 term_size = sys.textbuffer.w * sys.textbuffer.h;
+    u32 term_size = A.info.textbuffer.w * A.info.textbuffer.h;
 
     if (c == '\n') {
-        panic_pos += sys.textbuffer.w - (panic_pos % sys.textbuffer.w);
+        panic_pos += A.info.textbuffer.w - (panic_pos % A.info.textbuffer.w);
         return;
     }
 
-    *((volatile u32 *)(sys.textbuffer.addr) + panic_pos) = ((u32)c << 24) | panic_att;
+    *((volatile u32 *)(A.info.textbuffer.addr) + panic_pos) = ((u32)c << 24) | panic_att;
 
     panic_pos = (panic_pos + 1) % (term_size);
 }
@@ -40,7 +44,7 @@ static void panic_puts(const char *str)
 
 static void panic_putx(u32 x)
 {
-    u32  term_size   = sys.textbuffer.w * sys.textbuffer.h;
+    u32  term_size   = A.info.textbuffer.w * A.info.textbuffer.h;
     char hex_chars[] = "0123456789ABCDEF";
 
     /* a 32 bit int fits in 8 characters */
@@ -100,7 +104,7 @@ emit_dec:
 
     while (i < pad) {
         panic_putc('0');
-        pad--; 
+        pad--;
     }
 
     /* Print buffer in reverse (Left to Right) */
@@ -123,8 +127,8 @@ void kernel_panic(u8 vector, u32 fault_addr, struct ThreadCtx *ctx)
     _trace(ctx->pc, ctx->status, ctx->usp, ctx->wp);
     _trace(0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF);
 
-    for (i = 0; i < sys.textbuffer.h * sys.textbuffer.w; i++) {
-        *((u32*)sys.textbuffer.addr + i) = ((u32)' ' << 24) | panic_att;
+    for (i = 0; i < A.info.textbuffer.h * A.info.textbuffer.w; i++) {
+        *((u32 *)A.info.textbuffer.addr + i) = ((u32)' ' << 24) | panic_att;
     }
 
     panic_att |= TEXTMODE_ATT_BOLD;
@@ -132,9 +136,9 @@ void kernel_panic(u8 vector, u32 fault_addr, struct ThreadCtx *ctx)
 
     panic_att &= ~(TEXTMODE_ATT_BLINK | TEXTMODE_ATT_BOLD);
     panic_puts("PROCESS: ");
-    panic_puts(processes.curr->name);
+    panic_puts(A.pr.curr->name);
     panic_puts(" PID ");
-    panic_puti(processes.curr->pid, 3);
+    panic_puti(A.pr.curr->pid, 3);
     panic_puts("\nException ");
     panic_puts(exception_names[vector]);
     panic_putc(' ');
@@ -163,7 +167,7 @@ void kernel_panic(u8 vector, u32 fault_addr, struct ThreadCtx *ctx)
         panic_puts(": ");
         panic_putx(ctx->regs[i]);
         panic_puts("  ");
-        if (i % 4 == 0) panic_putc('\n');
+        if (i > 0 && i % 4 == 0) panic_putc('\n');
     }
 
     panic_putc('\n');
@@ -178,31 +182,69 @@ halt:
 
 void akai_exception(u8 vector, u32 fault_addr)
 {
-    u32        status;
-    static u32 win[32];
+    u32  status;
+    u32 *win;
     status = _lwd(AKAI_KERNEL_STATUS_SAVE);
 
-    save_ctx(processes.curr);
+    save_ctx(A.pr.curr);
+    win = A.pr.curr->ctx.regs;
 
-    if (status & CPU_STATUS_SUPERVISOR || processes.curr->pid == 0) {
+    if (status & CPU_STATUS_SUPERVISOR || A.pr.curr->pid == 0) {
         // this is a kernel panic.
-        kernel_panic(vector, fault_addr, &processes.curr->ctx);
+        kernel_panic(vector, fault_addr, &A.pr.curr->ctx);
     }
 
-    load_window(sirius_cwp - 1, &win);
+    load_window(sirius_cwp - 1, win);
 
-    puts(&sys, "Exception: ");
-    puts(&sys, exception_names[vector]);
-    puts(&sys, " in process ");
-    puts(&sys, processes.curr->name);
-    puts(&sys, "\n");
-
-    processes.curr->exit_code = -vector;
+    puts("Exception: ");
+    puts(exception_names[vector]);
+    puts(" in process ");
+    puts(A.pr.curr->name);
+    puts("\n");
 
     switch (vector) {
+    case EXCEPTION_PAGE_FAULT: {
+        u32  faddr       = _lwd(REG_SYSTEM_FAULT_ADDR);
+        u8   cause       = _lbud(REG_SYSTEM_FAULT_CAUSE);
+        u8   access_type = cause & 0x3;
+        bool unmapped    = cause >> 6;
+        bool leaf        = cause >> 7;
+
+        if (!unmapped && access_type != ACCESS_EXEC) {
+            if (faddr < AKAI_PROCESS_STACK_TOP && faddr >= AKAI_PROCESS_STACK_END) {
+                u8 *new_page = alloc_pages_contiguous(A.pr.curr->pid, 1);
+                if (!new_page) {
+                    A.pr.curr->last_error = P_ERROR_STACK_GROW;
+                    A.pr.curr->exit_code  = A_ERROR_OOM;
+                    process_terminate(A.pr.curr->pid);
+                    process_yield();
+                }
+
+                if (!map_active_pt_entry((u32)new_page, faddr & ~0xFFF, PTE_U | PTE_RW)) {
+                    A.pr.curr->last_error = P_ERROR_STACK_GROW;
+                    A.pr.curr->exit_code  = A_ERROR_OOM;
+                    process_terminate(A.pr.curr->pid);
+                    process_yield();
+                }
+
+                memset((u8 *)(faddr & ~0xFFF), 0, PAGE_SIZE);
+            } else {
+                A.pr.curr->exit_code = A_ERROR_SEG;
+                process_terminate(A.pr.curr->pid);
+                process_yield();
+            }
+        } else {
+            A.pr.curr->exit_code = A_ERROR_SEG;
+            process_terminate(A.pr.curr->pid);
+            process_yield();
+        }
+        break;
+    }
     default:
-        process_terminate(&processes, processes.curr->pid);
-        process_yield(&processes);
+        A.pr.curr->exit_code = -vector;
+        _trace(0xDEAD00B, A.pr.curr->pid, vector);
+        process_terminate(A.pr.curr->pid);
+        process_yield();
         break;
     }
 }

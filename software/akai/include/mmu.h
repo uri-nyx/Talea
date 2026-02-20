@@ -3,14 +3,17 @@
 
 /* MMU abstractions for Akai */
 
-#include "../include/system.h"
-#include "libsirius/discovery.h"
-#include "libsirius/types.h"
+void mmu_init(void);
 
-void mmu_init(struct SystemInfo *sys);
+bool map_active_range(u32 pstart, u32 vstart, usize num_pages, u32 flags);
+bool map_active_pt_entry(u32 paddr, u32 vaddr, u32 flags);
+void unmap_active_pt_entry(u32 vaddr);
+void *active_phys_from_v(u32 vaddr);
 
-void map_pdt_entry(u32 id, u32 page, u32 flags);
-void unmap_pdt_entry(u32 id);
+void *phys_from_v(struct Process *proc, u32 vaddr);
+usize copy_to_user(struct Process *dest_proc, void *user_dst, void *kernel_src, usize len);
+void map_pdt_entry(u32 pdt_base, u32 id, u32 page, u32 flags);
+void unmap_pdt_entry(u32 pdt_base, u32 id);
 void map_pt_entry(u32 *pt, u32 id, u32 page, u32 flags);
 void chperm_pt_entry(u32 *pt, u32 id, u32 flags);
 void map_pt_range(u32 *pt, u32 pstart, u32 vstart, usize num_pages, u32 flags);

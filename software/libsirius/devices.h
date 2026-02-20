@@ -127,11 +127,11 @@ enum PortsMouse {
 };
 
 enum MouseCsr {
-    MOUSE_BUTT_RIGHT = 1 << 0,
-    MOUSE_BUTT_LEFT  = 1 << 1,
-    MOUSE_CUSTOM     = 1 << 5,
-    MOUSE_VISIBLE    = 1 << 6,
-    MOUSE_IE         = 1 << 7,
+    MOUSE_BUTT_RIGHT = 1UL << 0,
+    MOUSE_BUTT_LEFT  = 1UL << 1,
+    MOUSE_CUSTOM     = 1UL << 5,
+    MOUSE_VISIBLE    = 1UL << 6,
+    MOUSE_IE         = 1UL << 7,
 };
 
 enum TaleaVideoMode {
@@ -226,14 +226,14 @@ enum VideoClearFlag {
 };
 
 enum VideoBatchFlags {
-    VIDEO_BATCH_TYPE0            = 1 << 0,
-    VIDEO_BATCH_TYPE1            = 1 << 1,
-    VIDEO_BATCH_BACKFACE_CULLING = 1 << 2,
-    VIDEO_BATCH_ZSHADING         = 1 << 3,
-    VIDEO_BATCH_MODIFY_TOPOLOGY  = 1 << 4,
-    VIDEO_BATCH_ABSOLUTE         = 1 << 5,
-    VIDEO_BATCH_PERSPECTIVE      = 1 << 6,
-    VIDEO_BATCH_DEPTH_SORT       = 1 << 7,
+    VIDEO_BATCH_TYPE0            = 1UL << 0,
+    VIDEO_BATCH_TYPE1            = 1UL << 1,
+    VIDEO_BATCH_BACKFACE_CULLING = 1UL << 2,
+    VIDEO_BATCH_ZSHADING         = 1UL << 3,
+    VIDEO_BATCH_MODIFY_TOPOLOGY  = 1UL << 4,
+    VIDEO_BATCH_ABSOLUTE         = 1UL << 5,
+    VIDEO_BATCH_PERSPECTIVE      = 1UL << 6,
+    VIDEO_BATCH_DEPTH_SORT       = 1UL << 7,
 };
 
 enum VideoBatchType {
@@ -244,14 +244,14 @@ enum VideoBatchType {
 };
 
 enum VertexFlags {
-    VX_END_OF_STRIP = 1 << 0,
-    VX_BRIGHT       = 1 << 1,
-    VX_HIDE         = 1 << 2,
-    VX_MARK         = 1 << 3,
-    VX_MARKID0      = 1 << 4,
-    VX_MARKID1      = 1 << 5,
-    VX_MARKID2      = 1 << 6,
-    VX_MARKID3      = 1 << 7,
+    VX_END_OF_STRIP = 1UL << 0,
+    VX_BRIGHT       = 1UL << 1,
+    VX_HIDE         = 1UL << 2,
+    VX_MARK         = 1UL << 3,
+    VX_MARKID0      = 1UL << 4,
+    VX_MARKID1      = 1UL << 5,
+    VX_MARKID2      = 1UL << 6,
+    VX_MARKID3      = 1UL << 7,
 };
 
 typedef i32 fx16;
@@ -356,7 +356,7 @@ enum StorageStatus {
 
 enum TpsId { TPS_ID_A, TPS_ID_B, TPS_TOTAL_DRIVES };
 
-/* TPS DEVICE PORTS */
+/* TPS DEVICE PORTS DEPRECATED*/
 enum PortsTps {
     TPS_COMMAND = 0x00,
     TPS_DATA    = 0x01,
@@ -365,7 +365,7 @@ enum PortsTps {
     TPS_STATUS  = 0x05
 };
 
-/* HCS DEVICE PORTS */
+/* HCS DEVICE PORTS DEPRECATED*/
 enum PortsHCS {
     HCS_COMMAND = 0x00,
     HCS_DATA    = 0x01,
@@ -373,6 +373,21 @@ enum PortsHCS {
     HCS_POINT   = 0x04,
     HCS_RESULT  = 0x06,
     HCS_STATUS  = 0x07,
+};
+
+/* USE THIS PORTS */
+enum PortsStorage {
+    STORAGE_TPS_COMMAND = 0x00,
+    STORAGE_TPS_DATA    = 0x01,
+    STORAGE_TPS_POINT   = 0x02,
+    STORAGE_TPS_RESULT  = 0x04,
+    STORAGE_TPS_STATUS  = 0x05,
+    STORAGE_HCS_COMMAND = 0x06,
+    STORAGE_HCS_DATA    = 0x07,
+    STORAGE_HCS_SECTOR  = 0x08,
+    STORAGE_HCS_POINT   = 0x0a,
+    STORAGE_HCS_RESULT  = 0x0c,
+    STORAGE_HCS_STATUS  = 0x0d,
 };
 
 enum StorageCommand {
@@ -433,13 +448,13 @@ enum AudioGlobalStatus {
 
 // TODO: DOCUMENT
 enum AudioCsr {
-    AUDIO_CSR_TRIGGER    = 1 << 0, // Starts the note
-    AUDIO_CSR_IE         = 1 << 1, // interrupt enable
-    AUDIO_CSR_LOOP       = 1 << 2, // loops the note
-    AUDIO_CSR_BUSY       = 1 << 3,
-    AUDIO_CSR_STOP       = 1 << 4,
-    AUDIO_CSR_NOTE_ENDED = 1 << 5,
-    AUDIO_CSR_GATE       = 1 << 6, // changes mode to release note inmediately
+    AUDIO_CSR_TRIGGER    = 1UL << 0, // Starts the note
+    AUDIO_CSR_IE         = 1UL << 1, // interrupt enable
+    AUDIO_CSR_LOOP       = 1UL << 2, // loops the note
+    AUDIO_CSR_BUSY       = 1UL << 3,
+    AUDIO_CSR_STOP       = 1UL << 4,
+    AUDIO_CSR_NOTE_ENDED = 1UL << 5,
+    AUDIO_CSR_GATE       = 1UL << 6, // changes mode to release note inmediately
 };
 
 enum {
@@ -503,16 +518,31 @@ enum PortsSystem {
 
     /* Context switching */
     REG_SYSTEM_USP, // Saved user stack pointer // NOTE; 4 bytes
+    /* Interrupts */
+    REG_SYSTEM_INTERRUPT = REG_SYSTEM_USP + 4, // Last interrupt acknowledged
+    REG_SYSTEM_FAULT_CAUSE,
 };
 
 enum PTEFlags {
-    PTE_V = (1 << 0), // Valid
-    PTE_R = (1 << 1), // Read
-    PTE_W = (1 << 2), // Write
-    PTE_X = (1 << 3), // Execute
-    PTE_U = (1 << 4), // User
-    PTE_A = (1 << 6), // Accessed (Hardware sets this)
-    PTE_D = (1 << 7), // Dirty (Hardware sets this on write)
+    PTE_V   = (1UL << 0), // Valid
+    PTE_R   = (1UL << 1), // Read
+    PTE_W   = (1UL << 2), // Write
+    PTE_X   = (1UL << 3), // Execute
+    PTE_U   = (1UL << 4), // User
+    PTE_A   = (1UL << 6), // Accessed (Hardware sets this)
+    PTE_D   = (1UL << 7), // Dirty (Hardware sets this on write)
+    PTE_RW  = PTE_V | PTE_R | PTE_W,
+    PTE_RX  = PTE_V | PTE_R | PTE_W,
+    PTE_RWX = PTE_RW | PTE_X,
+};
+
+enum MemAccessType {
+    ACCESS_READ = 1,
+    ACCESS_WRITE,
+    ACCESS_EXEC,
+    CAUSE_PERM     = 1 << 5,
+    CAUSE_UNMAPPED = 1 << 6,
+    CAUSE_LEAF     = 1 << 7,
 };
 
 #endif /* DEVICES_H */

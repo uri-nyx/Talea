@@ -69,17 +69,13 @@ static void instr_Sysret(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8
     } else {
         EXEC_LOG("Sysret");
         SR_SET_INTERRUPT(m->cpu.status, 1);
-        u32 sp1  = GPR_GET(m, x2);
         u32 stat = PopW(m);
-        u32 sp2  = GPR_GET(m, x2);
         u32 pc   = PopW(m);
-        u32 sp3  = GPR_GET(m, x2);
         SET_PC(m, pc);
         m->cpu.status = stat;
         SetUsermode(m);
         m->cpu.isProcessingException = false;
-        TALEA_LOG_TRACE("Sysret to: %06x (status: 0x%08x, sp1: 0x%08x, sp2: 0x%08x, sp3: 0x%08x)\n",
-                        pc, m->cpu.status, sp1, sp2, sp3);
+        TALEA_LOG_TRACE("Sysret to: %06x (status: 0x%08x ra: 0x%08x) wp: %d\n", pc, m->cpu.status, GPR_GET(m, x1), m->cpu.cwp);
     };
 }
 
@@ -147,9 +143,6 @@ static void instr_Copy(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
         }
 
         size -= 4;
-        GPR_SET(m, r1, src_addr);
-        GPR_SET(m, r2, dest_addr);
-        GPR_SET(m, r3, size);
     }
 
     /* 2. Byte Copy (Tail Path) */
@@ -179,9 +172,6 @@ static void instr_Copy(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
         }
 
         size -= 1;
-        GPR_SET(m, r1, src_addr);
-        GPR_SET(m, r2, dest_addr);
-        GPR_SET(m, r3, size);
     }
 }
 
@@ -220,9 +210,6 @@ static void instr_Swap(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
             addr_a += 4;
             addr_b += 4;
             size -= 4;
-            GPR_SET(m, r1, addr_a);
-            GPR_SET(m, r2, addr_b);
-            GPR_SET(m, r3, size);
         }
 
         while (size > 0) {
@@ -239,9 +226,6 @@ static void instr_Swap(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
             addr_a++;
             addr_b++;
             size--;
-            GPR_SET(m, r1, addr_a);
-            GPR_SET(m, r2, addr_b);
-            GPR_SET(m, r3, size);
         }
     }
 }
@@ -257,22 +241,22 @@ static void instr_Fill(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
 
     if (SR_GET_MMU(cpu->status)) {
         size_t total_bytes = count;
-        if (imm_15 & 4)
+        if (imm_15 == 3)
             total_bytes *= 4; /* Word fill */
-        else if (imm_15 & 2)
+        else if (imm_15 == 2)
             total_bytes *= 3; /* 24-bit fill */
-        else if (imm_15 & 1)
+        else if (imm_15 == 1)
             total_bytes *= 2; /* Half-word fill */
 
         if (!MMU_ValidateWriteAccessRange(m, addr, total_bytes)) return;
     }
 
     for (i = 0; i < count; i++) {
-        if (imm_15 & 4) { /* 32-bit */
+        if (imm_15 == 3) { /* 32-bit */
             Machine_WriteMain32(m, addr + (i * 4), val);
-        } else if (imm_15 & 1) { /* 16-bit */
+        } else if (imm_15 == 1) { /* 16-bit */
             Machine_WriteMain16(m, addr + (i * 2), (u16)val);
-        } else if (imm_15 & 2) { /* 24-bit */
+        } else if (imm_15 == 2) { /* 24-bit */
             Machine_WriteMain16(m, addr + (i * 3), (u32)val >> 8);
             ON_FAULT_RETURN
             Machine_WriteMain8(m, addr + (i * 3) + 2, (u32)val);

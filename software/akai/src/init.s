@@ -1,0 +1,92 @@
+.text
+_init:
+    # a counter for error checking
+    li x5, 1
+    trace x5, x5, x5, x5
+
+    # claim devices: framebuffer, textbuffer, serial and keyboard
+
+    #1
+    li x12, 15 # SYSCALL_DEV_CLAIM
+    li x13, 0  # framebuffer
+    syscall x0, 0x40
+    bne x0, x10, _exit
+
+    #2
+    addi x5, x5, 1
+    li x13, 1  # textbuffer
+    syscall x0, 0x40
+    bne x0, x10, _exit
+    
+    #3
+    addi x5, x5, 1
+    li x13, 4  # serial
+    syscall x0, 0x40
+    bne x0, x10, _exit
+
+    #4
+    addi x5, x5, 1
+    li x13, 5  # kb
+    syscall x0, 0x40
+    bne x0, x10, _exit
+
+    #5
+    addi x5, x5, 1
+    # attach textbuffer and keyboard to stdin, stderr, and stdout
+    li x12, 14   # SYSCALL_DEV_CTL
+    li x13, 255  # STDIN
+    li x14, 1000 # ATTACH
+    la x15, kb
+    li x16, 8    # len
+    syscall x0, 0x40
+    bne x0, x10, _exit
+
+    #6
+    addi x5, x5, 1
+    li x13, 256  # STDOUT
+    li x14, 1000 # ATTACH
+    la x15, tb
+    li x16, 8    # len
+    syscall x0, 0x40
+    bne x0, x10, _exit
+
+    #7
+    addi x5, x5, 1
+    li x13, 257  # STDERR
+    li x14, 1000 # ATTACH
+    la x15, tb
+    li x16, 8    # len
+    syscall x0, 0x40
+    bne x0, x10, _exit
+
+    #8
+    addi x5, x5, 1
+    # exec the terminal
+    li x12, 3 	    # SYSCALL_EXEC
+	la x13, shell
+	mv x14, x0      # argc
+	mv x15, x0      # argv
+	mv x16, x0      # EXEC_AOUT
+	syscall x0, 0x40
+    trace x0, x31, x7, x9
+
+    # in case of failure, exec will fall trhough
+
+_exit:
+    trace x5, x10, x5, x31
+    mv x13, x5
+    mv x12, x0 # SYSCALL_EXIT
+    syscall x0, 0x40
+
+.data
+.align 4
+kb:
+    .word 0 # hardware
+    .word 5 # kb
+.align 4
+tb:
+    .word 0 # hardware
+    .word 1 # kb
+.align 4
+shell:
+    .ascii "A:SH"

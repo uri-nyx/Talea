@@ -64,7 +64,14 @@ Software:
         ☐ colors?
 
     8. Make a simple SDK for games and little apps:
-        ☐ Minimal OS
+        Minimal OS:
+            ✔ boot @done(26-02-19 23:49)
+            ✔ multitasking @done(26-02-19 23:49)
+            ✔ userland @done(26-02-19 23:49)
+            ☐ ipc
+            ☐ streams
+            ☐ syscalls
+            
         ☐ Text editor (visual)
         ☐ Assembler
         ☐ C cross compiler and simple library (no c stdilb)
@@ -113,3 +120,5 @@ Bugs:
         ✔ modem result codes are a mess @done(26-01-24 14:30)
         ✔ if mouse goes outside the bounding box, and then returns OS mouse is constanly showing over the sprite @done(26-01-24 14:30)
 
+    ☐ Extremely weird bugs in the kernel (looked at assembly, no visible changes)
+    ☐ The linker option -ra does not play well with the OS loader

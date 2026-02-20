@@ -11,7 +11,13 @@ _start:
 
 #       2. Set stack pointer to the top of the FRIMWARE data section (0x10000)
 
-    li x2, 0x10000
+    lbud x2, 275(x0) # REG_SYSTEM_MEMSIZE
+    li x6, 65536
+    trace x2, x6, x6, x6
+    umul x0, x2, x2, x6
+    add x2, x2, x6
+    addi x2, x2, -1024
+    trace x2, x2, x2, x2
 
 #       3. Initialize the IVT. All to NOT IMPLEMENTED except exception
 
@@ -73,7 +79,10 @@ _start:
 #       5. Trap if somehow execution comes here
 
 _halt:
-    sti
+    li x5, 0xA5
+    sbd x5, 279(x0)
+    li x5, 0x5A
+    sbd x5, 279(x0)
     j       _halt
 #
 ################################################################################
@@ -126,20 +135,25 @@ _lwd:
     lwd     x10, 0(x12) #x12 addr
     ret
 
-    .globl _copydm # extern usize _copydm(u16 data_addr_src, void *buff_dest, usize sz);
+    .globl _copydm # extern void _copydm(u16 data_addr_src, void *buff_dest, usize sz);
 _copydm:
     copydm x12, x13, x14
-    mv x10, x14 # if interrupted, x14 will return actual bytes copied. //TODO: DOCUMENT THIS
     ret
 
-    .globl _copymd # extern usize _copymd(void* buff_src, u16 data_addr_dest, usize sz);
+    .globl _copymd # extern void _copymd(void* buff_src, u16 data_addr_dest, usize sz);
 _copymd:
     copymd x12, x13, x14
-    mv x10, x14 # if interrupted, x14 will return actual bytes copied. //TODO: DOCUMENT THIS
     ret
 
     .globl memcpy # extern void* memcpy(void* dest, const void* src, size_t n);
 memcpy:
     mv x10, x12
     copy x13, x12, x14
+    ret
+
+    .globl memset # extern void *memset(void *s, int c, size_t n);
+memset:
+    # fill buff, n, fill
+    mv   x10, x12
+    fill x12, x14, x13 
     ret

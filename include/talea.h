@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "devices/audio/audio.h"
 #include "devices/mouse/mouse.h"
@@ -83,9 +84,12 @@ typedef struct TLBEntry {
 } TLBEntry;
 
 enum MemAccessType {
-    ACCESS_READ,
+    ACCESS_READ = 1,
     ACCESS_WRITE,
     ACCESS_EXEC,
+    CAUSE_PERM = 1<<5,
+    CAUSE_UNMAPPED = 1<<6,
+    CAUSE_LEAF = 1<<7,
 };
 
 typedef struct CpuState {
@@ -115,6 +119,7 @@ typedef struct CpuState {
     // MMU
     TLBEntry tlb[4096];
     u32      faultAddr;
+    u8       faultCause;
 
 } CpuState;
 
@@ -129,17 +134,19 @@ u32 MMU_TranslateAddr(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type
 #define TALEA_MAGIC_TRIGGER_SEQUENCE 0x5A
 
 typedef struct DeviceSystem {
-    u64  frequency;
-    bool unixtimeMode;
-    bool calendarMode;
-    bool millisMode;
-    bool microsMode;
-    bool instMode;
-    u64  uptime;
-    u8   winSel;
-    u8   winOp;
-    u8   winBuff[32 * 4];
-    u32  seed;
+    u64       frequency;
+    bool      unixtimeMode;
+    bool      calendarMode;
+    bool      millisMode;
+    bool      microsMode;
+    bool      instMode;
+    u64       uptime;
+    struct tm lastTimeinfo;
+    time_t    lastRawtime;
+    u8        winSel;
+    u8        winOp;
+    u8        winBuff[32 * 4];
+    u32       seed;
 } DeviceSystem;
 
 void System_Write(TaleaMachine *m, u16 addr, u8 value);

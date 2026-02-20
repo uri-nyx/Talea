@@ -18,11 +18,9 @@ static inline u8 freq_to_byte(float targetMhz)
 
 u8 System_Read(TaleaMachine *m, u16 addr)
 {
-    static struct tm *timeinfo;
-    static time_t     rawtime; // Make this more precise
-    static double     uptime;
-    static u64        instructionsRetired;
-    static u64        cycles;
+    static double uptime;
+    static u64    instructionsRetired;
+    static u64    cycles;
 
     switch (addr) {
     case REG_SYSTEM_ARCH_ID: return TAELA_ARCH_ID;
@@ -48,11 +46,17 @@ u8 System_Read(TaleaMachine *m, u16 addr)
 
     /* Time */
     case REG_SYSTEM_YEAR:
-        time(&rawtime);
-        timeinfo = localtime(&rawtime);
-        uptime   = GetTime();
+        time_t now;
+
+        time(&now);
+        struct tm *timeinfo = localtime(&now);
+        uptime              = GetTime();
+
+        m->sys.lastRawtime = now;
+        m->sys.uptime      = GetTime();
+
         if (m->sys.unixtimeMode) {
-            return rawtime >> 24;
+            return m->sys.lastRawtime >> 24;
         } else if (m->sys.calendarMode) {
             return timeinfo->tm_year;
         } else if (m->sys.microsMode) {
@@ -62,7 +66,7 @@ u8 System_Read(TaleaMachine *m, u16 addr)
         }
     case REG_SYSTEM_MONTH:
         if (m->sys.unixtimeMode) {
-            return rawtime >> 16;
+            return m->sys.lastRawtime >> 16;
         } else if (m->sys.calendarMode) {
             return timeinfo->tm_mon;
         } else if (m->sys.microsMode) {
@@ -72,7 +76,7 @@ u8 System_Read(TaleaMachine *m, u16 addr)
         }
     case REG_SYSTEM_DAY:
         if (m->sys.unixtimeMode) {
-            return rawtime >> 8;
+            return m->sys.lastRawtime >> 8;
         } else if (m->sys.calendarMode) {
             return timeinfo->tm_mday;
         } else if (m->sys.microsMode) {
@@ -82,7 +86,7 @@ u8 System_Read(TaleaMachine *m, u16 addr)
         }
     case REG_SYSTEM_HOUR:
         if (m->sys.unixtimeMode) {
-            return rawtime;
+            return m->sys.lastRawtime;
         } else if (m->sys.calendarMode) {
             return timeinfo->tm_hour;
         } else if (m->sys.microsMode) {
@@ -134,7 +138,11 @@ u8 System_Read(TaleaMachine *m, u16 addr)
     case REG_SYSTEM_FAULT_ADDR: return (m->cpu.faultAddr >> 24);
     case REG_SYSTEM_FAULT_ADDR + 1: return (m->cpu.faultAddr >> 16);
     case REG_SYSTEM_FAULT_ADDR + 2: return (m->cpu.faultAddr >> 8);
-    case REG_SYSTEM_FAULT_ADDR + 3: return (m->cpu.faultAddr);
+    case REG_SYSTEM_FAULT_ADDR + 3: {
+        u8 addr          = m->cpu.faultAddr;
+        m->cpu.faultAddr = 0;
+        return addr;
+    };
 
     /* CPU State */
     case REG_SYSTEM_CYCLES_INSTRET: {
@@ -203,6 +211,11 @@ u8 System_Read(TaleaMachine *m, u16 addr)
     case REG_SYSTEM_USP + 3: return (m->cpu.usp);
 
     case REG_SYSTEM_INTERRUPT: return m->cpu.interrupt;
+    case REG_SYTEM_FAULT_CAUSE: {
+        u8 cause          = m->cpu.faultCause;
+        m->cpu.faultCause = 0;
+        return cause;
+    }
 
     default:
         if (addr >= REG_SYSTEM_WIN_BUFF && addr < REG_SYSTEM_WIN_BUFF + (32 * 4)) {
@@ -408,6 +421,7 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
     case REG_SYSTEM_USP + 3: m->cpu.usp = (m->cpu.usp & 0xffffff00) | ((u32)value); break;
 
     case REG_SYSTEM_INTERRUPT: break;
+    case REG_SYTEM_FAULT_CAUSE: break;
     default: 
         if (addr >= REG_SYSTEM_WIN_BUFF && addr < REG_SYSTEM_WIN_BUFF + (32 * 4)) {
             m->sys.winBuff[addr - REG_SYSTEM_WIN_BUFF]=value;

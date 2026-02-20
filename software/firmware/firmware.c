@@ -9,8 +9,8 @@
  */
 
 #include "libsirius/devices.h"
-#include "libsirius/types.h"
 #include "libsirius/discovery.h"
+#include "libsirius/types.h"
 
 #define FIRMWARE_VERSION_MAJOR 0
 #define FIRMWARE_VERSION_MINOR 9
@@ -24,8 +24,6 @@ extern u32   _lwd(u16 addr);
 extern usize _copydm(u16 data_addr_src, void *buff_dest, usize sz);
 extern usize _copymd(void *buff_src, u16 data_addr_dest, usize sz);
 extern void *memcpy(void *dest, const void *src, usize n);
-
-static struct SystemInfo sys;
 
 static void poweroff(void)
 {
@@ -50,81 +48,73 @@ static void wait(void)
 
 #define DATA_SECTOR 0x1000 // address in data memory of the buffer to load the sector
 
-static bool tps_sector_io(int command, u8 bank, u8 sector, u8 *buff)
+static bool tps_sector_io(struct SystemInfo *sys, int command, u8 bank, u8 sector, u8 *buff)
 {
     u32 left;
     // copy from TAM to DATA IF COMMAND == STORE
     if (command == STORAGE_COMMAND_STORE) {
-        if ((left = _copymd(buff, DATA_SECTOR, 512)) != 0) {
-            return false;
-        }
+        _copymd(buff, DATA_SECTOR, 512);
     };
 
-    while (_lbud(sys.storage + TPS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+    while (_lbud(sys->storage + TPS_STATUS) & STOR_STATUS_BUSY); // wait for ready
 
-    _sbd(sys.storage + TPS_DATA, bank);
-    _sbd(sys.storage + TPS_COMMAND, STORAGE_COMMAND_BANK);
+    _sbd(sys->storage + TPS_DATA, bank);
+    _sbd(sys->storage + TPS_COMMAND, STORAGE_COMMAND_BANK);
 
-    if (_lbud(sys.storage + TPS_STATUS) & STOR_STATUS_ERROR) {
+    if (_lbud(sys->storage + TPS_STATUS) & STOR_STATUS_ERROR) {
         return false;
     }
 
-    while (_lbud(sys.storage + TPS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+    while (_lbud(sys->storage + TPS_STATUS) & STOR_STATUS_BUSY); // wait for ready
 
-    _sbd(sys.storage + TPS_DATA, sector);
+    _sbd(sys->storage + TPS_DATA, sector);
     // Assume buff is aligned, and if not, we'r sorry
-    _shd(sys.storage + TPS_POINT, DATA_SECTOR >> 9);
-    _sbd(sys.storage + TPS_COMMAND, command);
+    _shd(sys->storage + TPS_POINT, DATA_SECTOR >> 9);
+    _sbd(sys->storage + TPS_COMMAND, command);
 
-    while (_lbud(sys.storage + TPS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+    while (_lbud(sys->storage + TPS_STATUS) & STOR_STATUS_BUSY); // wait for ready
 
-    if (_lbud(sys.storage + TPS_STATUS) & STOR_STATUS_ERROR) {
+    if (_lbud(sys->storage + TPS_STATUS) & STOR_STATUS_ERROR) {
         return false;
     }
 
     // copy from DATA to RAM IF COMMAND == LOAD
     if (command == STORAGE_COMMAND_LOAD) {
-        if ((left = _copydm(DATA_SECTOR, buff, 512)) != 0) {
-            return false;
-        }
+        _copydm(DATA_SECTOR, buff, 512);
     }
 
     return true;
 }
 
-static bool hcs_sector_io(int command, u8 bank, u16 sector, u8 *buff)
+static bool hcs_sector_io(struct SystemInfo *sys, int command, u8 bank, u16 sector, u8 *buff)
 {
     u32 left;
     // copy from TAM to DATA IF COMMAND == STORE
     if (command == STORAGE_COMMAND_STORE) {
-        if ((left = _copymd(buff, DATA_SECTOR, 512)) != 0) {
-            return false;
-        }
+        _copymd(buff, DATA_SECTOR, 512);
     };
 
-    while (_lbud(sys.storage + HCS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+    while (_lbud(sys->storage + HCS_STATUS) & STOR_STATUS_BUSY); // wait for ready
 
-    _sbd(sys.storage + HCS_DATA, bank);
-    _shd(sys.storage + HCS_SECTOR, sector);
+    _sbd(sys->storage + HCS_DATA, bank);
+    _shd(sys->storage + HCS_SECTOR, sector);
     // Assume buff is aligned, and if not, we'r sorry
-    _shd(sys.storage + HCS_POINT, DATA_SECTOR >> 9);
-    _sbd(sys.storage + HCS_COMMAND, command);
+    _shd(sys->storage + HCS_POINT, DATA_SECTOR >> 9);
+    _sbd(sys->storage + HCS_COMMAND, command);
 
-    if (_lbud(sys.storage + HCS_STATUS) & STOR_STATUS_ERROR) {
+    if (_lbud(sys->storage + HCS_STATUS) & STOR_STATUS_ERROR) {
         return false;
     };
 
-    while (_lbud(sys.storage + HCS_STATUS) & STOR_STATUS_BUSY); // wait for ready
+    while (_lbud(sys->storage + HCS_STATUS) & STOR_STATUS_BUSY); // wait for ready
 
     // return
-    if (_lbud(sys.storage + HCS_STATUS) & STOR_STATUS_ERROR) {
+    if (_lbud(sys->storage + HCS_STATUS) & STOR_STATUS_ERROR) {
         return false;
     }
 
     if (command == STORAGE_COMMAND_LOAD) {
-        if ((left = _copydm(DATA_SECTOR, buff, 512)) != 0) {
-            return false;
-        }
+        _copydm(DATA_SECTOR, buff, 512);
     };
 
     return true;
@@ -132,6 +122,9 @@ static bool hcs_sector_io(int command, u8 bank, u16 sector, u8 *buff)
 
 void firmware_start(void)
 {
+    struct SystemInfo sys;
+    memset(&sys, 0, sizeof(sys));
+
     // 1. Power off if version mismatch
     if ((_lbud(REG_SYSTEM_VERSION) >> 4) != FIRMWARE_VERSION_MAJOR) poweroff();
 
@@ -271,19 +264,19 @@ transfer: {
     // boot wil fail with poweroff. If main memory size is less than minimum ram, boot will fail
     // with poweroffAnd pray that nothing faults.
 
-    static u8 sector[512];
-    u32      *header;
-    u32       magic, entry, load_addr, size, offset, min_ram;
+    u8   sector[512];
+    u32 *header;
+    u32  magic, entry, load_addr, size, offset, min_ram;
 
     if (sys.boot_device < 2) {
         // BOOT from TPS. current drive is set already
-        if (!tps_sector_io(STORAGE_COMMAND_LOAD, 0, 0, sector)) {
+        if (!tps_sector_io(&sys, STORAGE_COMMAND_LOAD, 0, 0, sector)) {
             beep(4);
             poweroff();
         }
     } else {
         // BOOT from HCS
-        if (!hcs_sector_io(STORAGE_COMMAND_LOAD, 0, 0, sector)) {
+        if (!hcs_sector_io(&sys, STORAGE_COMMAND_LOAD, 0, 0, sector)) {
             beep(4);
             poweroff();
         }
@@ -342,7 +335,8 @@ transfer: {
     if (sys.boot_device < 2) {
         usize i;
         for (i = 0; i < size; i++) {
-            if (!tps_sector_io(STORAGE_COMMAND_LOAD, 0, offset + i + 1,
+            _trace(0xc0ffe, i, size);
+            if (!tps_sector_io(&sys, STORAGE_COMMAND_LOAD, 0, offset + i + 1,
                                (u8 *)load_addr + (i * 512))) {
                 beep(9);
                 poweroff();
@@ -351,7 +345,8 @@ transfer: {
     } else {
         usize i;
         for (i = 0; i < size; i++) {
-            if (!hcs_sector_io(STORAGE_COMMAND_LOAD, 0, offset + i + 1,
+            _trace(0xc0ffe, i, size);
+            if (!hcs_sector_io(&sys, STORAGE_COMMAND_LOAD, 0, offset + i + 1,
                                (u8 *)load_addr + (i * 512))) {
                 beep(9);
                 poweroff();

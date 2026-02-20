@@ -3,11 +3,16 @@
 
 /* Simple processes and threads for Akai */
 
-#include "libsirius/types.h"
+#include "akai_def.h"
+#include "dev.h"
 
-#define MAX_PROCESS     256
-#define NUM_REGS        32
+#define NUM_REGS 32
+
+/* @AKAI: 400_PROCESS */
+#define MAX_PROCESS     255
 #define PROCESS_NAMELEN 10
+#define MAX_OPEN_FILES  8
+/* @AKAI */
 
 enum {
     CPU_STATUS_SUPERVISOR       = (1U << 31U),
@@ -27,10 +32,6 @@ struct ThreadCtx {
     u8  wp;
 };
 
-typedef u8 ProcessPID;
-
-typedef int (*ProcessEntry)(int, char **);
-
 enum ProcessFlags {
     PROC_TSR = 1 << 0,
     PROC_IPC = 1 << 2,
@@ -39,6 +40,10 @@ enum ProcessFlags {
 struct Subscriptions {
     ProcessPID publisher;
     u16        signal_mask;
+};
+
+enum {
+    FREE_FD = -1,
 };
 
 struct Process {
@@ -53,6 +58,7 @@ struct Process {
     void *brk;
     u32   flags;
     i32   exit_code;
+    u32   last_error;
 
     // Event and interrupt code
     void *event_handler;
@@ -66,6 +72,15 @@ struct Process {
     void *inbox;
     void *outbox;
     u8    message_queue_flags;
+
+    // Filesystem
+    i16 fds[MAX_OPEN_FILES];
+    u8  open_files;
+    u32 cwd_cluster[3];
+    u8  curr_drive;
+
+    // IO
+    struct IOStream stdin, stdout, stderr;
 };
 
 struct Processes {
@@ -73,6 +88,8 @@ struct Processes {
     struct Process *curr;
     usize           count;
 };
+
+/* @AKAI: 410_PROCESS */
 
 /*
 HEADER AT THE START OF THE INBOX
@@ -182,6 +199,8 @@ struct IPCMessage {
 
 #define INBOX_QUEUE_MAX ((PAGE_SIZE - INBOX_HEADER_SIZE) / IPC_MSG_SIZE)
 
+/* @AKAI */
+
 enum ParentState {
     PARENT_KEEP_RUNNING,
     PARENT_WAIT,
@@ -193,27 +212,27 @@ extern void _load_window(u8 wp, void *buf);
 void       *load_window(u8 wp, void *buf);
 void        store_window(u8 wp, void *buf);
 
-void process_init(struct Processes *p, u32 idle_base);
+void process_init(uptr idle_base);
 
-ProcessPID process_create(struct Processes *p, const char *name, ProcessEntry entry);
-void       process_run(struct Processes *p, ProcessPID pid, enum ParentState parent_new_state);
-u32        process_stop(struct Processes *p, ProcessPID pid);
-u32        process_wait(struct Processes *p, ProcessPID pid);
-void       process_set_ready(struct Processes *p, ProcessPID pid);
-void       process_terminate(struct Processes *p, ProcessPID pid);
-void       process_reap(struct Processes *p, ProcessPID pid);
-void       process_yield(struct Processes *p);
+ProcessPID process_create(const char *name, ProcessEntry entry);
+bool       process_reset(ProcessPID pid, const char *name, u32 brk, u32 stack, ProcessEntry entry);
+void       process_run(ProcessPID pid, enum ParentState parent_new_state);
+void       process_stop(ProcessPID pid);
+void       process_wait(ProcessPID pid);
+void       process_set_ready(ProcessPID pid);
+void       process_terminate(ProcessPID pid);
+void       process_reap(ProcessPID pid);
+void       process_yield(void);
 
-bool process_check_recv(struct Processes *p, ProcessPID sender_pid, ProcessPID target_pid,
-                        u8 signal);
-bool process_queue_msg(struct Processes *p, ProcessPID pid, struct IPCMessage *msg);
-bool process_check_addr(struct Processes *p, ProcessPID pid, u32 addr, u32 acces_flags,
-                        bool executable);
+bool process_check_recv(ProcessPID sender_pid, ProcessPID target_pid, u8 signal);
+bool process_queue_msg(ProcessPID pid, struct IPCMessage *msg);
+bool process_check_addr(ProcessPID pid, uptr addr, u32 acces_flags, bool executable);
 
 u32  save_ctx(struct Process *p);
 void restore_ctx(struct Process *p);
 
 extern void _load_and_switch(u32 pc, u32 status, u32 *regs);
+extern void _load_init(u32 pc, u32 status, u32 *regs);
 extern void _switch(u32 pc, u32 status);
 
 #endif /* PROCESS_H */

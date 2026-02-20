@@ -19,6 +19,30 @@ from sys import argv, stderr
 from typing import Tuple
 
 class Header:
+    
+    tps_formats = {
+        "128K": {
+            "type": 1,
+            "sectors" : 256,
+            "banks" : 1,
+            "bank-size": 256,
+            "sector-size": 512,
+        },
+        "512K": {
+            "type": 2,
+            "sectors" : 1024,
+            "banks" : 4,
+            "bank-size": 256,
+            "sector-size": 512,
+        },
+        "1M": {
+            "type": 3,
+            "sectors" : 2048,
+            "banks" : 8,
+            "bank-size": 256,
+            "sector-size": 512,
+        }
+    }
 
     def fat12_get_file(self, data: bytes) -> Tuple[int, int]:
         reserved_sectors = struct.unpack("<H", data[14:16])[0]
@@ -73,11 +97,7 @@ class Header:
                     break
                 
         return entry, load_addr
-                    
-            
-            
-                        
-    
+ 
     def write_boot_header(self, data: bytes) -> bytes:
         if self.fs == "FAT12":
             sector, fsize = self.fat12_get_file(data)
@@ -112,7 +132,14 @@ class Header:
         # Ensure uppercase as per FAT standard
         fname = fname.upper()
         
-        name, extension = fname.rsplit('.', 1) if '.' in fname else fname, ""
+        name = ""
+        extension = "" 
+        if '.' in fname:
+            l = fname.rsplit('.', 1) 
+            name = l[0]
+            extension = l[1]
+        else:
+            name = fname
 
         name = name[:8].ljust(8, ' ')
         extension = extension[:3].ljust(3, ' ')
@@ -127,38 +154,28 @@ class Header:
         self.fname = self.fname_to_8_3(fname)
         self.entry_symbol = entry_symbol
         self.min_ram = min_ram
-    
-    def wrap_tps_1mb(self, label: str, bootable: bool, writable: bool):   
-        header = bytearray([0 for x in range(0, 512)])
-        header[0] = ord('T')
-        header[1] = ord('P')
-        header[2] = ord('S')
-        header[3] = ord('!')
-        header[4] = 1
-        header[5] = 1 if bootable else 0
-        header[5] |= 2 if not writable else 0
-        header[6] = 3 # TPS1MB
-        header[7] = 8
-        header[8] = 0x00
-        header[9] = 0x00
-        header[10] = 0x08
-        header[11] = 0x00
-        header[12] = 0x02
-        header[13] = 0x00
         
-        now = int(time.time())
-        header[14] = (now >> 56) & 0xff
-        header[15] = (now >> 48) & 0xff
-        header[16] = (now >> 40) & 0xff
-        header[17] = (now >> 32) & 0xff
-        header[18] = (now >> 24) & 0xff
-        header[19] = (now >> 16) & 0xff
-        header[20] = (now >> 8) & 0xff
-        header[21] = (now) & 0xff
+    def wrap(self, label: str, tps_format: str, bootable: bool, writable: bool):   
+        # Flags: Bit 0 = Bootable, Bit 1 = Write-Protected (not writable)
+        flags = (1 if bootable else 0) | (2 if not writable else 0)
         
-        name = bytearray(label, "ASCII")
-        for i in range(0, 16):
-            header[22 + i] = name[i] if len(name) > i else ord(' ')
+        T = Header.tps_formats[tps_format]
+        
+        header_data = struct.pack(
+            ">4sBBBB I H Q 16s",
+            b"TPS!",          
+            0x01,              # Version
+            flags,             
+            T["type"],              
+            T["banks"],              
+            T["sectors"],              
+            T["sector-size"],               
+            int(time.time()),  
+            label.encode('ascii')[:16].ljust(16, b' ') 
+        )
+
+        # Pad to 512 bytes
+        header = header_data.ljust(512, b'\x00')
         
         with open(self.path, "rb") as ifile, \
             open(self.path.stem + (".tps" if writable else ".tpc"), "wb") as ofile:
@@ -168,14 +185,55 @@ class Header:
             if bootable: data = self.write_boot_header(data)
             ofile.write(data)
     
+    
 def main(argv):
     if len(argv) < 4:
-        print(f"Usage: {argv[0]} <image> <linker-map> <entry-symbol>")
-        print(f"\twraps a raw disk image into the TPS 1MB header, bootable")
+        print(f"Usage: {argv[0]} <image> <fs> <format> [--bootable <linker-map> <entry-symbol> <boot-filename> <min-ram-K>] [--wprot]")
+        print(f"\twraps a raw disk image into the TPS header. ")
+        print(f"\tOptions:")
+        print(f"\t<image>: path to image file")
+        print(f"\t<fs>: image filesystem. Only FAT12 for now")
+        print(f"\t<format>: TPS format (128K, 512K, 1M)")
+        print(f"\t--bootable: marks tps TPS as bootable")
+        print(f"\t--wprot: marks the TPS as write protected")
         exit(1)
     
-    tps = Header(argv[1], argv[2], entry_symbol=argv[3])
-    tps.wrap_tps_1mb(tps.path.stem, bootable=True, writable=True)
+    image = argv[1]
+    fs = argv[2]
+    tps_format =argv[3]
+    
+    if  tps_format not in Header.tps_formats:
+        print(f"Format {tps_format} is not recognized. Use 128K, 512K or 1M")
+        exit(1)
+        
+    bootable = False
+    writable = True
+    linker_map = ""
+    entry_symbol = ""
+    boot_fname = "KERNEL"
+    min_ram = 64 * 1024
+    
+    options = argv[3:]
+    for i, option in enumerate(options):
+        if option == "--bootable":
+            if (len(options) < 5):
+                print(f"Option --bootable takes <linker-map>, <entry-symbol>, <boot-filename>, and required amount of ram in Kb")
+                exit(1)
+            bootable = True
+            linker_map =  options[i + 1]
+            entry_symbol =  options[i + 2]
+            boot_fname =  options[i + 3]
+            min_ram = int(options[i+4]) * 1024
+        elif option == "--wprot":
+            writable = False
+        else:
+            continue
+        
+        
+    
+    tps = Header(path=image, map_file_path=linker_map, min_ram=min_ram, fs=fs, fname=boot_fname, entry_symbol=entry_symbol)
+    tps.wrap(tps.path.stem, tps_format=tps_format, bootable=bootable, writable=writable)
+    
     
 if __name__ == "__main__":
     main(argv)

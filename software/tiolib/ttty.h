@@ -326,7 +326,7 @@ void ttty_emit(Ttty *tty, char c)
     case '\r': tty->x = 0; goto sync_hw;
     case '\b':
         if (tty->x > 0) tty->x--;
-        tty->backspace = true;
+        tty->backspace = true;  
         goto sync_hw;
     case '\t': ttty_handle_tab(tty); goto sync_hw;
     case 0x0c:

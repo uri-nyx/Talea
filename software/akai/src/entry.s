@@ -10,22 +10,21 @@ _kstart:
 #       1. Disable all interupts and clear bss until 0x20000.
 
     cli
+
     .align 4
     .bss
+    .globl _bss_start
     _bss_start:
-    .align 4
+    .data
+    .globl _data_start
+    _data_start:
     .text
-    la x5, _bss_start
-    li x6, 0x20000
-    sub x6, x6, x5
-    fill x5, x6, x0
-    
-#       2. For The kernel is up to 128Kb (code+data+bss+stack), so we put stack 
-#          at the 128Kb. The firmware should ensure we have at least that space
-#          (and the user also should). (0x20000). 0x20000 is already in the 
-#          guard page, but by the time we switch on the mmu sp should be lower
+    .align 4
 
-    li x2, 0x20000
+#       2. For The kernel is up to 512K (code+data+bss+stack+tables). The firmware 
+#          should ensure we have at least that space (and the user also should).
+
+    li x2, 0X07A000
 
 #       3. Set the exceptions to the exception handler and the interrupts to 
 #          the interrupt handler. Set the syscalls to vector 0x40.
@@ -121,6 +120,7 @@ _exception:
 
  .globl akai_interrupt
 _interrupt:
+    cli
     save x2, x0, x0 
 
     # save user pc and status
@@ -132,7 +132,11 @@ _interrupt:
     swd x5, 0x1004(x0) # store at DATA[0x1004]
 
     lbud x12, 441(x0)   # REG_SYSTEM_INTERRUPT (last interrupt ack)
+    sti
+
     call    akai_interrupt
+
+    cli
 
     restore x0, x0, x0
 
@@ -144,6 +148,8 @@ _interrupt:
     trace x5, x0, x0, x0
     sw x5, 0(x2)
     lwd x5, 0x1010(x0)
+
+    sti
     sysret
 
  .globl akai_syscall
@@ -173,8 +179,56 @@ _syscall:
 
 ################################################################################
 
+    .globl _load_init
+_load_init:
+    swd x14, 0x101C(x0)
+
+    save x2, x12, x13
+
+    lwd x14, 0x101C(x0)
+    push x12, x2 # pushes pc
+    push x13, x2 # pushes status
+
+    lw x1, 1*4(x14)
+    lw x3, 3*4(x14)
+    lw x4, 4*4(x14)
+    lw x5, 5*4(x14)
+    lw x6, 6*4(x14)
+    lw x7, 7*4(x14)
+    lw x8, 8*4(x14)
+    lw x9, 9*4(x14)
+    lw x10, 10*4(x14)
+    lw x11, 11*4(x14)
+    lw x12, 12*4(x14)
+    lw x13, 13*4(x14)
+    lw x15, 15*4(x14)
+    lw x16, 16*4(x14)
+    lw x17, 17*4(x14)
+    lw x18, 18*4(x14)
+    lw x19, 19*4(x14)
+    lw x20, 20*4(x14)
+    lw x21, 21*4(x14)
+    lw x22, 22*4(x14)
+    lw x23, 23*4(x14)
+    lw x24, 24*4(x14)
+    lw x25, 25*4(x14)
+    lw x26, 26*4(x14)
+    lw x27, 27*4(x14)
+    lw x28, 28*4(x14)
+    lw x29, 29*4(x14)
+    lw x30, 30*4(x14)
+    lw x31, 31*4(x14)
+    lw x14, 14*4(x14)
+
+    sysret  # sp becomes usp here
+
     .globl _load_and_switch
 _load_and_switch:
+    swd x14, 0x101C(x0)
+
+    restore x2, x12, x13
+
+    lwd x14, 0x101C(x0)
     push x12, x2 # pushes pc
     push x13, x2 # pushes status
 
@@ -216,9 +270,12 @@ _switch:
     swd x12, 0x1008(x0) # store pc at DATA[0x1008]
     swd x13, 0x100C(x0) # store status at DATA[0x100C]
 
-    trace x0, x30, x12, x13
+    trace x1, x30, x12, x13
 
     restore x0, x0, x0
+
+    trace x1, x30, x12, x13
+
 
     swd x5, 0x1010(x0)
     lwd x5, 0x1008(x0)
@@ -309,9 +366,10 @@ memcpy:
 memset:
     # fill buff, n, fill
     mv   x10, x12
-    trace x0, x0, x0, x1
     fill x12, x14, x13 
     ret
+
+
 
 
 

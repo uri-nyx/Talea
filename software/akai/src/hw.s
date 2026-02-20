@@ -1,6 +1,12 @@
 # Hardware wrappers for the Sirius ISA
     .align 4
     .text
+    .globl _disable_interrupts # extern u32 _disable_interrupts(void)
+_disable_interrupts:
+    gsreg x10
+    cli
+    ret
+
     .globl _cli
 _cli:
     cli
@@ -56,14 +62,25 @@ _lwd:
     lwd     x10, 0(x12) #x12 addr
     ret
 
-    .globl _copydm # extern usize _copydm(u16 data_addr_src, void *buff_dest, usize sz);
+    .globl _copydm # extern _copydm(u16 data_addr_src, void *buff_dest, usize sz);
 _copydm:
     copydm x12, x13, x14
-    mv x10, x14 # if interrupted, x14 will return actual bytes copied. //TODO: DOCUMENT THIS
     ret
 
-    .globl _copymd # extern usize _copymd(void* buff_src, u16 data_addr_dest, usize sz);
+    .globl _copymd # extern _copymd(void* buff_src, u16 data_addr_dest, usize sz);
 _copymd:
     copymd x12, x13, x14
-    mv x10, x14 # if interrupted, x14 will return actual bytes copied. //TODO: DOCUMENT THIS
+    ret
+
+    .globl _fillw # extern void *_fillw(void *s, int c, size_t n);
+_fillw:
+    # fill buff, n, fill
+    mv   x10, x12
+    fillw x12, x14, x13 
+    ret
+
+    .globl _copybck # extern void *_copybck(void *src, void *dest, usize sz);
+_copybck:
+    mv x10, x13
+    copybck x12, x13, x14
     ret

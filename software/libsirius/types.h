@@ -17,7 +17,7 @@ typedef signed long  ssize;
 
 typedef float f32;
 
-typedef unsigned long  ptr;
+typedef unsigned long  uptr;
 typedef unsigned short dptr;
 
 typedef i8 bool;
@@ -34,21 +34,21 @@ struct akai_ringbuffer {
 };
 
 struct akai_natural_ringbufferu8 {
-    u8 *data;
+    u8 data[256];
+    u8 head;
+    u8 tail;
+};
+
+struct akai_natural_ringbufferu16 {
+    u16 data[256];
     u8  head;
     u8  tail;
 };
 
-struct akai_natural_ringbufferu16 {
-    u16 *data;
-    u8   head;
-    u8   tail;
-};
-
 struct akai_natural_ringbufferu32 {
-    u32 *data;
-    u8   head;
-    u8   tail;
+    u32 data[256];
+    u8  head;
+    u8  tail;
 };
 
 #define BIT_TEST(bitmap, bit) (((bitmap)[(bit) >> 3] >> (bit & 0x7)) & 1)

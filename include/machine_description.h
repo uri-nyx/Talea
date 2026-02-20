@@ -123,6 +123,7 @@ enum {
     
     /* Interrupts */
     REG_SYSTEM_INTERRUPT = REG_SYSTEM_USP + 4, // Last interrupt acknowledged
+    REG_SYTEM_FAULT_CAUSE,
 };
 
 enum {
