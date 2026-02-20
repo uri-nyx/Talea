@@ -65,6 +65,8 @@ bool map_active_range(u32 pstart, u32 vstart, usize num_pages, u32 flags)
 
         active_pt      = (u32 *)(AKAI_PROCESS_PAGE_TABLES + (pdt_idx * PAGE_SIZE));
         active_pt[vpn] = (paddr & 0xFFF000) | flags;
+        _trace(0xd1e2, active_pt, vaddr, active_pt[vpn]);
+        _trace(0xd1e2, flags);
 
         vaddr += PAGE_SIZE;
         paddr += PAGE_SIZE;

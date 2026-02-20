@@ -105,7 +105,6 @@ static u32 load_aout_flat(FIL *f)
     u8        *aout_pages, *code, *data;
     u32        code_end, data_end;
     bool       overlap;
-    UINT       read;
 
     _trace(0xd1e0, 1);
     if (sz > MAX_EXEC_FSIZE) return 0;
@@ -131,34 +130,69 @@ static u32 load_aout_flat(FIL *f)
     bss_pages     = (hdr.bsize + (PAGE_SIZE - 1)) >> 12;
 
     code = aout_pages;
-    _trace(0xd1e0, 5);
-    if (!map_active_range((u32)code, AKAI_PROCESS_BASE, code_pages, PTE_U | PTE_RX)) goto fail;
-    if (overlap) {
-        _trace(0xd1e0, 6, databss_pages);
-        if (!map_active_pt_entry((u32)(code + (code_pages - 1) * PAGE_SIZE),
-                                 AKAI_PROCESS_BASE + (code_pages - 1) * PAGE_SIZE, PTE_U | PTE_RWX))
+    _trace(0xd1e0, 5, overlap);
+
+    if (code_pages > (overlap ? 1 : 0)) {
+        usize pages_to_map = code_pages - (overlap ? 1 : 0);
+        _trace(0xd1e1, 1, pages_to_map, code);
+        if (!map_active_range((u32)code, AKAI_PROCESS_BASE, pages_to_map, PTE_U | PTE_RX))
             goto fail;
+    }
+
+    if (overlap) {
+        u32 overlap_vaddr = (u32)(AKAI_PROCESS_BASE + (code_pages - 1) * PAGE_SIZE);
+        u32 overlap_paddr = (u32)(code + (code_pages - 1) * PAGE_SIZE);
+        _trace(0xd1e0, 6, databss_pages);
+        _trace(0xd1e1, 1, overlap_paddr, overlap_vaddr);
+        if (!map_active_pt_entry(overlap_paddr, overlap_vaddr, PTE_U | PTE_RWX)) goto fail;
         if (databss_pages > 0) databss_pages--;
     }
 
     if (databss_pages > 0) {
-        data = code + (code_pages * PAGE_SIZE);
-        _trace(0xd1e0, 7);
-        if (!map_active_range((u32)data, AKAI_PROCESS_BASE + (code_pages * PAGE_SIZE),
-                              databss_pages, PTE_U | PTE_RW))
-            goto fail;
+        u32 data_vstart = (u32)(AKAI_PROCESS_BASE + (code_pages * PAGE_SIZE));
+        u32 data_pstart = (u32)(code + (code_pages * PAGE_SIZE));
+        _trace(0xd1e0, 7, data_vstart, data_pstart);
+        if (!map_active_range(data_pstart, data_vstart, databss_pages, PTE_U | PTE_RW)) goto fail;
     }
 
     _trace(0xd1e0, 8);
     if (f_lseek(f, 32) != FR_OK) goto fail;
     _trace(0xd1e0, 9);
-    if (f_read(f, (u8 *)AKAI_PROCESS_BASE, hdr.csize + hdr.dsize, &read) != FR_OK ||
-        read != hdr.csize + hdr.dsize)
-        goto fail;
 
-    // zero bss
-    // should be in the pt already
-    memset((u8 *)data_end, 0, hdr.bsize);
+    {
+        usize bytes = hdr.csize + hdr.dsize;
+        UINT  read;
+        u32   bss_start = (u32)aout_pages + hdr.csize + hdr.dsize;
+        u32   code_phys = (u32)aout_pages;
+        usize bss_todo  = hdr.bsize;
+        u8   *work      = map_kernel_work_area(code_phys);
+
+        if (!work) goto fail;
+
+        do {
+            usize chunk = (bytes > PAGE_SIZE) ? PAGE_SIZE : bytes;
+            if (f_read(f, work, chunk, &read) != FR_OK || read != chunk) {
+                unmap_kernel_work_area();
+                goto fail;
+            }
+            bytes -= chunk;
+            code_phys += chunk;
+            if (chunk == PAGE_SIZE) work = remap_kernel_work_area(code_phys);
+        } while (bytes != 0);
+
+        while (bss_todo > 0) {
+            u32   offset = bss_start & 0xFFF;
+            usize chunk  = (bss_todo > (PAGE_SIZE - offset)) ? (PAGE_SIZE - offset) : bss_todo;
+
+            work = remap_kernel_work_area(bss_start & ~0xFFF);
+            memset(work + offset, 0, chunk);
+
+            bss_todo -= chunk;
+            bss_start += chunk;
+        }
+
+        unmap_kernel_work_area();
+    }
 
     _trace(0xd1e0, 0xA, (data_end + hdr.bsize + 0xFFF) & ~0xFFF);
     return (data_end + hdr.bsize + 0xFFF) & ~0xFFF;
@@ -982,8 +1016,8 @@ static i32 ak_opendir(u32 *win)
     }
 
     if (!process_check_addr(A.pr.curr->pid, (u32)d, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
-        !process_check_addr(A.pr.curr->pid, (u32)d + AKAI_DIR_SIZE - 1, PTE_U | PTE_V | PTE_R | PTE_W,
-                            false)) {
+        !process_check_addr(A.pr.curr->pid, (u32)d + AKAI_DIR_SIZE - 1,
+                            PTE_U | PTE_V | PTE_R | PTE_W, false)) {
         err = P_ERROR_BAD_POINTER;
         return A_ERROR_INVAL;
     }
@@ -1016,8 +1050,8 @@ static i32 ak_closedir(u32 *win)
     }
 
     if (!process_check_addr(A.pr.curr->pid, (u32)d, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
-        !process_check_addr(A.pr.curr->pid, (u32)d + AKAI_DIR_SIZE - 1, PTE_U | PTE_V | PTE_R | PTE_W,
-                            false)) {
+        !process_check_addr(A.pr.curr->pid, (u32)d + AKAI_DIR_SIZE - 1,
+                            PTE_U | PTE_V | PTE_R | PTE_W, false)) {
         err = P_ERROR_BAD_POINTER;
         return A_ERROR_INVAL;
     }
@@ -1032,7 +1066,8 @@ static i32 ak_closedir(u32 *win)
     return A_OK;
 }
 
-static u32 fat_to_unix(u16 date, u16 time) {
+static u32 fat_to_unix(u16 date, u16 time)
+{
     u32 y_idx = (date >> 9) & 0x7F;
     u32 month = (date >> 5) & 0x0F;
     u32 day   = (date & 0x1F);
@@ -1040,17 +1075,17 @@ static u32 fat_to_unix(u16 date, u16 time) {
     u32 min   = (time >> 5) & 0x3F;
     u32 sec   = (time & 0x1F) * 2;
 
-    u32 total_days;
-    static const u16 mdays[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+    u32              total_days;
+    static const u16 mdays[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
 
     /* Get days for the year */
     total_days = days_start_of_year[y_idx];
 
     /* Add days for months */
     total_days += mdays[month - 1];
-    
+
     /* Leap year adjustment: month > Feb AND current year is leap.
-       In the range 1980-2107, year is leap if (y_idx % 4 == 0), 
+       In the range 1980-2107, year is leap if (y_idx % 4 == 0),
        EXCEPT for 2100 (y_idx == 120). */
     if (month > 2 && (y_idx % 4 == 0) && (y_idx != 120)) {
         total_days++;
@@ -1061,7 +1096,8 @@ static u32 fat_to_unix(u16 date, u16 time) {
     return (total_days * 86400UL) + (hour * 3600UL) + (min * 60UL) + sec;
 }
 
-static u8 translate_attr(u8 fat_attr) {
+static u8 translate_attr(u8 fat_attr)
+{
     u8 res = 0;
     if (fat_attr & AM_RDO) res |= AK_ATTR_READONLY;
     if (fat_attr & AM_HID) res |= AK_ATTR_HIDDEN;
@@ -1073,9 +1109,9 @@ static u8 translate_attr(u8 fat_attr) {
 
 static i32 ak_readdir(u32 *win)
 {
-    DIR     *d     = (DIR *)win[13];
+    DIR                 *d     = (DIR *)win[13];
     struct AkaiDirEntry *info  = (struct AkaiDirEntry *)win[14];
-    int      flags = win[15]; // ignored for now
+    int                  flags = win[15]; // ignored for now
 
     FILINFO filinfo;
     FRESULT res;
@@ -1086,8 +1122,8 @@ static i32 ak_readdir(u32 *win)
     }
 
     if (!process_check_addr(A.pr.curr->pid, (u32)d, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
-        !process_check_addr(A.pr.curr->pid, (u32)d + AKAI_DIR_SIZE - 1, PTE_U | PTE_V | PTE_R | PTE_W,
-                            false)) {
+        !process_check_addr(A.pr.curr->pid, (u32)d + AKAI_DIR_SIZE - 1,
+                            PTE_U | PTE_V | PTE_R | PTE_W, false)) {
         err = P_ERROR_BAD_POINTER;
         return A_ERROR_INVAL;
     }
@@ -1107,11 +1143,11 @@ static i32 ak_readdir(u32 *win)
     }
 
     memset(info, 0, AKAI_DIR_ENTRY_SIZE);
-    ADIR_FSIZE(info->data) = filinfo.fsize;
-    ADIR_FMOD(info->data) =fat_to_unix(filinfo.fdate, filinfo.ftime);
-    ADIR_FCREAT(info->data) = fat_to_unix(filinfo.crdate, filinfo.crtime);
+    ADIR_FSIZE(info->data)   = filinfo.fsize;
+    ADIR_FMOD(info->data)    = fat_to_unix(filinfo.fdate, filinfo.ftime);
+    ADIR_FCREAT(info->data)  = fat_to_unix(filinfo.crdate, filinfo.crtime);
     ADIR_FATTRIB(info->data) = translate_attr(filinfo.fattrib);
-    ADIR_FS(info->data) = d->obj.fs->fs_type;
+    ADIR_FS(info->data)      = d->obj.fs->fs_type;
     memcpy(ADIR_FNAME(info->data), filinfo.fname, sizeof(filinfo.fname));
 
     return A_OK;

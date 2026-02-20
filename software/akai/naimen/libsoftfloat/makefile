@@ -1,28 +1,19 @@
-#
-# Makefile for Libs
+CPPFLAGS := -zI -I.
 
-# LCCDIR =../..
-# CC = ${LCCDIR}/lcc
-# AS = ${LCCDIR}/../../binutils/bin/as
+.PHONY:		all clean
 
-# CFLAGS = -Wo-lccdir=${LCCDIR} -S -D__TCS_V2__ -w -v
+SRCS = softfloat.c
+OBJS = $(SRCS:.c=.o)
+LIB = libf.a
+
+all: $(LIB)
+
+%.o:%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(LIB):$(OBJS)
+	$(AR) -rs $@ $(OBJS)
 
 
-# CSRCS = $(wildcard *.c)
-# ASRCS = $(patsubst %.c,%.s,$(CSRCS))
-# BIN = ${CURDIR}.o
-
-# .PHONY:		all clean
-
-# all:		$(BIN)
-
-# %.s:%.c
-# 	$(CC) $(CFLAGS) $<
-
-# $(BIN):$(ASRCS)
-# 	$(AS) -o $@ $^
-
-# clean:
-# 		rm -f *~ $(ASRCS) $(BIN)
-all:
-	echo "WIP"
+clean:
+		rm -f *~ $(LIB) $(OBJS)

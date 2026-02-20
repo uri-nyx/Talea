@@ -71,7 +71,7 @@ Software:
             ☐ ipc
             ☐ streams
             ☐ syscalls
-            
+
         ☐ Text editor (visual)
         ☐ Assembler
         ☐ C cross compiler and simple library (no c stdilb)
@@ -122,3 +122,4 @@ Bugs:
 
     ☐ Extremely weird bugs in the kernel (looked at assembly, no visible changes)
     ☐ The linker option -ra does not play well with the OS loader
+    ☐ OUT on PDEV_STDOUT prints garbage

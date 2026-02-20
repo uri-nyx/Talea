@@ -604,6 +604,7 @@ u32 save_ctx(struct Process *p)
         // Assume it was saved upon entering the kernel. Otherwise this will fault
     }
 
+    _trace(0x1002, p->pid, sreg);
     _restore_interrupts(sreg);
     return 0;
 }

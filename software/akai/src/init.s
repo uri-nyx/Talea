@@ -59,6 +59,7 @@ _init:
     syscall x0, 0x40
     bne x0, x10, _exit
 
+
     #8
     addi x5, x5, 1
     # exec the terminal
@@ -66,7 +67,7 @@ _init:
 	la x13, shell
 	mv x14, x0      # argc
 	mv x15, x0      # argv
-	mv x16, x0      # EXEC_AOUT
+	li x16, 1       # EXEC_AOUT_FLAT
 	syscall x0, 0x40
     trace x0, x31, x7, x9
 

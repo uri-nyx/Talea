@@ -488,7 +488,7 @@ enum PTEFlags {
     PTE_A   = (1UL << 6), // Accessed (Hardware sets this)
     PTE_D   = (1UL << 7), // Dirty (Hardware sets this on write)
     PTE_RW  = PTE_V | PTE_R | PTE_W,
-    PTE_RX  = PTE_V | PTE_R | PTE_W,
+    PTE_RX  = PTE_V | PTE_R | PTE_X,
     PTE_RWX = PTE_RW | PTE_X,
 };
 

@@ -36,7 +36,7 @@ these four paragraphs for those parts of this code that are retained.
 /*----------------------------------------------------------------------------
 | Floating-point rounding mode and exception flags.
 *----------------------------------------------------------------------------*/
-char float_rounding_mode = float_round_down;
+char float_rounding_mode = float_round_nearest_even;
 char float_exception_flags = 0;
 
 /*----------------------------------------------------------------------------
@@ -1018,7 +1018,7 @@ float32 float32_neg (int32 a)
 
 flag float32_gt( float32 a, float32 b )
 {
-  return(!float32_le(a,b));
+  return float32_lt(b, a);
 }
 
 flag float32_ge( float32 a, float32 b )

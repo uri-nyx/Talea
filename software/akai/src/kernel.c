@@ -194,13 +194,30 @@ static u32 uptime(void)
     return _lwd(REG_SYSTEM_MINUTE);
 }
 
-static void timer_interval_hook(u32 *win, struct IPCMessage *msg_out)
+void timer_interval_hook(u32 *win, struct IPCMessage *msg_out)
 {
-    u32 status = _lwd(AKAI_KERNEL_STATUS_SAVE);
+    u32 status;
+
+    status = 123;
+    status++;
+    status++;
+    status++;
+    status++;
+    status++;
+    _trace(0x1888, 1);
+    _trace(0x1888, 2);
+    _trace(0x1888, 3);
+    _trace(0x1888, 4);
+    _trace(0x1888, 5);
+    _trace(0x1888, 6);
+    status = _lwd(AKAI_KERNEL_STATUS_SAVE);
 
     A.uptime = uptime() - A.time_start;
+    _trace(0x1888, 2);
 
+    // TODO: IPC message out
     if (!(status & CPU_STATUS_SUPERVISOR)) {
+        _trace(0x1888, 3);
         // puts(A.pr.curr->name);
         process_yield();
     }
@@ -238,6 +255,7 @@ static ProcessPID init_proc(const char *name)
 
         return 0;
     }
+    _trace(0x888555, 0x777888, code, init_bin_len);
 
     // map its page tables to us, so we can write to it
     work = (u32 *)map_kernel_work_area((u32)init->page_tables[0]);
@@ -249,14 +267,15 @@ static ProcessPID init_proc(const char *name)
     // give r/w/x because its a init. otherwise this is very rare
     map_pt_entry(work, AKAI_PROCESS_BASE >> 12, (u32)code, PTE_U | PTE_RWX);
 
-    work = (u32 *)remap_kernel_work_area((u32)init->page_tables[1]);
+    work = (u32 *)remap_kernel_work_area((u32)init->page_tables[3]);
     map_pt_entry(work, (AKAI_PROCESS_STACK_TOP >> 12) - 1, (u32)stack, PTE_U | PTE_RW);
-
+    
     work = (u32 *)remap_kernel_work_area((u32)stack);
     memset(work, 0, PAGE_SIZE);
 
     // map the code for us so we can write to it.
     work = (u32 *)remap_kernel_work_area((u32)code);
+    _trace(0x888666, 0x777888, code, init_bin_len);
     memcpy((u8 *)work, init_bin, init_bin_len);
 
     unmap_kernel_work_area();
@@ -270,9 +289,9 @@ static ProcessPID init_proc(const char *name)
 void kmain(u16 sys_info_data_addr)
 {
     ProcessPID init;
+    u32 usp;
     memset(&A, 0, sizeof(A));
     // memset(_bss_start, 0, (AKAI_KERNEL_STACK_TOP - PAGE_SIZE) - (u32)_bss_start);
-
     // start time is now
     A.time_start = uptime();
     A.uptime     = uptime();
@@ -293,6 +312,7 @@ void kmain(u16 sys_info_data_addr)
     process_init(AKAI_IDLE_BASE);
 
     // hook hernel interrupt handlers
+    interrupt_init();
     kernel_hook_interrupt(INT_KBD_SCAN, kbd_scan_hook);
     kernel_hook_interrupt(INT_TIMER_INTERVAL, timer_interval_hook);
 
@@ -303,7 +323,7 @@ void kmain(u16 sys_info_data_addr)
     init = init_proc("INIT");
     if (!init) goto fail;
 
-    //timer_on(); // interupts are still disabled
+    timer_on(); // interupts are still disabled
     _sbd(A.info.terminal + TERMINAL_KBD_CSR, KB_GLOBAL_EN | KB_IE_DOWN); // enable keyboard
     process_run(init, PARENT_KEEP_RUNNING);
 fail:

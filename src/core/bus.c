@@ -66,6 +66,10 @@ void Bus_LoadFirmware(TaleaMachine *m, u8 *firmware, size_t firmware_size)
     return;
 }
 
+u8* Bus_DebugGetMain(TaleaMachine *m) {
+    return &MachineBus.main_memory[0];
+} 
+
 /* DATA MEMORY FUNCTIONS --------------------------------- */
 
 u8 Machine_ReadData8(TaleaMachine *m, u16 addr)
@@ -365,6 +369,10 @@ void Machine_WriteMain8(TaleaMachine *m, u32 addr, u8 value)
     }
 #endif
 
+    if (paddr == 0xdbc) {
+        TALEA_LOG_TRACE("WRITTEN TO 0xDBC, %x\n", value);
+    }
+
     WRITE_LOG("main", 2);
 }
 
@@ -396,6 +404,10 @@ void Machine_WriteMain16(TaleaMachine *m, u32 addr, u16 value)
         m->cpu.exception = EXCEPTION_BUS_ERROR;
     }
 #endif
+
+    if (paddr == 0xdbc) {
+        TALEA_LOG_TRACE("WRITTEN TO 0xDBC, %x\n", value);
+    }
 
     WRITE_LOG("main", 4);
 }
@@ -434,6 +446,10 @@ void Machine_WriteMain32(TaleaMachine *m, u32 addr, u32 value)
     }
 #endif
 
+    if (paddr == 0xdbc) {
+        TALEA_LOG_TRACE("WRITTEN TO 0xDBC, %x\n", value);
+    }
+
     WRITE_LOG("main", 8);
 }
 
@@ -457,6 +473,10 @@ void Machine_WriteMain32Physical(TaleaMachine *m, u32 paddr, u32 value)
         m->cpu.exception = EXCEPTION_BUS_ERROR;
     }
 #endif
+
+    if (paddr == 0xdbc) {
+        TALEA_LOG_TRACE("WRITTEN TO 0xDBC PHYSICAL, %x\n", value);
+    }
 
     WRITE_LOG("main", 8);
 }

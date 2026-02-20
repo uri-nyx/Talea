@@ -361,11 +361,13 @@ static u32 MMU_WalkPageTable(TaleaMachine *m, u32 vaddr, enum MemAccessType acce
         m->cpu.faultAddr  = vaddr;
         m->cpu.faultCause = CAUSE_PERM | access_type;
         m->cpu.exception  = EXCEPTION_ACCESS_VIOLATION_TALEA;
-        TALEA_LOG_TRACE("(not cached) error no perm to access 0x%08x, access type: %s (%d)\n", vaddr,
-                        access_type == ACCESS_EXEC  ? "X" :
-                        access_type == ACCESS_WRITE ? "W" :
-                                                      "R",
-                        access_type);
+        TALEA_LOG_TRACE(
+            "(not cached) error no perm to access 0x%08x, access type: %s (%d) (pte0: %08x)\n",
+            vaddr,
+            access_type == ACCESS_EXEC  ? "X" :
+            access_type == ACCESS_WRITE ? "W" :
+                                          "R",
+            access_type, pte0);
         return 0;
     }
 
@@ -448,6 +450,8 @@ static bool MMU_ValidateReadAccessRange(TaleaMachine *m, u32 vaddr, size_t size)
 }
 #endif
 
+static u32        fetch_paddr;
+static u32        fetch_pc;
 static inline u32 Fetch(TaleaMachine *m)
 {
     CpuState *cpu = &m->cpu;
@@ -464,6 +468,9 @@ static inline u32 Fetch(TaleaMachine *m)
         paddr = MMU_TranslateAddr(m, pc, ACCESS_EXEC);
         ON_FAULT_RETURN0
     }
+
+    fetch_paddr = paddr;
+    fetch_pc    = pc;
 
     const u32 instruction = Machine_ReadMain32Physical(m, paddr);
     SET_PC(m, pc + 4);
@@ -591,19 +598,25 @@ static bool Execute(TaleaMachine *m)
         if (op_func != NULL) {
             op_func(m, &m->cpu, r1, r2, r3, r4, vector, imm_15, imm_20);
         } else {
+            TALEA_LOG_TRACE("NULL intstruction (valid group)\n");
             m->cpu.exception = EXCEPTION_ILLEGAL_INSTRUCTION_TALEA;
         }
     } else {
+        TALEA_LOG_TRACE("NULL intstruction (invalid group)\n");
         m->cpu.exception = EXCEPTION_ILLEGAL_INSTRUCTION_TALEA;
     }
 
+    extern u8 *Bus_DebugGetMain(TaleaMachine * m);
 #ifdef DEBUG_LOG_EXCEPTIONS
     if (m->cpu.exception == EXCEPTION_ILLEGAL_INSTRUCTION_TALEA) {
-        TALEA_LOG_TRACE("ILLEGAL INSTRUCTION REPORT: (0x%08x) at address 0x%08x\n", instruction,
-                        GET_PC(m));
+        TALEA_LOG_TRACE("ILLEGAL INSTRUCTION REPORT: (0x%08x) at pc: 0x%08x (phys:0x%08x) \n",
+                        instruction, fetch_pc, fetch_paddr);
         TALEA_LOG_TRACE("\tgroup: %01x, opcode: %02x\n", group, opcode);
         TALEA_LOG_TRACE("\tr1: %d, r2: %d, r3: %d, r4: %d\n", r1, r2, r3, r4);
         TALEA_LOG_TRACE("\tvector: %02x, imm15: %04x, imm20: %05x\n", vector, imm_15, imm_20);
+        TALEA_LOG_TRACE("\t0x%08x : 0x%08x == 0x%08x \n", fetch_paddr,
+                        Machine_ReadMain32Physical(m, fetch_paddr),
+                        *(u32*)(Bus_DebugGetMain(m) + fetch_paddr));
     }
 #endif
 

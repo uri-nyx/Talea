@@ -8,6 +8,19 @@ static const char *interrupt_names[] = {
 
 };
 
+static void no_interrupt_hook(u32 *win, struct IPCMessage *msg_out)
+{
+    return;
+}
+
+void interrupt_init(void)
+{
+    usize i = 0;
+    for (i = 0; i < AKAI_NUM_INTERRUPTS; i++) {
+        A.hooks[i] = no_interrupt_hook;
+    }
+}
+
 KernelInterruptHook kernel_hook_interrupt(enum TaleaInterrupt interrupt, KernelInterruptHook hook)
 {
     usize               idx  = interrupt - INT_SER_RX;
@@ -16,6 +29,8 @@ KernelInterruptHook kernel_hook_interrupt(enum TaleaInterrupt interrupt, KernelI
     A.hooks[idx] = hook;
     return prev;
 }
+
+extern void timer_interval_hook(u32 *win, struct IPCMessage *msg_out);
 
 void akai_interrupt(u8 vector)
 {
@@ -31,6 +46,7 @@ void akai_interrupt(u8 vector)
     _trace(0x1ba, vector, A.pr.curr->pid);
     save_ctx(A.pr.curr);
     win = A.pr.curr->ctx.regs;
+    _trace(0x1ba, 0xaaaa);
 
     if (vector >= INT_SER_RX && vector < AKAI_INVALID_INTERRUPT) {
         struct IPCMessage msg;
@@ -41,6 +57,8 @@ void akai_interrupt(u8 vector)
         memset(&msg, 0, sizeof(msg));
 
         if (A.hooks[signal] != NULL) {
+            _trace(0x1ba, 0xbbbb, A.hooks[signal], signal);
+            _trace(0x1ba, 0xbbbb, timer_interval_hook);
             A.hooks[signal](win, &msg);
         }
 

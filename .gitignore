@@ -16,8 +16,10 @@ x86/
 *.dll
 
 akai.tps
-
+*.tps
 *.bin
+tps_a/*
+tps_b/*
 
 
 # --- Taleä Specific Binaries ---
@@ -42,3 +44,8 @@ external/*/build/
 external/*/bin/
 raylib_src/
 resources/emulated/firmware/bios.bin
+resources/tps_images/*
+*.map
+__.SYMDEF
+software/akai/naimen/aksh/sh
+exec_log.txt
