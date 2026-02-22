@@ -6,7 +6,8 @@ export NAIMEN := $(abspath .)
 ALL_DIRS := $(patsubst %/,%,$(wildcard */))
 
 LIBS := $(filter lib%, $(ALL_DIRS))
-APPS := $(filter-out $(LIBS) tps_a tps_b, $(ALL_DIRS))
+EXCLUDES := tps_a tps_b SoftFloat-2c $(LIBS)
+APPS := $(filter-out $(EXCLUDES), $(ALL_DIRS))
 
 .PHONY: all libs apps img clean
 

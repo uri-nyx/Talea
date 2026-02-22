@@ -1,5 +1,5 @@
-CPPFLAGS := -I$(SDK)
-LIBS := -l $(NAIMEN)/libc/libc.a -l $(NAIMEN)/libsoftfloat/libf.a
+CPPFLAGS := -I$(SDK) -I$(NAIMEN)/libc/include
+LIBS := -l $(NAIMEN)/libc/libc.a
 
 all: sh.c
 	$(CC) $(CPPFLAGS) -c $(CRT0) sh.c

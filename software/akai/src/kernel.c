@@ -269,7 +269,7 @@ static ProcessPID init_proc(const char *name)
 
     work = (u32 *)remap_kernel_work_area((u32)init->page_tables[3]);
     map_pt_entry(work, (AKAI_PROCESS_STACK_TOP >> 12) - 1, (u32)stack, PTE_U | PTE_RW);
-    
+
     work = (u32 *)remap_kernel_work_area((u32)stack);
     memset(work, 0, PAGE_SIZE);
 
@@ -281,7 +281,8 @@ static ProcessPID init_proc(const char *name)
     unmap_kernel_work_area();
     tlb_flush();
 
-    init->ctx.usp = AKAI_PROCESS_STACK_TOP;
+    init->ctx.usp  = AKAI_PROCESS_STACK_TOP;
+    A.pr.curr->brk = (void*)(AKAI_PROCESS_BASE + PAGE_SIZE);
 
     return init_pid;
 }
@@ -289,7 +290,7 @@ static ProcessPID init_proc(const char *name)
 void kmain(u16 sys_info_data_addr)
 {
     ProcessPID init;
-    u32 usp;
+    u32        usp;
     memset(&A, 0, sizeof(A));
     // memset(_bss_start, 0, (AKAI_KERNEL_STACK_TOP - PAGE_SIZE) - (u32)_bss_start);
     // start time is now

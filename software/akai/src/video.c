@@ -112,7 +112,7 @@ static void clear_txt(void)
         _fillw((u8 *)AKAI_TEXTBUFFER,
                (u32)' ' << 24 | (u32)A.txt.attr[FG] << 16 | (u32)A.txt.attr[BG] << 8 |
                    A.txt.attr[AT],
-               A.txt.w * A.txt.h);
+               A.txt.w * A.txt.h );
     } else {
         memset((u8 *)AKAI_TEXTBUFFER, ' ', (A.txt.w * A.txt.h) * A.txt.bpc);
     }

@@ -24,10 +24,10 @@
 #define _LOFF
 
 /* errno */
-#define _EDOM
-#define _EFPOS
-#define _ERANGE
-#define _ERRMAX
+#define _EDOM   33
+#define _ERANGE 34
+#define _EFPOS3 35
+#define _ERRMAX 36
 
 /* stdio */
 #define _FNAMAX
@@ -38,24 +38,32 @@
 #define _MBMAX 1
 
 /* alignement */
-#define _MEMBND
-#define _AUPBND 3
-#define _ADNBND 3
+#define _ALIGNT long
+#define _ALIGNB sizeof(_ALIGNT)
+#define _MEMBND (_ALIGNB - 1)
+#define _AUPBND (_ALIGNB - 1)
+#define _ADNBND (_ALIGNB - 1)
 
 /* setjmp */
 #define _NSETJMP
 
 /* NULL */
-#define _NULL ((void*)0)
+#define _NULL ((void *)0)
 
 /* signal */
 #define _SIGABRT
 #define _SIGMAX
 
-/* types */
-typedef signed long _Ptrdifft;
-typedef unsigned long _Sizet;
-typedef unsigned short _Wchart;
+#ifndef EOF
+#define EOF (-1)
+#endif
 
+/* stdlib */
+#define _EXFAIL 1
+
+/* types */
+typedef signed long    _Ptrdifft;
+typedef unsigned long  _Sizet;
+typedef unsigned short _Wchart;
 
 #endif /* _YVALS */

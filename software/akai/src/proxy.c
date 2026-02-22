@@ -262,7 +262,7 @@ noctl:
 
 u8 proxy_in(u32 devnum, u8 port)
 {
-    u8  buff[1];
+    u8  buff[2];
     i32 res = proxy_ctl(devnum, PX_READ, &buff, 1);
     (void)port;
 
@@ -276,10 +276,11 @@ u8 proxy_in(u32 devnum, u8 port)
 
 i32 proxy_out(u32 devnum, u8 port, u8 val)
 {
-    u8 buff[1];
+    u8 buff[2];
 
     _trace(0xDAF0, devnum);
     buff[0] = val;
+    buff[1] = 0;
     (void)port;
     return proxy_ctl(devnum, PX_WRITE, &buff, 1);
 }

@@ -74,7 +74,51 @@ Software:
 
         ☐ Text editor (visual)
         ☐ Assembler
-        ☐ C cross compiler and simple library (no c stdilb)
+        ☐ C cross compiler
+        ANSI C libc:
+            ☐ assert.h	
+            ✔ ctype.h @done(26-02-21 22:31)
+            ☐ errno.h	
+            ✔ float.h @done(26-02-21 22:31)
+            ✔ limits.h @done(26-02-21 22:31)
+            ☐ locale.h	
+            ☐ math.h	
+            ☐ setjmp.h	
+            ☐ signal.h	
+            ✔ stdarg.h @done(26-02-21 22:31)
+            ✔ stddef.h @done(26-02-21 22:31)
+            ☐ stdio.h	
+            stdlib.h:
+                ☐ abort
+                ✔ abs @done(26-02-21 22:32)
+                ☐ atexit
+                ☐ atof
+                ✔ atoi @done(26-02-21 23:57)
+                ✔ atol @done(26-02-21 23:57)
+                ☐ bsearch
+                ✔ calloc @done(26-02-21 22:32)
+                ✔ div @done(26-02-21 22:32)
+                ☐ exit
+                ✔ free @done(26-02-21 22:32)
+                ☐ getenv
+                ✔ labs @done(26-02-21 22:32)
+                ✔ ldiv @done(26-02-21 22:32)
+                ✔ malloc @done(26-02-21 22:32)
+                ☐ mblen
+                ☐ mbstowcs
+                ☐ mbtowc
+                ☐ qsort
+                ✔ rand @done(26-02-21 22:32)
+                ✔ realloc @done(26-02-21 22:32)
+                ✔ srand @done(26-02-21 22:33)
+                ☐ strtod
+                ✔ strtol @done(26-02-21 23:57)
+                ✔ strtoul @done(26-02-21 23:57)
+                ☐ system
+                ☐ wctomb
+                ☐ wcstombs	
+            ✔ string.h @done(26-02-21 22:31)
+            ☐ time.h	 
         ☐ Self hosted compiler (can be any language)
         ☐ Interpreter
         Hardware libraries and for games:

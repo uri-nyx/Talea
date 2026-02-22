@@ -416,6 +416,7 @@ static i32 ak_exec(u32 *win)
         _trace(0xe1e1e1e);
         A.pr.curr->ctx.regs[12] = argc + 1;
         A.pr.curr->ctx.regs[13] = out_argv;
+        A.pr.curr->brk          = (void *)brk;
         process_yield();
         return A_OK;
     }
@@ -1276,10 +1277,17 @@ static i32 ak_sbrk(u32 *win)
     u32 curr_heap_top = PAGE_ALIGN_UP(old_brk);
     u32 new_heap_top  = PAGE_ALIGN_UP(new_brk);
 
+    if (A.pr.curr == KERNEL_PID) return -1;
+
     if (increment == 0) return old_brk;
 
     if (new_brk < old_brk || increment > (8 * 1024 * 1024) || new_brk >= AKAI_PROCESS_END) {
         err = A_ERROR_INVAL;
+        return -1;
+    }
+
+    if (new_heap_top > AKAI_PROCESS_END) {
+        err = A_ERROR_OOM;
         return -1;
     }
 
@@ -1288,6 +1296,7 @@ static i32 ak_sbrk(u32 *win)
         usize i;
         for (i = vaddr; i < new_heap_top; i += PAGE_SIZE) {
             u8 *frame = alloc_pages_contiguous(A.pr.curr->pid, 1);
+            _trace(0xFDFDAA, i);
             if (!frame) {
                 usize k;
 rollback:
@@ -1308,6 +1317,8 @@ rollback:
     }
 
     A.pr.curr->brk = (void *)new_brk;
+
+    _trace(0xFDFDFD01, new_brk, old_brk);
 
     return old_brk;
 }

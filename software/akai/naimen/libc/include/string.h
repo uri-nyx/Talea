@@ -6,7 +6,9 @@
 #endif
 
 /* macros */
+#ifndef NULL
 #define NULL _NULL
+#endif
 
 #ifndef _SIZET
 typedef _Sizet size_t;

@@ -51,6 +51,10 @@ check:
 check-errors:
 	clang -nostdinc -nobuiltininc -H -Iinclude/ -fsyntax-only -std=c89 -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c
 
+compiler-test:
+	$(CC) -v -S t.c
+	micro t.s
+
 naimen: kernel
 	$(MAKE) -C naimen
 

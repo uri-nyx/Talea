@@ -49,3 +49,4 @@ resources/tps_images/*
 __.SYMDEF
 software/akai/naimen/aksh/sh
 exec_log.txt
+software/akai/naimen/libc/plauger/**

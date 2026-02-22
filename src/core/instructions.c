@@ -5,6 +5,7 @@
 #include "core/cpu.h"
 #include "machine_description.h"
 #include "talea.h"
+#include <stdint.h>
 
 // #define DEBUG_LOG_INSTRUCTION_EXEC
 
@@ -75,7 +76,8 @@ static void instr_Sysret(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8
         m->cpu.status = stat;
         SetUsermode(m);
         m->cpu.isProcessingException = false;
-        TALEA_LOG_TRACE("Sysret to: %06x (status: 0x%08x ra: 0x%08x) wp: %d\n", pc, m->cpu.status, GPR_GET(m, x1), m->cpu.cwp);
+        TALEA_LOG_TRACE("Sysret to: %06x (status: 0x%08x ra: 0x%08x) wp: %d\n", pc, m->cpu.status,
+                        GPR_GET(m, x1), m->cpu.cwp);
     };
 }
 
@@ -239,6 +241,8 @@ static void instr_Fill(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
     u32 val   = GPR_GET(m, r3);
     u32 i;
 
+    imm_15 &= 0x7;
+
     if (SR_GET_MMU(cpu->status)) {
         size_t total_bytes = count;
         if (imm_15 == 3)
@@ -250,7 +254,7 @@ static void instr_Fill(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
 
         if (!MMU_ValidateWriteAccessRange(m, addr, total_bytes)) return;
     }
-
+   
     for (i = 0; i < count; i++) {
         if (imm_15 == 3) { /* 32-bit */
             Machine_WriteMain32(m, addr + (i * 4), val);
