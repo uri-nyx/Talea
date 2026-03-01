@@ -14,15 +14,15 @@
 #define MAX_OPEN_FILES  8
 /* @AKAI */
 
-enum {
-    CPU_STATUS_SUPERVISOR       = (1U << 31U),
-    CPU_STATUS_INTERRUPT_ENABLE = (1U << 30U),
-    CPU_STATUS_MMU_ENABLE       = (1U << 29U),
-    CPU_STATUS_PRIORITY_MASK    = 0x1C000000,
-    CPU_STATUS_IVT_ADDR_MASK    = 0x03F00000, // NOTE: NOT USED
-    CPU_STATUS_PDT_ADDR_MASK    = 0x000FFF00,
-    CPU_STATUS_DEBUG_STEP       = (1U << 1U),
-};
+#define CPU_STATUS_SUPERVISOR       (1U << 31U)
+#define CPU_STATUS_INTERRUPT_ENABLE (1U << 30U)
+#define CPU_STATUS_MMU_ENABLE       (1U << 29U)
+#define CPU_STATUS_PRIORITY_MASK    (0x1C000000U)
+#define CPU_STATUS_IVT_ADDR_MASK    (0x03F00000U) // NOTE: NOT USED
+#define CPU_STATUS_PDT_ADDR_MASK    (0x000FFF00U)
+#define CPU_STATUS_DEBUG_STEP       (1U << 1U)
+
+#define ISALIVE(pid) (A.pr.proc[(pid)].state != FREE && A.pr.proc[(pid)].state != ZOMBIE)
 
 struct ThreadCtx {
     u32 regs[NUM_REGS];
@@ -59,11 +59,17 @@ struct Process {
     u32   flags;
     i32   exit_code;
     u32   last_error;
+    i32   waiting_on;
+    int   parent_state;
+
+    // timing
+    u32 user_ticks, system_ticks;
 
     // Event and interrupt code
     void *event_handler;
     u32   pending_events;
-    u32   event_mask; // [31:16] general purpose signals [15] doorbell? [12:0] interrupts
+    u32   event_mask; // [31:16] general purpose signals [15] doorbell? [12:0]
+                      // interrupts
 
     // subscriptions
     struct Subscriptions subs[4];
@@ -93,20 +99,15 @@ struct Processes {
 
 /*
 HEADER AT THE START OF THE INBOX
-00      1b  semaphore: for the kernel to inject an event, it must be 0. The kernel initializes to 1.
-        Before returning, the user must set it to a number greater than 1 to prevent recursive
-        injection. The kernel will check every time it could inject the process:
-            if 0, its safe to inject
-            if 1, it must never inject.
-            if 2, it decrements to 0.
-            if >2, it decrements by 1.
-01      2b  tail of the message queue. read pointer for user
-03      2b  head of the message queue. write pointer for kernel
-05      1b  missed. Number of missed messages since last injection.
-06      1b  flags:
-            bit 0: overflow, messages were lost or dropped
-07-08   2b  queue_max: maximum capacity of message queue.
-09-0F   6b  reserved for padding
+00      1b  semaphore: for the kernel to inject an event, it must be 0. The kernel
+initializes to 1. Before returning, the user must set it to a number greater than 1
+to prevent recursive injection. The kernel will check every time it could inject the
+process: if 0, its safe to inject if 1, it must never inject. if 2, it decrements to
+0. if >2, it decrements by 1. 01      2b  tail of the message queue. read pointer
+for user 03      2b  head of the message queue. write pointer for kernel 05      1b
+missed. Number of missed messages since last injection. 06      1b  flags: bit 0:
+overflow, messages were lost or dropped 07-08   2b  queue_max: maximum capacity of
+message queue. 09-0F   6b  reserved for padding
 
 TOTAL SIZE 16b
 */
@@ -126,7 +127,8 @@ enum {
 };
 
 // WARNING: THIS STRUCT IS ONLY FOR REFERENCE AND EASY HANDLING.
-// ACTUAL MEMORY LAYOUT, ALIGNEMENT AND SIZE MUST BE ENSURED TO BE AS DESCRIBED ABOVE
+// ACTUAL MEMORY LAYOUT, ALIGNEMENT AND SIZE MUST BE ENSURED TO BE AS DESCRIBED
+// ABOVE
 struct InboxHeader {
     u8  semaphore;
     u16 tail;
@@ -183,7 +185,8 @@ enum {
 };
 
 // WARNING: THIS STRUCT IS ONLY FOR REFERENCE AND EASY HANDLING.
-// ACTUAL MEMORY LAYOUT, ALIGNEMENT AND SIZE MUST BE ENSURED TO BE AS DESCRIBED ABOVE
+// ACTUAL MEMORY LAYOUT, ALIGNEMENT AND SIZE MUST BE ENSURED TO BE AS DESCRIBED
+// ABOVE
 struct IPCMessage {
     // message header
     // like an address:port combination
@@ -198,6 +201,25 @@ struct IPCMessage {
 };
 
 #define INBOX_QUEUE_MAX ((PAGE_SIZE - INBOX_HEADER_SIZE) / IPC_MSG_SIZE)
+
+enum ExecutionWarrant {
+    WARRANT_NONE      = 0,
+    WARRANT_ABORT     = -1,
+    WARRANT_EXCEPTION = -2,
+    WARRANT_PARRICIDE = -3,
+    WARRANT_REAPED    = -4,
+    WARRANT_ERROR     = -4,
+    WARRANT_OOM       = (signed)A_ERROR_OOM,
+    WARRANT_SEG       = (signed)A_ERROR_SEG,
+
+};
+
+#define WAITON_ANY (-1)
+
+enum WaitOptions {
+    WAIT_HANG   = 0,
+    WAIT_NOHANG = 1,
+};
 
 /* @AKAI */
 
@@ -220,13 +242,17 @@ void       process_run(ProcessPID pid, enum ParentState parent_new_state);
 void       process_stop(ProcessPID pid);
 void       process_wait(ProcessPID pid);
 void       process_set_ready(ProcessPID pid);
-void       process_terminate(ProcessPID pid);
+void       process_terminate(ProcessPID pid, i32 warrant);
 void       process_reap(ProcessPID pid);
 void       process_yield(void);
 
 bool process_check_recv(ProcessPID sender_pid, ProcessPID target_pid, u8 signal);
 bool process_queue_msg(ProcessPID pid, struct IPCMessage *msg);
 bool process_check_addr(ProcessPID pid, uptr addr, u32 acces_flags, bool executable);
+
+bool process_clone_memory(ProcessPID dst, ProcessPID src);
+bool process_share_memory(ProcessPID dst, ProcessPID src);
+void process_share_files(ProcessPID dst, ProcessPID src);
 
 u32  save_ctx(struct Process *p);
 void restore_ctx(struct Process *p);

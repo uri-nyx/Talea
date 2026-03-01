@@ -94,6 +94,24 @@ enum {
     PROCESS_REUSE_PT,
 };
 
+void process_share_files(ProcessPID dst, ProcessPID src)
+{
+    struct Process *dp = &A.pr.proc[dst];
+    struct Process *sp = &A.pr.proc[src];
+
+    usize i;
+
+    for (i = 0; i < MAX_OPEN_FILES; i++) {
+        if (sp->fds[i] != FREE_FD) {
+            i16 fd = sp->fds[i];
+            if (fd >= 0 && fd < FILE_POOL_MAX) {
+                A.fp.refs[fd] += 1;
+                dp->fds[i] = fd;
+            }
+        }
+    }
+}
+
 // fill the process with default values
 static bool populate_process(ProcessPID pid, const char *name, ProcessEntry entry, int flags)
 {
@@ -150,7 +168,7 @@ static bool populate_process(ProcessPID pid, const char *name, ProcessEntry entr
         }
 
         for (i = (AKAI_PROCESS_BASE >> 12); i < 1024; i++) {
-            u32 phys = work[i] & ~0xFFF;
+            u32 phys = work[i] & ~0xFFFU;
             if (phys) free_page((void *)phys);
             work[i] = 0;
         }
@@ -158,7 +176,7 @@ static bool populate_process(ProcessPID pid, const char *name, ProcessEntry entr
         if (p->page_tables[1]) {
             work = (u32 *)remap_kernel_work_area((u32)p->page_tables[1]);
             for (i = 0; i < 1024; i++) {
-                u32 phys = work[i] & ~0xFFF;
+                u32 phys = work[i] & ~0xFFFU;
                 if (phys) free_page((void *)phys);
                 work[i] = 0;
             }
@@ -169,7 +187,7 @@ static bool populate_process(ProcessPID pid, const char *name, ProcessEntry entr
         if (p->page_tables[2]) {
             work = (u32 *)remap_kernel_work_area((u32)p->page_tables[2]);
             for (i = 0; i < 1024; i++) {
-                u32 phys = work[i] & ~0xFFF;
+                u32 phys = work[i] & ~0xFFFU;
                 if (phys) free_page((void *)phys);
                 work[i] = 0;
             }
@@ -179,7 +197,7 @@ static bool populate_process(ProcessPID pid, const char *name, ProcessEntry entr
 
         work = (u32 *)remap_kernel_work_area((u32)p->page_tables[3]);
         for (i = 0; i < ((AKAI_PROCESS_STACK_TOP >> 12) & 0x3FF); i++) {
-            u32 phys = work[i] & ~0xFFF;
+            u32 phys = work[i] & ~0xFFFU;
             if (phys) free_page((void *)phys);
             work[i] = 0;
         }
@@ -187,6 +205,11 @@ static bool populate_process(ProcessPID pid, const char *name, ProcessEntry entr
         if (p->inbox != NULL) {
             free_page(p->inbox);
             work[(AKAI_IPC_INBOX >> 12) & 0x3FF] = 0;
+        }
+
+        if (p->outbox != NULL) {
+            free_page(p->inbox);
+            work[(AKAI_IPC_OUTBOX >> 12) & 0x3FF] = 0;
         }
 
         unmap_kernel_work_area();
@@ -227,8 +250,7 @@ static bool populate_process(ProcessPID pid, const char *name, ProcessEntry entr
     return true;
 }
 
-// returns 0 (the kernel PID) on error. Make user to init the process module (to create the Kernel
-// process) first
+// returns 0 (the kernel PID) on error.
 ProcessPID process_create(const char *name, ProcessEntry entry)
 {
     struct Processes *p = &A.pr;
@@ -238,11 +260,6 @@ ProcessPID process_create(const char *name, ProcessEntry entry)
     _trace(0xc00f);
     for (i = 0; i < MAX_PROCESS; i++) {
         _trace(i, p->proc[i].state);
-        // reap zombies
-        if (p->proc[i].state == ZOMBIE && p->proc[i].parent == 0) {
-            process_reap(i);
-        }
-
         // allocate a pid
         if (p->proc[i].state == FREE) {
             pid = i;
@@ -260,11 +277,14 @@ ProcessPID process_create(const char *name, ProcessEntry entry)
     save_ctx(&p->proc[pid]);
 
     // Set parent as curr process
+    p->proc[pid].ctx.usp        = AKAI_PROCESS_STACK_TOP;
     p->proc[pid].parent         = p->curr->pid;
     p->proc[pid].curr_drive     = p->curr->curr_drive;
     p->proc[pid].cwd_cluster[0] = p->curr->cwd_cluster[0];
     p->proc[pid].cwd_cluster[1] = p->curr->cwd_cluster[1];
     p->proc[pid].cwd_cluster[2] = p->curr->cwd_cluster[2];
+
+    _swd(REG_SYSTEM_USP, p->proc[pid].ctx.usp);
 
     // brk left to zero, only initialize on exec() or rfork()
     return pid;
@@ -283,13 +303,198 @@ bool process_reset(ProcessPID pid, const char *name, u32 brk, u32 stack, Process
     memset(p->proc[pid].ctx.regs, 0, 32 * 4);
 
     p->proc[pid].brk        = (void *)brk;
-    p->proc[pid].ctx.pc     = (u32)AKAI_PROCESS_BASE;
-    p->proc[pid].ctx.usp    = AKAI_PROCESS_STACK_TOP;
+    p->proc[pid].ctx.pc     = (u32)entry;
+    p->proc[pid].ctx.usp    = stack;
     p->proc[pid].ctx.status = ((p->proc[pid].pdt >> 4) << 8) | AKAI_PROCESS_STATUS;
     // Restore parent
     p->proc[pid].parent = parent;
 
+    _swd(REG_SYSTEM_USP, p->proc[pid].ctx.usp);
+
     return true;
+}
+
+static void free_and_unmap(ProcessPID pid, u32 vaddr)
+{
+    struct Process *p     = &A.pr.proc[pid];
+    struct Process *saved = A.pr.curr;
+
+    void *phys;
+
+    phys = phys_from_v(p, vaddr);
+    if (!phys) return; // nothing mapped → nothing to do
+
+    // unmap from child's page tables
+    A.pr.curr = p;
+    unmap_active_pt_entry(vaddr);
+    A.pr.curr = saved;
+
+    // drop refcount / free if last
+    free_page(phys);
+}
+
+static bool clone_page(ProcessPID dst_pid, ProcessPID src_pid, u32 vaddr)
+{
+    struct Process *srcp = &A.pr.proc[src_pid];
+    struct Process *dstp = &A.pr.proc[dst_pid];
+
+    void *phys_src, *phys_dst;
+    u8   *src, *dst;
+
+    phys_src = phys_from_v(srcp, vaddr);
+    if (!phys_src) return true;
+
+    phys_dst = alloc_pages_contiguous(dst_pid, 1);
+    if (!phys_dst) return false; // OOM
+
+    src = (u8 *)map_kernel_work_area((u32)phys_src);
+    dst = (u8 *)remap_kernel_work_area((u32)phys_dst);
+    if (!src || !dst) {
+        if (src) unmap_kernel_work_area();
+        if (dst) unmap_kernel_work_area();
+        free_page(phys_dst);
+        return false;
+    }
+
+    memcpy(dst, src, PAGE_SIZE);
+    unmap_kernel_work_area(); // dst
+    unmap_kernel_work_area(); // src
+
+    { // copy mapping
+        struct Process *saved;
+        // get flags from srcp PTE
+        u32  pdt_idx = vaddr >> 22;
+        u32  vpn     = (vaddr >> 12) & 0x3FF;
+        u32 *pt_phys = srcp->page_tables[pdt_idx];
+        u32 *pt_work;
+        u32  pte;
+
+        if (!pt_phys) {
+            _trace(0xDEADC0DE, 0x1a1a1a1);
+            goto fail;
+        }
+
+        pt_work = (u32 *)map_kernel_work_area((u32)pt_phys);
+        if (!pt_work) goto fail;
+
+        pte = pt_work[vpn];
+        unmap_kernel_work_area();
+
+        // map into dstp
+        saved     = A.pr.curr;
+        A.pr.curr = dstp;
+        if (!map_active_pt_entry((u32)phys_dst, vaddr, pte & 0x1F)) goto fail;
+        A.pr.curr = saved;
+    }
+
+    return true;
+
+fail:
+    free_page(phys_dst);
+    return false;
+}
+
+static bool share_page_mapping(ProcessPID dst_pid, ProcessPID src_pid, u32 vaddr)
+{
+    struct Process *srcp = &A.pr.proc[src_pid];
+    struct Process *dstp = &A.pr.proc[dst_pid];
+    struct Process *saved;
+
+    u32 pdt_idx, vpn, *pt_phys, *pt_work, pte;
+
+    void *phys = phys_from_v(srcp, vaddr);
+    if (!phys) return true;
+
+    share_page(phys);
+
+    pdt_idx = vaddr >> 22;
+    vpn     = (vaddr >> 12) & 0x3FF;
+    pt_phys = srcp->page_tables[pdt_idx];
+    if (!pt_phys) {
+        // TODO: some type of Kernel warning
+        _trace(0xDEADC0DE, 0x1a1a1a1);
+        goto fail;
+    }
+
+    pt_work = (u32 *)map_kernel_work_area((u32)pt_phys);
+    if (!pt_work) goto fail;
+
+    pte = pt_work[vpn];
+    unmap_kernel_work_area();
+
+    saved     = A.pr.curr;
+    A.pr.curr = dstp;
+    if (!map_active_pt_entry((u32)phys, vaddr, pte & 0x1F)) goto fail;
+    A.pr.curr = saved;
+    return true;
+
+fail:
+    free_page(phys);
+    return false;
+}
+
+bool process_clone_memory(ProcessPID dst, ProcessPID src)
+{
+    u32 v0, v1, verr;
+    // code+data+heap
+    for (v0 = AKAI_PROCESS_BASE; v0 < AKAI_PROCESS_END; v0 += PAGE_SIZE)
+        if (!clone_page(dst, src, v0)) goto fail_v0;
+
+    // stack
+    for (v1 = AKAI_PROCESS_STACK_END; v1 < AKAI_PROCESS_STACK_TOP; v1 += PAGE_SIZE)
+        if (!clone_page(dst, src, v1)) goto fail_v1;
+
+    if (A.pr.proc[src].inbox) {
+        if (!clone_page(dst, src, AKAI_IPC_INBOX)) goto fail_inbox;
+    }
+
+    if (A.pr.proc[src].outbox) {
+        if (!clone_page(dst, src, AKAI_IPC_OUTBOX)) goto fail_outbox;
+    }
+
+    return true;
+
+fail_outbox:
+    free_and_unmap(dst, AKAI_IPC_OUTBOX);
+fail_inbox:
+    free_and_unmap(dst, AKAI_IPC_INBOX);
+fail_v1:
+    for (verr = AKAI_PROCESS_STACK_END; verr < v1; verr += PAGE_SIZE) free_and_unmap(dst, verr);
+fail_v0:
+    for (verr = AKAI_PROCESS_BASE; verr < v0; verr += PAGE_SIZE) free_and_unmap(dst, verr);
+    return false;
+}
+
+bool process_share_memory(ProcessPID dst, ProcessPID src)
+{
+    u32 v0, v1, verr;
+    // code+data+heap
+    for (v0 = AKAI_PROCESS_BASE; v0 < AKAI_PROCESS_END; v0 += PAGE_SIZE)
+        if (!share_page_mapping(dst, src, v0)) goto fail_v0;
+
+    // stack
+    for (v1 = AKAI_PROCESS_STACK_END; v1 < AKAI_PROCESS_STACK_TOP; v1 += PAGE_SIZE)
+        if (!share_page_mapping(dst, src, v1)) goto fail_v1;
+
+    if (A.pr.proc[src].inbox) {
+        if (!share_page_mapping(dst, src, AKAI_IPC_INBOX)) goto fail_inbox;
+    }
+
+    if (A.pr.proc[src].outbox) {
+        if (!share_page_mapping(dst, src, AKAI_IPC_OUTBOX)) goto fail_outbox;
+    }
+
+    return true;
+
+fail_outbox:
+    free_and_unmap(dst, AKAI_IPC_OUTBOX);
+fail_inbox:
+    free_and_unmap(dst, AKAI_IPC_INBOX);
+fail_v1:
+    for (verr = AKAI_PROCESS_STACK_END; verr < v1; verr += PAGE_SIZE) free_and_unmap(dst, verr);
+fail_v0:
+    for (verr = AKAI_PROCESS_BASE; verr < v0; verr += PAGE_SIZE) free_and_unmap(dst, verr);
+    return false;
 }
 
 bool process_check_addr(ProcessPID pid, uptr addr, u32 acces_flags, bool executable)
@@ -377,8 +582,11 @@ void process_run(ProcessPID pid, enum ParentState parent_new_state)
             if (target->pid == parent->pid) goto skip;
 
             switch (parent_new_state) {
-            case PARENT_WAIT: process_wait(parent->pid); break;
-            case PARENT_DIE: process_terminate(parent->pid); break;
+            case PARENT_WAIT:
+                process_wait(parent->pid);
+                parent->waiting_on = pid;
+                break;
+            case PARENT_DIE: process_terminate(parent->pid, WARRANT_PARRICIDE); break;
             case PARENT_DETACH:
                 process_stop(parent->pid);
                 target->parent = 0;
@@ -398,7 +606,7 @@ skip:
 
     // switch pdt. There should be no problem, since the kernel is mapped there too
     sreg = _gsreg();
-    sreg &= ~(0x000FFF00);
+    sreg &= ~(0x000FFF00U);
     sreg |= (p->curr->pdt >> 4) << 8;
     _trace(0XBBBBB, sreg, _gsreg());
     _trace(0XBBBBB, p->curr->page_tables[0], p->curr->page_tables[3]);
@@ -459,14 +667,65 @@ void process_set_ready(ProcessPID pid)
     p->proc[pid].state = READY;
 }
 
-void process_terminate(ProcessPID pid)
+static void run_inheritance(ProcessPID pid)
+{
+    usize i;
+    for (i = 0; i < _DEV_NUM; i++) {
+        // relinquish owned devices
+        struct DeviceDeed *deed     = &A.devices[i].deed;
+        ProcessPID         owner    = deed->owner;
+        ProcessPID         lessor   = deed->lessor;
+        ProcessPID         original = deed->original;
+
+        if (owner == pid) {
+            deed->owner  = KERNEL_PID;
+            deed->lessor = KERNEL_PID;
+
+            if (lessor != KERNEL_PID && ISALIVE(lessor)) {
+                deed->owner = lessor;
+            } else if (original != KERNEL_PID && ISALIVE(original)) {
+                deed->owner = original;
+            } else {
+                deed->original = KERNEL_PID;
+            }
+        }
+
+        if (lessor == pid) {
+            deed->lessor = KERNEL_PID;
+        }
+
+        if (original == pid) {
+            deed->original = KERNEL_PID;
+        }
+    }
+}
+
+void process_terminate(ProcessPID pid, i32 warrant)
 {
     struct Processes *p = &A.pr;
 
-    usize i;
+    usize      i;
+    bool       parent_waiting = false;
+    ProcessPID parent         = p->curr->parent;
 
     _trace(0xDEADB001, pid);
     if (pid == 0) return; // idle process is not killable
+
+    if (warrant) p->proc[pid].exit_code = warrant;
+
+    if (parent != KERNEL_PID && p->proc[parent].state == WAITING &&
+        (p->proc[parent].waiting_on == WAITON_ANY || p->proc[parent].waiting_on == pid)) {
+        // wake the parent
+        int  status[1];
+        int *dest      = (int *)p->proc[parent].ctx.regs[14];
+        status[0]      = p->proc[pid].exit_code;
+        parent_waiting = true;
+
+        if (dest) copy_to_user(&p->proc[parent], dest, status, 1);
+        p->proc[parent].ctx.regs[10] = pid;
+
+        process_set_ready(parent);
+    }
 
     for (i = 0; i < MAX_PROCESS; i++) {
         if (p->proc[i].parent == pid) p->proc[i].parent = 0;
@@ -487,14 +746,9 @@ void process_terminate(ProcessPID pid)
         }
     }
 
-    for (i = 0; i < _DEV_NUM; i++) {
-        // relinquish owned devices
-        if (A.device_owners[i] == pid) {
-            A.device_owners[i] = p->proc[pid].parent;
-        }
-    }
+    run_inheritance(pid);
 
-    if (p->proc[pid].parent == 0) {
+    if (parent_waiting || p->proc[pid].parent == 0) {
         _trace(0xDEADDD, p->curr->pid, pid);
         p->proc[pid].state = FREE;
         p->count--;
@@ -510,7 +764,7 @@ void process_reap(ProcessPID pid)
     if (pid == 0 || p->proc[pid].state == FREE) return; // idle process is not killable
 
     if (p->proc[pid].state != ZOMBIE) {
-        process_terminate(pid);
+        process_terminate(pid, WARRANT_REAPED);
     }
 
     if (p->proc[pid].state == FREE) return;
@@ -534,8 +788,12 @@ void process_yield(void)
     for (i = 0; i < MAX_PROCESS; i++) {
         ProcessPID k = (n + i) % MAX_PROCESS;
         if ((p->proc[k].state == READY || p->proc[k].state == NEWBORN) && p->proc[k].pid != 0) {
+            int parent_state = p->proc[k].state == NEWBORN ? p->proc[k].parent_state :
+                                                             PARENT_KEEP_RUNNING;
+
+            p->proc[k].parent_state = PARENT_KEEP_RUNNING;
             _trace(0xAAA, k, p->proc[k].state);
-            process_run(k, PARENT_KEEP_RUNNING);
+            process_run(k, parent_state);
         }
     }
 
@@ -587,9 +845,8 @@ u32 save_ctx(struct Process *p)
         u32 stat;
         load_window(p->ctx.wp, p->ctx.regs);
         p->ctx.pc     = (u32)p->entry;
-        p->ctx.usp    = AKAI_PROCESS_STACK_TOP;
         p->ctx.status = ((p->pdt >> 4) << 8) | AKAI_PROCESS_STATUS;
-        _swd(REG_SYSTEM_USP, p->ctx.usp);
+        _swd(REG_SYSTEM_USP, p->ctx.usp); // oh, its here too then
     } else if (sirius_cwp == 0 && p->pid != 0 && p->state != NEWBORN) {
         // panic here
     } else if (p->state != FREE && p->state != ZOMBIE) {
@@ -614,14 +871,13 @@ void restore_ctx(struct Process *p)
     if (p->state == NEWBORN) {
         // false restore, to transfer to usermode
         _trace(0xfa1, p->pid);
-        save_ctx(p);                      // we just want a clean register file<
-        _swd(REG_SYSTEM_USP, p->ctx.usp); // store saved usp
+        save_ctx(p); // we just want a clean register file<
     } else if (p->state != FREE && p->state != ZOMBIE) {
         _trace(0xfa0, p->pid, p->ctx.wp, p->ctx.regs[1]);
         store_window(p->ctx.wp, p->ctx.regs);
         _swd(REG_SYSTEM_USP, p->ctx.usp); // store saved usp
     }
-};
+}
 
 bool process_check_recv(ProcessPID sender_pid, ProcessPID target_pid, u8 signal)
 {

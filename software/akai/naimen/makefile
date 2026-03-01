@@ -16,6 +16,9 @@ all: libs apps img
 libs:
 	@for dir in $(LIBS); do $(MAKE) -C $$dir; done
 
+libc-d:
+	$(MAKE) -C libc debug
+
 apps:
 	@for dir in $(APPS); do $(MAKE) -C $$dir; done
 

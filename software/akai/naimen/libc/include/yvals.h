@@ -7,38 +7,39 @@
 #define _ILONG 1 /* 1 = 32-bit ints */
 
 /* time */
-#define _CPS
-#define _TBIAS
+#define _CPS 100 /* 10 ms ticks*/
+#define _TBIAS 0
 
 /* floating point */
-#define _D0
-#define _DBIAS
+#define _D0    1 /* big endian */
+#define _DBIAS 0x7F
 #define _DLONG 1 /* long double == double */
-#define _DOFF
+#define _DOFF  4
 
-#define _FBIAS
-#define _FOFF
-#define _FRND
+#define _FBIAS 0x7e
+#define _FOFF  7
+#define _FRND  1
 
-#define _LBIAS
-#define _LOFF
+#define _LBIAS 0x7F
+#define _LOFF  15
 
 /* errno */
 #define _EDOM   33
 #define _ERANGE 34
-#define _EFPOS3 35
+#define _EFPOS  35
 #define _ERRMAX 36
 
 /* stdio */
-#define _FNAMAX
-#define _FOPMAX
-#define _TNAMAX
+#define _FNAMAX 13
+#define _FOPMAX 8
+#define _TNAMAX 13
 
 /* limits */
 #define _MBMAX 1
 
 /* alignement */
-#define _ALIGNT long
+#define _ALIGNT \
+    long // TODO: this will break because long long has alignement of 8, but the stack does not
 #define _ALIGNB sizeof(_ALIGNT)
 #define _MEMBND (_ALIGNB - 1)
 #define _AUPBND (_ALIGNB - 1)
@@ -50,13 +51,11 @@
 /* NULL */
 #define _NULL ((void *)0)
 
+#define EOF -1
+
 /* signal */
 #define _SIGABRT
 #define _SIGMAX
-
-#ifndef EOF
-#define EOF (-1)
-#endif
 
 /* stdlib */
 #define _EXFAIL 1

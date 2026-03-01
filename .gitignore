@@ -20,7 +20,12 @@ akai.tps
 *.bin
 tps_a/*
 tps_b/*
-
+t.c
+t_t.c
+t.s
+sh.s
+t5.c
+ttt.c 
 
 # --- Taleä Specific Binaries ---
 # Don't track generated firmware or disk images
@@ -50,3 +55,4 @@ __.SYMDEF
 software/akai/naimen/aksh/sh
 exec_log.txt
 software/akai/naimen/libc/plauger/**
+exec_log.txt

@@ -8,19 +8,21 @@ typedef u8 ProcessPID;
 typedef int (*ProcessEntry)(int, char **);
 
 // Syscall Error codes
-#define A_OK          0
-#define A_ERROR       0xffffffff // Just a general error
-#define A_ERROR_IPC   0x00002000 // Bit 13 is reserved to signal an IPC error
-#define A_ERROR_OOM   0xfffffff0 // Out of memory
-#define A_ERROR_SEG   0xffffffe0 // Segfault
-#define A_ERROR_INVAL 0xffffffd0 // Parameter to syscall invalid
-#define A_ERROR_OOF   0xffffffc0 // Too many open files
-#define A_ERROR_CLAIM 0xffffffb0 // Device already claimed
-#define A_ERROR_CTL   0xffffffa0 // Error on device control layer
+#define A_OK               0U
+#define A_ERROR            0xffffffffU // Just a general error
+#define A_ERROR_IPC        0x00002000U // Bit 13 is reserved to signal an IPC error
+#define A_ERROR_OOM        0xfffffff0U // Out of memory
+#define A_ERROR_SEG        0xffffffe0U // Segfault
+#define A_ERROR_INVAL      0xffffffd0U // Parameter to syscall invalid
+#define A_ERROR_OOF        0xffffffc0U // Too many open files
+#define A_ERROR_CLAIM      0xffffffb0U // Device already claimed
+#define A_ERROR_CTL        0xffffffa0U // Error on device control layer
+#define A_ERROR_FORBIDDEN  0xffffff90U // Forbidden action
+#define A_ERROR_NOCHILDREN 0xffffff80U // Process has no children
 
-#define A_ERROR_UNREACHEABLE 0xDEADBEEF
+#define A_ERROR_UNREACHEABLE 0xDEADBEEFU
 
-#define FS_ERROR 0x80000000 // flag for FatFs errors
+#define FS_ERROR 0x80000000U // flag for FatFs errors
 
 // Process error
 enum {
@@ -40,7 +42,10 @@ enum {
     P_ERROR_NO_DEV,              // Specified device does not exist
     P_ERROR_CANNOT_ATTACH,       // Cannot attach the specified device
     P_ERROR_NO_PORT,             // Driver error, no such port
-    P_ERROR_NOT_IMPLEMENTED,     // 
+    P_ERROR_NO_PERM,             // Process lacks permissions to attempt action
+    P_ERROR_NOT_CHILD,           // The pid requested was not a child of the process
+    P_ERROR_NO_PID,              // Could not acquire a PID
+    P_ERROR_NOT_IMPLEMENTED,     //
 };
 
 #ifdef INCLUDE_DAYS_TABLE

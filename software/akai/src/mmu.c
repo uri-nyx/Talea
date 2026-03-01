@@ -158,7 +158,7 @@ void *active_phys_from_v(u32 vaddr)
     if (pdt_idx > 3) return NULL;
     if (pde_phys == NULL) return NULL;
     // must be mapped
-    return (void *)(active_pt[vpn] & ~0xFFF);
+    return (void *)(active_pt[vpn] & ~0xFFFU);
 }
 
 void *phys_from_v(struct Process *proc, u32 vaddr)
@@ -221,7 +221,7 @@ usize copy_to_user(struct Process *dest_proc, void *user_dst, void *kernel_src, 
 
 void chperm_pt_entry(u32 *pt, u32 id, u32 flags)
 {
-    pt[id & 0x3FF] &= ~0x1f;
+    pt[id & 0x3FF] &= ~0x1fU;
     pt[id & 0x3FF] |= flags;
     _trace(0x666, pt[id & 0x3FF], (u32)pt, id);
 }

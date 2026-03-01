@@ -11,6 +11,7 @@
 #endif
 
 #ifndef _SIZET
+#define _SIZET
 typedef _Sizet size_t;
 #endif
 

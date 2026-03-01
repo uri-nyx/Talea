@@ -2,7 +2,7 @@
 #define AKAI_H
 
 
-#define PAGE_SIZE 4096
+#define PAGE_SIZE 4096U
 
 typedef unsigned char  u8;
 typedef unsigned short u16;
@@ -59,19 +59,21 @@ typedef u8 ProcessPID;
 typedef int (*ProcessEntry)(int, char **);
 
 // Syscall Error codes
-#define A_OK          0
-#define A_ERROR       0xffffffff // Just a general error
-#define A_ERROR_IPC   0x00002000 // Bit 13 is reserved to signal an IPC error
-#define A_ERROR_OOM   0xfffffff0 // Out of memory
-#define A_ERROR_SEG   0xffffffe0 // Segfault
-#define A_ERROR_INVAL 0xffffffd0 // Parameter to syscall invalid
-#define A_ERROR_OOF   0xffffffc0 // Too many open files
-#define A_ERROR_CLAIM 0xffffffb0 // Device already claimed
-#define A_ERROR_CTL   0xffffffa0 // Error on device control layer
+#define A_OK               0U
+#define A_ERROR            0xffffffffU // Just a general error
+#define A_ERROR_IPC        0x00002000U // Bit 13 is reserved to signal an IPC error
+#define A_ERROR_OOM        0xfffffff0U // Out of memory
+#define A_ERROR_SEG        0xffffffe0U // Segfault
+#define A_ERROR_INVAL      0xffffffd0U // Parameter to syscall invalid
+#define A_ERROR_OOF        0xffffffc0U // Too many open files
+#define A_ERROR_CLAIM      0xffffffb0U // Device already claimed
+#define A_ERROR_CTL        0xffffffa0U // Error on device control layer
+#define A_ERROR_FORBIDDEN  0xffffff90U // Forbidden action
+#define A_ERROR_NOCHILDREN 0xffffff80U // Process has no children
 
-#define A_ERROR_UNREACHEABLE 0xDEADBEEF
+#define A_ERROR_UNREACHEABLE 0xDEADBEEFU
 
-#define FS_ERROR 0x80000000 // flag for FatFs errors
+#define FS_ERROR 0x80000000U // flag for FatFs errors
 
 // Process error
 enum {
@@ -91,7 +93,10 @@ enum {
     P_ERROR_NO_DEV,              // Specified device does not exist
     P_ERROR_CANNOT_ATTACH,       // Cannot attach the specified device
     P_ERROR_NO_PORT,             // Driver error, no such port
-    P_ERROR_NOT_IMPLEMENTED,     // 
+    P_ERROR_NO_PERM,             // Process lacks permissions to attempt action
+    P_ERROR_NOT_CHILD,           // The pid requested was not a child of the process
+    P_ERROR_NO_PID,              // Could not acquire a PID
+    P_ERROR_NOT_IMPLEMENTED,     //
 };
 
 #ifdef INCLUDE_DAYS_TABLE
@@ -262,11 +267,12 @@ enum VideoCSR {
     VIDEO_QUEUE_FULL   = 0X80,
 };
 
+#define TEXTMODE_CHAR (0xFF000000U)
+#define TEXTMODE_FG   (0X00FF0000U)
+#define TEXTMODE_BG   (0X0000FF00U)
+#define TEXTMODE_ATT  (0X000000FFU)
+
 enum TextModeAttrib {
-    TEXTMODE_CHAR = 0xFF000000,
-    TEXTMODE_FG   = 0X00FF0000,
-    TEXTMODE_BG   = 0X0000FF00,
-    TEXTMODE_ATT  = 0X000000FF,
 
     TEXTMODE_ATT_CODEPAGE    = 0x01,
     TEXTMODE_ATT_ALT_FONT    = 0x02,
@@ -473,30 +479,28 @@ enum PortsAudio {
     AUDIO_PCM_FIFOL      = 0xe,
 };
 
-enum AudioGlobalStatus {
-    AUDIO_GLOB_NOTE_ENDED0       = (1U << 0U),
-    AUDIO_GLOB_NOTE_ENDED1       = (1U << 1U),
-    AUDIO_GLOB_NOTE_ENDED2       = (1U << 2U),
-    AUDIO_GLOB_NOTE_ENDED3       = (1U << 3U),
-    AUDIO_GLOB_NOTE_ENDED4       = (1U << 4U),
-    AUDIO_GLOB_NOTE_ENDED5       = (1U << 5U),
-    AUDIO_GLOB_NOTE_ENDED6       = (1U << 6U),
-    AUDIO_GLOB_NOTE_ENDED7       = (1U << 7U),
-    AUDIO_GLOB_NOTE_ENDED8       = (1U << 8U),
-    AUDIO_GLOB_NOTE_ENDED_MASK   = 0x1ff,
-    AUDIO_GLOB_BUSY0             = (1U << 9U),
-    AUDIO_GLOB_BUSY1             = (1U << 10U),
-    AUDIO_GLOB_BUSY2             = (1U << 11U),
-    AUDIO_GLOB_BUSY3             = (1U << 12U),
-    AUDIO_GLOB_BUSY4             = (1U << 13U),
-    AUDIO_GLOB_BUSY5             = (1U << 14U),
-    AUDIO_GLOB_BUSY6             = (1U << 15U),
-    AUDIO_GLOB_BUSY7             = (1U << 16U),
-    AUDIO_GLOB_BUSY8             = (1U << 17U),
-    AUDIO_GLOB_BUSY_MASK         = 0x3fE00,
-    AUDIO_GLOB_PCM_FIFO_FULL     = (1U << 20U),
-    AUDIO_GLOB_PCM_LOW_WATERMARK = (1U << 21U),
-};
+#define AUDIO_GLOB_NOTE_ENDED0       (1U << 0U)
+#define AUDIO_GLOB_NOTE_ENDED1       (1U << 1U)
+#define AUDIO_GLOB_NOTE_ENDED2       (1U << 2U)
+#define AUDIO_GLOB_NOTE_ENDED3       (1U << 3U)
+#define AUDIO_GLOB_NOTE_ENDED4       (1U << 4U)
+#define AUDIO_GLOB_NOTE_ENDED5       (1U << 5U)
+#define AUDIO_GLOB_NOTE_ENDED6       (1U << 6U)
+#define AUDIO_GLOB_NOTE_ENDED7       (1U << 7U)
+#define AUDIO_GLOB_NOTE_ENDED8       (1U << 8U)
+#define AUDIO_GLOB_NOTE_ENDED_MASK   (0x1ffU)
+#define AUDIO_GLOB_BUSY0             (1U << 9U)
+#define AUDIO_GLOB_BUSY1             (1U << 10U)
+#define AUDIO_GLOB_BUSY2             (1U << 11U)
+#define AUDIO_GLOB_BUSY3             (1U << 12U)
+#define AUDIO_GLOB_BUSY4             (1U << 13U)
+#define AUDIO_GLOB_BUSY5             (1U << 14U)
+#define AUDIO_GLOB_BUSY6             (1U << 15U)
+#define AUDIO_GLOB_BUSY7             (1U << 16U)
+#define AUDIO_GLOB_BUSY8             (1U << 17U)
+#define AUDIO_GLOB_BUSY_MASK         (0x3fE00)
+#define AUDIO_GLOB_PCM_FIFO_FULL     (1U << 20U)
+#define AUDIO_GLOB_PCM_LOW_WATERMARK (1U << 21U)
 
 enum AudioCsr {
     AUDIO_CSR_TRIGGER    = 1UL << 0, // Starts the note
@@ -508,16 +512,21 @@ enum AudioCsr {
     AUDIO_CSR_GATE       = 1UL << 6, // changes mode to release note inmediately
 };
 
-#define AKAI_PROCESS_BASE      0x080000
-#define AKAI_PROCESS_END       0xF5E000
-#define AKAI_PROCESS_STACK_END 0xF60000
-#define AKAI_PROCESS_STACK_TOP 0xF70000
-#define AKAI_IPC_INBOX            0xF7F000
-#define AKAI_IPC_OUTBOX           0xF80000
-#define AKAI_IPC_SYSTEM_DASHBOARD 0xF81000
-#define AKAI_TEXTBUFFER     0xF84000
-#define AKAI_FRAMEBUFFER    0xFA5000
-#define AKAI_ADDR_SPACE_END 0xFF0000
+#define AKAI_PROCESS_BASE      (0x080000U)
+#define AKAI_PROCESS_END       (0xF5E000U)
+#define AKAI_PROCESS_STACK_END (0xF60000U)
+#define AKAI_PROCESS_STACK_TOP (0xF70000U)
+#define AKAI_IPC_INBOX            (0xF7F000U)
+#define AKAI_IPC_OUTBOX           (0xF80000U)
+#define AKAI_IPC_SYSTEM_DASHBOARD (0xF81000U)
+#define AKAI_TEXTBUFFER     (0xF84000U)
+#define AKAI_FRAMEBUFFER    (0xFA5000U)
+#define AKAI_ADDR_SPACE_END (0xFF0000U)
+
+#define PDEV_TYPE_HW   0x1000
+#define PDEV_TYPE_FILE 0x2000
+#define PDEV_TYPE_VDEV 0x4000
+
 enum HwDevices {
     DEV_FRAMEBUFFER,
     DEV_TEXTBUFFER,
@@ -544,7 +553,7 @@ enum CanonIMode {
     IN_CANON = 1U << 0U,
     IN_ECHO  = 1U << 1U,
     IN_CRNL  = 1U << 2U,
-    IN_BLOCK  = 1U << 3U,
+    IN_BLOCK = 1U << 3U,
 };
 
 enum CanonOMode {
@@ -562,6 +571,7 @@ enum CtlCommand {
     PX_FLUSH,
     PX_SETCANON,
     PX_GETCANON,
+    PX_GET_DEV,
 };
 
 enum KbCtl {
@@ -593,11 +603,13 @@ enum TxtCtl {
     /* Process management */                                                                      \
     X(SYSCALL_EXIT, ak_exit, "int x13: exit code", "none", "the process exits")                   \
     X(SYSCALL_YIELD, ak_yield, "none", "none", "the process yields execution to the scheduler")   \
-    X(SYSCALL_RFORK, ak_rfork, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")           \
+    X(SYSCALL_RFORK, ak_rfork, "u32 x13: flags, u32 x14: heirloom", "pid/ERROR",                  \
+      "fork a process with selected configuration")                                               \
     X(SYSCALL_EXEC, ak_exec,                                                                      \
       "const char* x13: path, int x14: argc, char** x15: argv, int x16: flags", "none/ERROR",     \
       "process is replaced with executable image")                                                \
-    X(SYSCALL_WAIT, ak_wait, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")             \
+    X(SYSCALL_WAIT, ak_wait, "int x13: pid, int* x14: status, int x15: options",                  \
+      "ProcessPID/ERROR", "waits on a child or any child to exit")                                \
     /* IPC and Hardware*/                                                                         \
     X(SYSCALL_HOOK, ak_hook, "MODIFY API", "MODIFY", "MODIFY")                                    \
     X(SYSCALL_UNHOOK, ak_unhook, "MODIFY API", "MODIFY", "MODIFY")                                \
@@ -608,7 +620,7 @@ enum TxtCtl {
     X(SYSCALL_IPC_SEND, ak_ipc_send, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")     \
     X(SYSCALL_DEV_IN, ak_dev_in, "u32 x13: devnum, u8 x14: port", "u8/ERROR",                     \
       "read an owned device's port")                                                              \
-    X(SYSCALL_DEV_OUT, ak_dev_out, "u32 x13: devnum, u8 x14: port, u8 x14: value", "OK/ERROR",    \
+    X(SYSCALL_DEV_OUT, ak_dev_out, "u32 x13: devnum, u8 x14: port, u8 x15: value", "OK/ERROR",    \
       "write to an owned device's port")                                                          \
     X(SYSCALL_DEV_CTL, ak_dev_ctl, "u32 x13: devnum, u32 x14: cmd, void* x15: buf, u32 x16: len", \
       "res/ERROR", "send a command to an owned device")                                           \
@@ -653,7 +665,16 @@ enum TxtCtl {
     X(SYSCALL_SHM_MAKE, ak_shm_make, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")     \
     X(SYSCALL_SHM_UNMAKE, ak_shm_unmake, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED") \
     /* Queries */                                                                                 \
-    X(SYSCALL_ERROR, ak_error, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")
+    X(SYSCALL_ERROR, ak_error, "ProcessPID x13: pid", "ERROR",                                    \
+      "returns the queried process' last error, 0 for self")                                      \
+    X(SYSCALL_GETPID, ak_getpid, "none", "pid/ERROR", "returns the caller's pid")                 \
+    X(SYSCALL_ABORT, ak_abort, "none", "none", "the process is aborted")                          \
+    /* Time */                                                                                    \
+    X(SYSCALL_TIME, ak_time, "none", "int/ERROR", "returns time (in seconds) since the epoch")    \
+    X(SYSCALL_CLOCK, ak_clock, "u32* x13: user, u32* x14: system, ProcessPID x15: pid",           \
+      "ticks/ERROR", "returns the process' ticks elapsed")                                        \
+    X(SYSCALL_CALENDAR, ak_calendar, "u32* x13: calendar 1, u32* x14: calendar 2", "ERROR",       \
+      "returns the calendar time in a compressed format")
 /* END_SYSCALL_LIST */
 #undef X
 
@@ -677,10 +698,40 @@ enum FsCtl {
 #define EXEC_FILE_FORMAT_MASK 0xf
 
 enum ExecFlags {
-    O_EXEC_AOUT,      // a.out executable, with sections aligned to page boundaries
-    O_EXEC_AOUT_FLAT, // a.out executable, with sections not aligned to page boundaries
-    O_EXEC_BIN,       // flat binary.
+    O_EXEC_AOUT,        // a.out executable, with sections aligned to page boundaries
+    O_EXEC_AOUT_FLAT,   // a.out executable, with sections not aligned to page boundaries
+    O_EXEC_BIN,         // flat binary.
+    O_EXEC_BIN_SIGNED,  // a flat binary with a signature prepended
+    O_EXEC_GUESS = 100, // Guess the format based on information encoded in the file and heuristics,
+                        // never will guess flat binary
 };
+
+enum RForkFlags {
+    RF_MEM_COPY            = 0X0000, // Clone all parent's memory
+    RF_MEM_SHARE           = 0X0001, // Share all parent's memory
+    RF_MEM_FRESH           = 0X0002, // No memory whatsoever
+    RF_FIL_SHARE           = 0X0004, // Share all parents files
+    RF_FIL_CLEAN           = 0X0008, // Clean file descriptor table
+    RF_LEASE_STDIN         = 0X0010, // Get parent's stdin in lease
+    RF_LEASE_STDOUT        = 0X0020, // Get parent's stdout in lease
+    RF_LEASE_STDERR        = 0X0040, // Get parent's stderr in lease
+    RF_PARENT_WAIT         = 0X0100, // Parent to wait on child
+    RF_PARENT_DIE          = 0X0200, // Parent to die on child spawn
+    RF_PARENT_DETACH       = 0X0400, // Reparent to Kenel on spawn
+    RF_PARENT_KEEP_RUNNING = 0X0800, // Parent to run on spawn
+    RF_CHILD_STOPPED       = 0x1000, // Child to be stopped on spawn
+};
+
+#define RF_MEM_CFG    (RF_MEM_COPY | RF_MEM_SHARE | RF_MEM_FRESH)
+#define RF_FIL_CFG    (RF_FIL_SHARE | RF_FIL_CLEAN)
+#define RF_PARENT_CFG (RF_PARENT_DETACH | RF_PARENT_DIE | RF_PARENT_WAIT | RF_PARENT_KEEP_RUNNING)
+
+#define RF_INHERIT_FRAMEBUFFER (1U << DEV_FRAMEBUFFER)
+#define RF_INHERIT_TEXTBUFFER  (1U << DEV_TEXTBUFFER)
+#define RF_INHERIT_SYNTH       (1U << DEV_SYNTH)
+#define RF_INHERIT_PCM         (1U << DEV_PCM)
+#define RF_INHERIT_SERIAL      (1U << DEV_SERIAL)
+#define RF_INHERIT_KEYBOARD    (1U << DEV_KEYBOARD)
 
 enum OpenFlags {
     O_OPEN_EXISTING = 0,    // FA_OPEN_EXISTING,
@@ -787,20 +838,15 @@ typedef struct AkaiDirEntry {
 
 /*
 HEADER AT THE START OF THE INBOX
-00      1b  semaphore: for the kernel to inject an event, it must be 0. The kernel initializes to 1.
-        Before returning, the user must set it to a number greater than 1 to prevent recursive
-        injection. The kernel will check every time it could inject the process:
-            if 0, its safe to inject
-            if 1, it must never inject.
-            if 2, it decrements to 0.
-            if >2, it decrements by 1.
-01      2b  tail of the message queue. read pointer for user
-03      2b  head of the message queue. write pointer for kernel
-05      1b  missed. Number of missed messages since last injection.
-06      1b  flags:
-            bit 0: overflow, messages were lost or dropped
-07-08   2b  queue_max: maximum capacity of message queue.
-09-0F   6b  reserved for padding
+00      1b  semaphore: for the kernel to inject an event, it must be 0. The kernel
+initializes to 1. Before returning, the user must set it to a number greater than 1
+to prevent recursive injection. The kernel will check every time it could inject the
+process: if 0, its safe to inject if 1, it must never inject. if 2, it decrements to
+0. if >2, it decrements by 1. 01      2b  tail of the message queue. read pointer
+for user 03      2b  head of the message queue. write pointer for kernel 05      1b
+missed. Number of missed messages since last injection. 06      1b  flags: bit 0:
+overflow, messages were lost or dropped 07-08   2b  queue_max: maximum capacity of
+message queue. 09-0F   6b  reserved for padding
 
 TOTAL SIZE 16b
 */
@@ -820,7 +866,8 @@ enum {
 };
 
 // WARNING: THIS STRUCT IS ONLY FOR REFERENCE AND EASY HANDLING.
-// ACTUAL MEMORY LAYOUT, ALIGNEMENT AND SIZE MUST BE ENSURED TO BE AS DESCRIBED ABOVE
+// ACTUAL MEMORY LAYOUT, ALIGNEMENT AND SIZE MUST BE ENSURED TO BE AS DESCRIBED
+// ABOVE
 struct InboxHeader {
     u8  semaphore;
     u16 tail;
@@ -877,7 +924,8 @@ enum {
 };
 
 // WARNING: THIS STRUCT IS ONLY FOR REFERENCE AND EASY HANDLING.
-// ACTUAL MEMORY LAYOUT, ALIGNEMENT AND SIZE MUST BE ENSURED TO BE AS DESCRIBED ABOVE
+// ACTUAL MEMORY LAYOUT, ALIGNEMENT AND SIZE MUST BE ENSURED TO BE AS DESCRIBED
+// ABOVE
 struct IPCMessage {
     // message header
     // like an address:port combination
@@ -892,6 +940,25 @@ struct IPCMessage {
 };
 
 #define INBOX_QUEUE_MAX ((PAGE_SIZE - INBOX_HEADER_SIZE) / IPC_MSG_SIZE)
+
+enum ExecutionWarrant {
+    WARRANT_NONE      = 0,
+    WARRANT_ABORT     = -1,
+    WARRANT_EXCEPTION = -2,
+    WARRANT_PARRICIDE = -3,
+    WARRANT_REAPED    = -4,
+    WARRANT_ERROR     = -4,
+    WARRANT_OOM       = (signed)A_ERROR_OOM,
+    WARRANT_SEG       = (signed)A_ERROR_SEG,
+
+};
+
+#define WAITON_ANY (-1)
+
+enum WaitOptions {
+    WAIT_HANG   = 0,
+    WAIT_NOHANG = 1,
+};
 
 #define PRIORITY_KEYBOARD_INTERRUPT 4
 #define PRIORITY_SERIAL_INTERRUPT   5
@@ -1227,9 +1294,9 @@ enum AnsiSGR {
 
 void ak_exit(int exit_code);
 void ak_yield(void);
-
+int ak_rfork(u32 flags,u32 heirloom);
 int ak_exec(const char* path,int argc,char** argv,int flags);
-
+int ak_wait(int pid,int* status,int options);
 
 
 
@@ -1266,5 +1333,10 @@ int ak_getcwd(void* buf,u32 len);
 void* ak_sbrk(u32 brk_increment);
 
 
-
+int ak_error(ProcessPID pid);
+int ak_getpid(void);
+void ak_abort(void);
+int ak_time(void);
+int ak_clock(u32* user,u32* system,ProcessPID pid);
+int ak_calendar(u32* calendar_1,u32* calendar_2);
 #endif /* AKAI_H */

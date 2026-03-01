@@ -59,7 +59,6 @@ struct Akai {
     u32 time_start, uptime;
 
     // Devices
-    ProcessPID    device_owners[_DEV_NUM];
     struct Device devices[_DEV_NUM];
 
     // Hardware drivers
@@ -72,5 +71,7 @@ extern struct Akai A;
 u8  *map_kernel_work_area(u32 page);
 u8  *remap_kernel_work_area(u32 page);
 void unmap_kernel_work_area();
+
+void miniprint(const char* fmt, ...);
 
 #endif /* KERNEL_H */

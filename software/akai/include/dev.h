@@ -9,6 +9,11 @@ typedef u8 (*DevIn)(u8);
 typedef i32 (*DevOut)(u8, u8);
 
 /* @AKAI: 200_DRIVERS */
+
+#define PDEV_TYPE_HW   0x1000
+#define PDEV_TYPE_FILE 0x2000
+#define PDEV_TYPE_VDEV 0x4000
+
 enum HwDevices {
     DEV_FRAMEBUFFER,
     DEV_TEXTBUFFER,
@@ -35,7 +40,7 @@ enum CanonIMode {
     IN_CANON = 1U << 0U,
     IN_ECHO  = 1U << 1U,
     IN_CRNL  = 1U << 2U,
-    IN_BLOCK  = 1U << 3U,
+    IN_BLOCK = 1U << 3U,
 };
 
 enum CanonOMode {
@@ -53,6 +58,7 @@ enum CtlCommand {
     PX_FLUSH,
     PX_SETCANON,
     PX_GETCANON,
+    PX_GET_DEV,
 };
 
 enum KbCtl {
@@ -72,15 +78,22 @@ enum TxtCtl {
 
 /* @AKAI */
 
+struct DeviceDeed {
+    ProcessPID original;
+    ProcessPID lessor;
+    ProcessPID owner;
+};
+
 struct Device {
-    u32      num;
-    u8       id;
-    u16      base;
-    u8       ports;
-    DevCtl   ctl;
-    DevReset reset;
-    DevOut   out;
-    DevIn    in;
+    struct DeviceDeed deed;
+    u32               num;
+    u8                id;
+    u16               base;
+    u8                ports;
+    DevCtl            ctl;
+    DevReset          reset;
+    DevOut            out;
+    DevIn             in;
 };
 
 struct IOStream {
@@ -95,5 +108,8 @@ struct IOStream {
 i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len);
 u8  proxy_in(u32 devnum, u8 port);
 i32 proxy_out(u32 devnum, u8 port, u8 val);
+
+bool dev_lease(ProcessPID lessor, ProcessPID receiver, u32 devnum);
+void proxy_attach(ProcessPID pid, u32 proxy, struct IOStream *stream);
 
 #endif /* DEV_H */

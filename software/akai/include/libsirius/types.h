@@ -5,7 +5,7 @@
 
 /* @AKAI: 001_TYPES */
 
-#define PAGE_SIZE 4096
+#define PAGE_SIZE 4096U
 
 typedef unsigned char  u8;
 typedef unsigned short u16;

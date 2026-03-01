@@ -12,11 +12,13 @@
     /* Process management */                                                                      \
     X(SYSCALL_EXIT, ak_exit, "int x13: exit code", "none", "the process exits")                   \
     X(SYSCALL_YIELD, ak_yield, "none", "none", "the process yields execution to the scheduler")   \
-    X(SYSCALL_RFORK, ak_rfork, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")           \
+    X(SYSCALL_RFORK, ak_rfork, "u32 x13: flags, u32 x14: heirloom", "pid/ERROR",                  \
+      "fork a process with selected configuration")                                               \
     X(SYSCALL_EXEC, ak_exec,                                                                      \
       "const char* x13: path, int x14: argc, char** x15: argv, int x16: flags", "none/ERROR",     \
       "process is replaced with executable image")                                                \
-    X(SYSCALL_WAIT, ak_wait, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")             \
+    X(SYSCALL_WAIT, ak_wait, "int x13: pid, int* x14: status, int x15: options",                  \
+      "ProcessPID/ERROR", "waits on a child or any child to exit")                                \
     /* IPC and Hardware*/                                                                         \
     X(SYSCALL_HOOK, ak_hook, "MODIFY API", "MODIFY", "MODIFY")                                    \
     X(SYSCALL_UNHOOK, ak_unhook, "MODIFY API", "MODIFY", "MODIFY")                                \
@@ -27,7 +29,7 @@
     X(SYSCALL_IPC_SEND, ak_ipc_send, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")     \
     X(SYSCALL_DEV_IN, ak_dev_in, "u32 x13: devnum, u8 x14: port", "u8/ERROR",                     \
       "read an owned device's port")                                                              \
-    X(SYSCALL_DEV_OUT, ak_dev_out, "u32 x13: devnum, u8 x14: port, u8 x14: value", "OK/ERROR",    \
+    X(SYSCALL_DEV_OUT, ak_dev_out, "u32 x13: devnum, u8 x14: port, u8 x15: value", "OK/ERROR",    \
       "write to an owned device's port")                                                          \
     X(SYSCALL_DEV_CTL, ak_dev_ctl, "u32 x13: devnum, u32 x14: cmd, void* x15: buf, u32 x16: len", \
       "res/ERROR", "send a command to an owned device")                                           \
@@ -72,7 +74,16 @@
     X(SYSCALL_SHM_MAKE, ak_shm_make, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")     \
     X(SYSCALL_SHM_UNMAKE, ak_shm_unmake, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED") \
     /* Queries */                                                                                 \
-    X(SYSCALL_ERROR, ak_error, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")
+    X(SYSCALL_ERROR, ak_error, "ProcessPID x13: pid", "ERROR",                                    \
+      "returns the queried process' last error, 0 for self")                                      \
+    X(SYSCALL_GETPID, ak_getpid, "none", "pid/ERROR", "returns the caller's pid")                 \
+    X(SYSCALL_ABORT, ak_abort, "none", "none", "the process is aborted")                          \
+    /* Time */                                                                                    \
+    X(SYSCALL_TIME, ak_time, "none", "int/ERROR", "returns time (in seconds) since the epoch")    \
+    X(SYSCALL_CLOCK, ak_clock, "u32* x13: user, u32* x14: system, ProcessPID x15: pid",           \
+      "ticks/ERROR", "returns the process' ticks elapsed")                                        \
+    X(SYSCALL_CALENDAR, ak_calendar, "u32* x13: calendar 1, u32* x14: calendar 2", "ERROR",       \
+      "returns the calendar time in a compressed format")
 /* END_SYSCALL_LIST */
 #undef X
 
@@ -96,10 +107,40 @@ enum FsCtl {
 #define EXEC_FILE_FORMAT_MASK 0xf
 
 enum ExecFlags {
-    O_EXEC_AOUT,      // a.out executable, with sections aligned to page boundaries
-    O_EXEC_AOUT_FLAT, // a.out executable, with sections not aligned to page boundaries
-    O_EXEC_BIN,       // flat binary.
+    O_EXEC_AOUT,        // a.out executable, with sections aligned to page boundaries
+    O_EXEC_AOUT_FLAT,   // a.out executable, with sections not aligned to page boundaries
+    O_EXEC_BIN,         // flat binary.
+    O_EXEC_BIN_SIGNED,  // a flat binary with a signature prepended
+    O_EXEC_GUESS = 100, // Guess the format based on information encoded in the file and heuristics,
+                        // never will guess flat binary
 };
+
+enum RForkFlags {
+    RF_MEM_COPY            = 0X0000, // Clone all parent's memory
+    RF_MEM_SHARE           = 0X0001, // Share all parent's memory
+    RF_MEM_FRESH           = 0X0002, // No memory whatsoever
+    RF_FIL_SHARE           = 0X0004, // Share all parents files
+    RF_FIL_CLEAN           = 0X0008, // Clean file descriptor table
+    RF_LEASE_STDIN         = 0X0010, // Get parent's stdin in lease
+    RF_LEASE_STDOUT        = 0X0020, // Get parent's stdout in lease
+    RF_LEASE_STDERR        = 0X0040, // Get parent's stderr in lease
+    RF_PARENT_WAIT         = 0X0100, // Parent to wait on child
+    RF_PARENT_DIE          = 0X0200, // Parent to die on child spawn
+    RF_PARENT_DETACH       = 0X0400, // Reparent to Kenel on spawn
+    RF_PARENT_KEEP_RUNNING = 0X0800, // Parent to run on spawn
+    RF_CHILD_WAIT          = 0x1000, // Child to be stopped on spawn
+};
+
+#define RF_MEM_CFG    (RF_MEM_COPY | RF_MEM_SHARE | RF_MEM_FRESH)
+#define RF_FIL_CFG    (RF_FIL_SHARE | RF_FIL_CLEAN)
+#define RF_PARENT_CFG (RF_PARENT_DETACH | RF_PARENT_DIE | RF_PARENT_WAIT | RF_PARENT_KEEP_RUNNING)
+
+#define RF_INHERIT_FRAMEBUFFER (1U << DEV_FRAMEBUFFER)
+#define RF_INHERIT_TEXTBUFFER  (1U << DEV_TEXTBUFFER)
+#define RF_INHERIT_SYNTH       (1U << DEV_SYNTH)
+#define RF_INHERIT_PCM         (1U << DEV_PCM)
+#define RF_INHERIT_SERIAL      (1U << DEV_SERIAL)
+#define RF_INHERIT_KEYBOARD    (1U << DEV_KEYBOARD)
 
 enum OpenFlags {
     O_OPEN_EXISTING = 0,    // FA_OPEN_EXISTING,

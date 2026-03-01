@@ -5,6 +5,7 @@
 #include "kernel.h"
 #include "hw.h"
 #include "init_code.h"
+#include "kstdarg.h"
 
 struct Akai A;
 
@@ -14,39 +15,175 @@ extern void *_data_start;
 i32 vdev_ctl()
 {
     return 0;
-};
+}
 
 u8 vdev_in()
 {
     return 0;
-};
+}
 
 i32 vdev_out()
 {
     return 0;
-};
+}
 
 i32 vdev_reset()
 {
     return 0;
-};
+}
+
+void emit(c)
+{
+    static u32 vpos      = 0;
+    u32        term_size = A.info.textbuffer.w * A.info.textbuffer.h;
+
+    if (c == '\n') {
+        vpos += A.info.textbuffer.w - (vpos % A.info.textbuffer.w);
+        return;
+    }
+
+    *((volatile u32 *)(AKAI_TEXTBUFFER) + vpos) = ((u32)c << 24) | 0x000f0000UL;
+
+    vpos = (vpos + 1) % (term_size);
+}
 
 void puts(const char *str)
 {
-    static u32 pos       = 0;
-    u32        term_size = A.info.textbuffer.w * A.info.textbuffer.h;
-    char      *p         = (char *)str;
-    char       c;
+    char *p = (char *)str;
+    char  c;
     while (c = *p++) {
-        if (c == '\n') {
-            pos += A.info.textbuffer.w - (pos % A.info.textbuffer.w);
-            continue;
-        }
-
-        *((volatile u32 *)(AKAI_TEXTBUFFER) + pos) = ((u32)c << 24) | 0x000f0000UL;
-
-        pos = (pos + 1) % (term_size);
+        emit(c);
     }
+}
+
+void miniprint(const char *fmt, ...)
+{
+    static const char *null_str = "(NULL)";
+    char               c;
+    char               specifier = 0;
+
+    va_list ap;
+    va_start(ap, fmt);
+
+    while ((c = *fmt++)) {
+        if (c == '%') {
+            u8   width    = 0;
+            bool pad_zero = false;
+
+            specifier = *fmt++;
+            if (!specifier) return; /* end printing if no specifier found */
+
+            if (specifier == '0') {
+                pad_zero  = true;
+                specifier = *fmt++;
+            }
+
+            if (!specifier) return; /* end printing if no specifier found */
+
+            if (specifier >= '0' && specifier <= '9') {
+                width     = (width * 10) + (specifier - '0');
+                specifier = *fmt++;
+            }
+
+            if (!specifier) return; /* end printing if no specifier found */
+
+            switch (specifier) {
+            case 's': {
+                char *s = va_arg(ap, char *);
+                if (!s) s = (char *)null_str; /* print (NULL) if s is NULL */
+                while (*s) emit(*s++);
+                break;
+            }
+            case 'c': {
+                char chr = va_arg(ap, int);
+                emit(chr);
+                break;
+            }
+            case 'x': {
+                char hex_chars[] = "0123456789ABCDEF";
+                /* a 32 bit int fits in 8 characters */
+                char buf[16];
+                int  i = 0;
+                u32  x = va_arg(ap, int);
+                u8   content_len;
+
+                if (x == 0) {
+                    buf[i++] = '0';
+                    goto emit_hex;
+                }
+
+                /* Extract digits from least significant to most significant */
+                while (x > 0) {
+                    buf[i++] = hex_chars[x & 0xF];
+                    x >>= 4;
+                }
+emit_hex:
+                content_len = i;
+                while (content_len < width) {
+                    emit(pad_zero ? '0' : ' ');
+                    content_len++;
+                }
+
+                /* Print the buffer in reverse */
+                while (i > 0) emit(buf[--i]);
+                break;
+            }
+            case 'd': {
+                char buf[16]; /* Enough for -2,147,483,648 plus null (no commas) */
+                i32  i = 0;
+                u32  num;
+                int  n           = va_arg(ap, int);
+                int  content_len = 0;
+                bool is_neg      = n < 0;
+
+                /* Handle Negative Numbers */
+                if (is_neg) {
+                    /* Use unsigned to avoid overflow issues with INT_MIN */
+                    num = (u32)(-n);
+                } else {
+                    num = (u32)n;
+                }
+
+                /* Extract digits (Right to Left) */
+                if (num == 0) {
+                    buf[i++] = '0';
+                    goto emit_dec;
+                }
+
+                while (num > 0) {
+                    buf[i++] = (num % 10) + '0';
+                    num /= 10;
+                }
+
+                if (pad_zero && is_neg) emit('-');
+
+emit_dec:
+                content_len = i + (is_neg ? 1 : 0);
+
+                while (content_len < width) {
+                    emit(pad_zero ? '0' : ' ');
+                    content_len++;
+                }
+
+                if (!pad_zero && is_neg) emit('-');
+
+                /* Print buffer in reverse (Left to Right) */
+                while (i > 0) emit(buf[--i]);
+                break;
+            }
+            case '%': {
+                /* escaped % */
+                emit('%');
+                break;
+            }
+            default: break;
+            }
+        } else {
+            emit(c);
+        }
+    }
+
+    va_end(ap);
 }
 
 static u8 work_areas_mapped = 0;
@@ -92,7 +229,7 @@ static void pdt_init(void)
 {
     // set the pdt to 0xf000 in DATA
     u32 sreg = _gsreg();
-    _ssreg((sreg & ~0x000FFF00) | (AKAI_PDT_BASE >> 4) << 8);
+    _ssreg((sreg & ~0x000FFF00U) | (AKAI_PDT_BASE >> 4) << 8);
 }
 
 static void template_pt_init(void)
@@ -198,18 +335,6 @@ void timer_interval_hook(u32 *win, struct IPCMessage *msg_out)
 {
     u32 status;
 
-    status = 123;
-    status++;
-    status++;
-    status++;
-    status++;
-    status++;
-    _trace(0x1888, 1);
-    _trace(0x1888, 2);
-    _trace(0x1888, 3);
-    _trace(0x1888, 4);
-    _trace(0x1888, 5);
-    _trace(0x1888, 6);
     status = _lwd(AKAI_KERNEL_STATUS_SAVE);
 
     A.uptime = uptime() - A.time_start;
@@ -218,8 +343,10 @@ void timer_interval_hook(u32 *win, struct IPCMessage *msg_out)
     // TODO: IPC message out
     if (!(status & CPU_STATUS_SUPERVISOR)) {
         _trace(0x1888, 3);
-        // puts(A.pr.curr->name);
+        A.pr.curr->user_ticks++;
         process_yield();
+    } else {
+        A.pr.curr->system_ticks++;
     }
 }
 
@@ -250,7 +377,7 @@ static ProcessPID init_proc(const char *name)
 
     if (!code || !stack) {
         //_trace(0xDF000E1);
-        process_terminate(init_pid);
+        process_terminate(init_pid, WARRANT_NONE);
         //_trace(0xDF000E2);
 
         return 0;
@@ -260,7 +387,7 @@ static ProcessPID init_proc(const char *name)
     // map its page tables to us, so we can write to it
     work = (u32 *)map_kernel_work_area((u32)init->page_tables[0]);
     if (!work) {
-        process_terminate(init_pid);
+        process_terminate(init_pid, WARRANT_NONE);
         return 0;
     }
 
@@ -282,7 +409,7 @@ static ProcessPID init_proc(const char *name)
     tlb_flush();
 
     init->ctx.usp  = AKAI_PROCESS_STACK_TOP;
-    A.pr.curr->brk = (void*)(AKAI_PROCESS_BASE + PAGE_SIZE);
+    A.pr.curr->brk = (void *)(AKAI_PROCESS_BASE + PAGE_SIZE);
 
     return init_pid;
 }
@@ -300,35 +427,54 @@ void kmain(u16 sys_info_data_addr)
     // Copy the struct handed down by the firmware
     _copydm(sys_info_data_addr, &A.info, sizeof(A.info));
 
+    miniprint("[KERNEL] [%09d]    Akai kernel boot!     [OK]\n", A.time_start);
+
     // init mmu
     mmu_init();
+
+    miniprint("[KERNEL] [%09d]    MMU initialized        [OK]\n", uptime());
 
     // init the physical memory manager
     mem_init();
 
+    miniprint("[KERNEL] [%09d]    PMM initialized        [OK]\n", uptime());
+
     video_driver_init();
+    miniprint("[KERNEL] [%09d]    Video initialized      [OK]\n", uptime());
+
     kbd_driver_init();
+    miniprint("[KERNEL] [%09d]    Keyboard initialized   [OK]\n", uptime());
 
     // init the process manager
     process_init(AKAI_IDLE_BASE);
+    miniprint("[KERNEL] [%09d]    Scheduler initialized  [OK]\n", uptime());
 
     // hook hernel interrupt handlers
     interrupt_init();
     kernel_hook_interrupt(INT_KBD_SCAN, kbd_scan_hook);
     kernel_hook_interrupt(INT_TIMER_INTERVAL, timer_interval_hook);
+    miniprint("[KERNEL] [%09d]    Interrupts initialized [OK]\n", uptime());
 
     // mount filesystems
     fs_mount();
+    miniprint("[KERNEL] [%09d]    Mounted filesystems    [OK]\n", uptime());
 
     timer_init();
+    miniprint("[KERNEL] [%09d]    Timers initialized     [OK]\n", uptime());
+
     init = init_proc("INIT");
     if (!init) goto fail;
 
+    miniprint("[KERNEL] [%09d]    INIT process loaded    [OK]\n", uptime());
+
     timer_on(); // interupts are still disabled
     _sbd(A.info.terminal + TERMINAL_KBD_CSR, KB_GLOBAL_EN | KB_IE_DOWN); // enable keyboard
+
+    miniprint("[KERNEL] [%09d]    Launching INIT!\n", uptime());
     process_run(init, PARENT_KEEP_RUNNING);
 fail:
     _trace(0xDEAD, 0XB00B);
+    miniprint("[KERNEL] [%09d]    Error in boot sequence. Halting.\n", uptime());
     // TODO: kernel panic here
 l:
     goto l;

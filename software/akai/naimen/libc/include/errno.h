@@ -5,10 +5,10 @@
 #include <yvals.h>
 #endif
 
-#define EDOM   _EDOM
-#define ERANGE _ERANGE
-#define EFPOS  _EFPOS
-#define _NERR  _ERRMAX
+#define EDOM   (_EDOM)
+#define ERANGE (_ERANGE)
+#define EFPOS  (_EFPOS)
+#define _NERR  (_ERRMAX)
 
 extern int errno;
 

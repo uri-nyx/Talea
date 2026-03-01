@@ -134,7 +134,7 @@ void kernel_panic(u8 vector, u32 fault_addr, struct ThreadCtx *ctx)
     panic_att |= TEXTMODE_ATT_BOLD;
     panic_puts("CRITICAL ERROR. AKAI HALTED. KERNEL PANIC!\n");
 
-    panic_att &= ~(TEXTMODE_ATT_BLINK | TEXTMODE_ATT_BOLD);
+    panic_att &= ~(unsigned)(TEXTMODE_ATT_BLINK | TEXTMODE_ATT_BOLD);
     panic_puts("PROCESS: ");
     panic_puts(A.pr.curr->name);
     panic_puts(" PID ");
@@ -196,11 +196,7 @@ void akai_exception(u8 vector, u32 fault_addr)
 
     load_window(sirius_cwp - 1, win);
 
-    puts("Exception: ");
-    puts(exception_names[vector]);
-    puts(" in process ");
-    puts(A.pr.curr->name);
-    puts("\n");
+    miniprint("Exception %s in process %s\n", exception_names[vector], A.pr.curr->name);
 
     switch (vector) {
     case EXCEPTION_PAGE_FAULT: {
@@ -215,27 +211,23 @@ void akai_exception(u8 vector, u32 fault_addr)
                 u8 *new_page = alloc_pages_contiguous(A.pr.curr->pid, 1);
                 if (!new_page) {
                     A.pr.curr->last_error = P_ERROR_STACK_GROW;
-                    A.pr.curr->exit_code  = A_ERROR_OOM;
-                    process_terminate(A.pr.curr->pid);
+                    process_terminate(A.pr.curr->pid, WARRANT_OOM);
                     process_yield();
                 }
 
-                if (!map_active_pt_entry((u32)new_page, faddr & ~0xFFF, PTE_U | PTE_RW)) {
+                if (!map_active_pt_entry((u32)new_page, faddr & ~0xFFFU, PTE_U | PTE_RW)) {
                     A.pr.curr->last_error = P_ERROR_STACK_GROW;
-                    A.pr.curr->exit_code  = A_ERROR_OOM;
-                    process_terminate(A.pr.curr->pid);
+                    process_terminate(A.pr.curr->pid, WARRANT_OOM);
                     process_yield();
                 }
 
-                memset((u8 *)(faddr & ~0xFFF), 0, PAGE_SIZE);
+                memset((u8 *)(faddr & ~0xFFFU), 0, PAGE_SIZE);
             } else {
-                A.pr.curr->exit_code = A_ERROR_SEG;
-                process_terminate(A.pr.curr->pid);
+                process_terminate(A.pr.curr->pid, WARRANT_SEG);
                 process_yield();
             }
         } else {
-            A.pr.curr->exit_code = A_ERROR_SEG;
-            process_terminate(A.pr.curr->pid);
+            process_terminate(A.pr.curr->pid, WARRANT_SEG);
             process_yield();
         }
         break;
@@ -243,7 +235,7 @@ void akai_exception(u8 vector, u32 fault_addr)
     default:
         A.pr.curr->exit_code = -vector;
         _trace(0xDEAD00B, A.pr.curr->pid, vector);
-        process_terminate(A.pr.curr->pid);
+        process_terminate(A.pr.curr->pid, WARRANT_EXCEPTION);
         process_yield();
         break;
     }

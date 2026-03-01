@@ -29,7 +29,7 @@ static u32 kbd_event_peek(void)
         return 0;
     }
 
-    return A.kb.events.data[A.kb.events.tail];
+    return (signed)A.kb.events.data[A.kb.events.tail];
 }
 
 /* Returns 0 on empty queue */
@@ -124,7 +124,7 @@ void kbd_scan_hook(u32 *win, struct IPCMessage *msg_out)
 
     sreg       = _disable_interrupts();
     wait_queue = A.kb.wait_queue;
-    kb_owner   = A.device_owners[DEV_KEYBOARD];
+    kb_owner   = A.devices[DEV_KEYBOARD].deed.owner;
     owner      = &A.pr.proc[kb_owner];
     dance      = false;
     event      = _lwd(A.info.terminal + TERMINAL_KBD_CSR);
@@ -272,11 +272,11 @@ i32 kbd_out(u8 port, u8 value)
 {
     if (port > A.devices[DEV_KEYBOARD].ports) {
         err = P_ERROR_NO_PORT;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     _sbd(A.devices[DEV_KEYBOARD].base + port, value);
-    return A_OK;
+    return (signed)A_OK;
 }
 
 i32 kbd_reset(void)
@@ -290,7 +290,7 @@ i32 kbd_reset(void)
     memset(A.kb.wait_queue, 0, sizeof(A.kb.wait_queue));
     A.kb.canonical  = 0;
     A.kb.line_ready = false;
-    return A_OK;
+    return (signed)A_OK;
 }
 
 i32 kbd_ctl(u32 command, void *buff, u32 len)
@@ -304,7 +304,7 @@ i32 kbd_ctl(u32 command, void *buff, u32 len)
             process_wait(A.pr.curr->pid);
             BIT_SET(A.kb.wait_queue, A.pr.curr->pid);
             process_yield();
-            return A_OK;
+            return (signed)A_OK;
         } else {
             return (i32)e;
         }
@@ -329,7 +329,7 @@ i32 kbd_ctl(u32 command, void *buff, u32 len)
                 process_wait(A.pr.curr->pid);
                 BIT_SET(A.kb.wait_queue, A.pr.curr->pid);
                 process_yield();
-                return A_OK;
+                return (signed)A_OK;
             }
 
         } else if (A.kb.canonical & IN_BLOCK) {
@@ -345,7 +345,7 @@ i32 kbd_ctl(u32 command, void *buff, u32 len)
                     process_wait(A.pr.curr->pid);
                     BIT_SET(A.kb.wait_queue, A.pr.curr->pid);
                     process_yield();
-                    return A_OK;
+                    return (signed)A_OK;
                 };
                 out[i] = c;
             }
@@ -369,7 +369,7 @@ i32 kbd_ctl(u32 command, void *buff, u32 len)
         u32 diff = head >= tail ? head - tail : (256 - tail) + head;
 
         if (A.kb.canonical & IN_CANON) {
-            return A.kb.line_ready;
+            return (signed)A.kb.line_ready;
         } else {
             if (diff > 0 || A.kb.ansi_seq || A.kb.printable)
                 return 1;
@@ -381,7 +381,7 @@ i32 kbd_ctl(u32 command, void *buff, u32 len)
         u8 mode;
         if (len != 1) {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
 
         mode = *(u8 *)buff;
@@ -392,12 +392,12 @@ i32 kbd_ctl(u32 command, void *buff, u32 len)
         A.kb.canonical = mode;
         A.kb.pos       = 0;
 
-        return A_OK;
+        return (signed)A_OK;
     }
 
-    case PX_GETCANON: return A.kb.canonical;
+    case PX_GETCANON: return (signed)A.kb.canonical;
 
-    default: err = P_ERROR_NO_CTL_COMMAND; return A_ERROR_CTL;
+    default: err = P_ERROR_NO_CTL_COMMAND; return (signed)A_ERROR_CTL;
     }
 }
 

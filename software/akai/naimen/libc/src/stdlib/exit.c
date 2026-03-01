@@ -1,3 +1,6 @@
 #include <stdlib.h>
 
-void          exit(int status){}
+extern void ak_exit(int);
+void          exit(int status){
+    ak_exit(status);
+}

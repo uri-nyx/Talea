@@ -64,6 +64,11 @@ static void scroll_up(void)
 
     memcpy((u8 *)AKAI_TEXTBUFFER, src, count);
     clear_line(A.txt.h - 1);
+
+    if (A.txt.y > 0)
+        A.txt.y--;
+    else
+        A.txt.y = 0;
 }
 
 static void scroll_down(void)
@@ -73,6 +78,11 @@ static void scroll_down(void)
 
     _copybck((u8 *)AKAI_TEXTBUFFER, dst, count);
     clear_line(0);
+
+    if (A.txt.y < A.txt.h - 1)
+        A.txt.y++;
+    else
+        A.txt.y = A.txt.h - 1;
 }
 
 static void tab(void)
@@ -112,7 +122,7 @@ static void clear_txt(void)
         _fillw((u8 *)AKAI_TEXTBUFFER,
                (u32)' ' << 24 | (u32)A.txt.attr[FG] << 16 | (u32)A.txt.attr[BG] << 8 |
                    A.txt.attr[AT],
-               A.txt.w * A.txt.h );
+               A.txt.w * A.txt.h);
     } else {
         memset((u8 *)AKAI_TEXTBUFFER, ' ', (A.txt.w * A.txt.h) * A.txt.bpc);
     }
@@ -203,7 +213,7 @@ sync_hw:
     update_cursor(); /* Sync hardware cursor index */
 }
 
-/* IMPORTANT: this function CANNOT return ANSI_CHAR */
+/* IMPORTANT: this function CANNOT return (signed)ANSI_CHAR */
 static enum AnsiCmd ansi_type(u8 c, bool is_private)
 {
     if (is_private) {
@@ -569,7 +579,7 @@ i32 txt_reset(void)
     A.txt.tabsize   = 4;
     A.txt.reversed  = false;
     memset(&A.txt.ansi, 0, sizeof(A.txt.ansi));
-    return A_OK;
+    return (signed)A_OK;
 }
 
 u8 txt_in(u8 port)
@@ -586,11 +596,11 @@ i32 txt_out(u8 port, u8 value)
 {
     if (port > A.devices[DEV_TEXTBUFFER].ports) {
         err = P_ERROR_NO_PORT;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     _sbd(A.devices[DEV_TEXTBUFFER].base + port, value);
-    return A_OK;
+    return (signed)A_OK;
 }
 
 i32 txt_ctl(u32 command, void *buff, u32 len)
@@ -616,17 +626,17 @@ i32 txt_ctl(u32 command, void *buff, u32 len)
             if (option & VIDEO_CURSOR_BLINK) cursor_state = VIDEO_CURSOR_BLINK;
 
             _sbd(A.devices[DEV_TEXTBUFFER].base + VIDEO_CSR, csr | cursor_state);
-            return A_OK;
+            return (signed)A_OK;
         } else {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
     };
     case TCTL_SET_ATTR: {
         if (A.txt.bpc == 1 && len == 1) {
             // only tab size
             A.txt.tabsize = *(u8 *)buff;
-            return A_OK;
+            return (signed)A_OK;
         } else if (A.txt.bpc == 4 && len == 4) {
             u8 *att = (u8 *)buff;
 
@@ -634,17 +644,17 @@ i32 txt_ctl(u32 command, void *buff, u32 len)
             A.txt.default_attr[BG] = att[BG];
             A.txt.default_attr[AT] = att[AT];
             A.txt.tabsize          = att[3];
-            return A_OK;
+            return (signed)A_OK;
         } else {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
     }
     case TCTL_GET_ATTR: {
         if (A.txt.bpc == 1 && len == 1) {
             // only tab size
             *(u8 *)buff = A.txt.tabsize;
-            return A_OK;
+            return (signed)A_OK;
         } else if (A.txt.bpc == 4 && len == 4) {
             u8 *att = (u8 *)buff;
 
@@ -652,10 +662,10 @@ i32 txt_ctl(u32 command, void *buff, u32 len)
             att[BG] = A.txt.default_attr[BG];
             att[AT] = A.txt.default_attr[AT];
             att[3]  = A.txt.tabsize;
-            return A_OK;
+            return (signed)A_OK;
         } else {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
     }
     case PX_WRITE: {
@@ -673,25 +683,25 @@ i32 txt_ctl(u32 command, void *buff, u32 len)
         return len;
     }
 
-    case PX_FLUSH: return A_OK;
+    case PX_FLUSH: return (signed)A_OK;
 
     case PX_SETCANON: {
         u8 mode;
         if (len != 1) {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
 
         mode = *(u8 *)buff;
 
         A.txt.canonical = mode;
 
-        return A_OK;
+        return (signed)A_OK;
     }
 
-    case PX_GETCANON: return A.txt.canonical;
+    case PX_GETCANON: return (signed)A.txt.canonical;
 
-    default: err = P_ERROR_NO_CTL_COMMAND; return A_ERROR_CTL;
+    default: err = P_ERROR_NO_CTL_COMMAND; return (signed)A_ERROR_CTL;
     }
 }
 

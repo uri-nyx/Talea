@@ -7,6 +7,23 @@
 
 typedef i32 (*AkaiSyscall)(u32 *win);
 
+static u8 path_get_drive(const char *path)
+{
+    // assume path has been checked
+    switch (path[0]) {
+    case 'A':
+        if (path[1] == ':') return 0;
+        break;
+    case 'B':
+        if (path[1] == ':') return 1;
+        break;
+    case 'H':
+        if (path[1] == 'C' && path[2] == 'S' && path[3] == ':') return 2;
+        break;
+    }
+    return (signed)A.pr.curr->curr_drive;
+}
+
 // returns the address of the break pointer. O if loading failed
 static u32 load_flat_binary(FIL *f)
 {
@@ -32,7 +49,7 @@ static u32 load_flat_binary(FIL *f)
     }
 
     // Align to a page boundary
-    return ((read + (u32)AKAI_PROCESS_BASE) + 0xFFF) & ~0xFFF;
+    return ((read + (u32)AKAI_PROCESS_BASE) + 0xFFFU) & ~0xFFFU;
 }
 
 // returns false on invalid header or failure
@@ -104,6 +121,7 @@ static u32 load_aout_flat(FIL *f)
     usize      file_pages, code_pages, databss_pages, bss_pages;
     u8        *aout_pages, *code, *data;
     u32        code_end, data_end;
+    u32        data_offset_in_page;
     bool       overlap;
 
     _trace(0xd1e0, 1);
@@ -122,21 +140,34 @@ static u32 load_aout_flat(FIL *f)
     _trace(0xd1e0, 4);
     if (!aout_pages) return 0;
 
-    code_end      = AKAI_PROCESS_BASE + hdr.csize;
-    data_end      = code_end + hdr.dsize;
-    overlap       = (code_end & 0xFFF) != 0;
-    code_pages    = (hdr.csize + (PAGE_SIZE - 1)) >> 12;
-    databss_pages = (hdr.dsize + hdr.bsize + (PAGE_SIZE - 1)) >> 12;
-    bss_pages     = (hdr.bsize + (PAGE_SIZE - 1)) >> 12;
+    code_end            = AKAI_PROCESS_BASE + hdr.csize;
+    data_offset_in_page = code_end & 0xFFF;
+    data_end            = code_end + hdr.dsize;
+    code_pages          = (hdr.csize + (PAGE_SIZE - 1)) >> 12;
+    databss_pages       = (data_offset_in_page + hdr.dsize + hdr.bsize + (PAGE_SIZE - 1)) >> 12;
+    bss_pages           = (hdr.bsize + (PAGE_SIZE - 1)) >> 12;
+    overlap             = data_offset_in_page != 0;
 
     code = aout_pages;
     _trace(0xd1e0, 5, overlap);
+
+    miniprint("[KERNEL] Loading a.out executable:\n");
+    miniprint("     pages: %d, code: %d, data+bss: %d\n", file_pages, code_pages, databss_pages);
+    miniprint("     [CODE] start: 0x%06x, end: 0x%06x, size: %d\n", AKAI_PROCESS_BASE, code_end,
+              hdr.csize);
+    miniprint("     [DATA] start: 0x%06x, end: 0x%06x, size: %d\n", code_end, data_end, hdr.dsize);
+    miniprint("     [BSS]  start: 0x%06x, end: 0x%06x, size: %d\n", data_end, data_end + hdr.bsize,
+              hdr.bsize);
+    miniprint("     total size: %d, overlap: %d, bss pages: %d\n", sz, overlap, bss_pages);
 
     if (code_pages > (overlap ? 1 : 0)) {
         usize pages_to_map = code_pages - (overlap ? 1 : 0);
         _trace(0xd1e1, 1, pages_to_map, code);
         if (!map_active_range((u32)code, AKAI_PROCESS_BASE, pages_to_map, PTE_U | PTE_RX))
             goto fail;
+
+        miniprint("[KERNEL] Mapping code pages 0x%06x to 0x%06x RX\n", AKAI_PROCESS_BASE,
+                  AKAI_PROCESS_BASE + (pages_to_map * PAGE_SIZE));
     }
 
     if (overlap) {
@@ -145,14 +176,17 @@ static u32 load_aout_flat(FIL *f)
         _trace(0xd1e0, 6, databss_pages);
         _trace(0xd1e1, 1, overlap_paddr, overlap_vaddr);
         if (!map_active_pt_entry(overlap_paddr, overlap_vaddr, PTE_U | PTE_RWX)) goto fail;
-        if (databss_pages > 0) databss_pages--;
+        miniprint("[KERNEL] Overlapping page 0x%06x remammped RWX\n", overlap_vaddr);
     }
 
-    if (databss_pages > 0) {
-        u32 data_vstart = (u32)(AKAI_PROCESS_BASE + (code_pages * PAGE_SIZE));
-        u32 data_pstart = (u32)(code + (code_pages * PAGE_SIZE));
+    if (databss_pages > (overlap ? 1 : 0)) {
+        usize remaining   = databss_pages - (overlap ? 1 : 0);
+        u32   data_vstart = (u32)(AKAI_PROCESS_BASE + (code_pages * PAGE_SIZE));
+        u32   data_pstart = (u32)(code + (code_pages * PAGE_SIZE));
         _trace(0xd1e0, 7, data_vstart, data_pstart);
-        if (!map_active_range(data_pstart, data_vstart, databss_pages, PTE_U | PTE_RW)) goto fail;
+        if (!map_active_range(data_pstart, data_vstart, remaining, PTE_U | PTE_RW)) goto fail;
+        miniprint("[KERNEL] Mapping data+bss pages 0x%06x to 0x%06x RX\n", data_vstart,
+                  data_vstart + (databss_pages * PAGE_SIZE));
     }
 
     _trace(0xd1e0, 8);
@@ -184,7 +218,7 @@ static u32 load_aout_flat(FIL *f)
             u32   offset = bss_start & 0xFFF;
             usize chunk  = (bss_todo > (PAGE_SIZE - offset)) ? (PAGE_SIZE - offset) : bss_todo;
 
-            work = remap_kernel_work_area(bss_start & ~0xFFF);
+            work = remap_kernel_work_area(bss_start & ~0xFFFU);
             memset(work + offset, 0, chunk);
 
             bss_todo -= chunk;
@@ -194,8 +228,10 @@ static u32 load_aout_flat(FIL *f)
         unmap_kernel_work_area();
     }
 
-    _trace(0xd1e0, 0xA, (data_end + hdr.bsize + 0xFFF) & ~0xFFF);
-    return (data_end + hdr.bsize + 0xFFF) & ~0xFFF;
+    _trace(0xd1e0, 0xA, (data_end + hdr.bsize + 0xFFF) & ~0xFFFU);
+    miniprint("[KERNEL] Setting BRK to 0x%06x\n", (data_end + hdr.bsize + 0xFFF) & ~0xFFFU);
+
+    return (data_end + hdr.bsize + 0xFFF) & ~0xFFFU;
 
 fail:
     free_pages_contiguous(aout_pages, file_pages);
@@ -233,7 +269,7 @@ static bool copy_argv(u32 *stack_page, u32 argc, char *path, char **argv, u32 *o
         strings[i] = AKAI_PROCESS_STACK_TOP - (u32)((work + PAGE_SIZE) - cursor);
     }
 
-    cursor = (u8 *)((u32)cursor & ~15); // sp is 16 byte aligned
+    cursor = (u8 *)((u32)cursor & ~15U); // sp is 16 byte aligned
     cursor -= 4;
     *(u32 *)cursor = 0;
 
@@ -272,23 +308,15 @@ static i32 ak_exit(u32 *win)
     char code_str[2];
 
     _trace(0xe1, exit_code);
-    puts("Exit ");
-    puts(A.pr.curr->name);
-    puts(" code: ");
-    if (exit_code < 10) {
-        code_str[0] = exit_code + '0';
-        code_str[1] = 0;
-        puts(code_str);
-    }
-    puts("\n");
 
     A.pr.curr->exit_code = exit_code;
 
     _trace(0xD00DA, A.pr.curr->last_error);
 
-    process_terminate(A.pr.curr->pid);
+    process_terminate(A.pr.curr->pid, WARRANT_NONE);
+
     process_yield();
-    return A_OK;
+    return (signed)A_OK;
 }
 
 static i32 ak_yield(u32 *win)
@@ -301,13 +329,185 @@ static i32 ak_yield(u32 *win)
         puts("\n");
     }
     process_yield();
-    return A_OK;
+    return (signed)A_OK;
 }
 
 static i32 ak_rfork(u32 *win)
 {
-    err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    u32 flags    = win[13];
+    u32 heirloom = win[14];
+
+    ProcessPID child;
+    int        parent_state;
+    usize      i;
+    int        td = 0;
+
+    u32  mem     = flags & RF_MEM_CFG;
+    u32  fil     = flags & RF_FIL_CFG;
+    u32  par     = flags & RF_PARENT_CFG;
+    int  stopped = flags & RF_CHILD_WAIT; // REMEMBER: bool is just a typedef to i8
+    bool fresh   = false;
+
+    // flags validation
+    bool mem_ok = (mem == 0) || !(mem & (mem - 1));
+    bool fil_ok = fil && !(fil & (fil - 1));
+    bool par_ok = par && !(par & (par - 1));
+
+    
+
+    if (!mem_ok || !fil_ok || !par_ok) {
+        _trace(0xDADFED, 0X3000);
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    // heirloom validation
+    if (heirloom >= (1U << _DEV_NUM)) {
+        _trace(0xDADFED, 0X3001);
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    for (i = 0; i < _DEV_NUM; i++) {
+        if ((1U << i) & heirloom) {
+            if (A.pr.curr->pid != A.devices[i].deed.owner) {
+                err = A_ERROR_CLAIM;
+                return (signed)A_ERROR_CLAIM;
+            }
+        }
+    }
+
+    // spawning stopped and not running the parent creates a deadlock
+    if (stopped && par != RF_PARENT_KEEP_RUNNING) {
+        _trace(0xDADFED, 0X3002);
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    
+
+    // create a generic process first
+    child = process_create(A.pr.curr->name, (ProcessEntry)AKAI_PROCESS_BASE);
+    if (!child) {
+        err = P_ERROR_NO_PID;
+        return (signed)A_ERROR;
+    }
+
+    
+
+    // now we have a new process, fill based on the flags
+    switch (mem) {
+    case RF_MEM_COPY:
+        /* easy, just copy all memory and registers */
+        if (!process_clone_memory(child, A.pr.curr->pid)) goto fork_error;
+        break;
+    case RF_MEM_SHARE:
+        if (!process_share_memory(child, A.pr.curr->pid)) goto fork_error;
+        break;
+    case RF_MEM_FRESH:
+        /* it's already fresh! //TODO: some bits may be missing  */
+        fresh = true;
+        break;
+    default:
+        process_reap(child);
+        _trace(0xDADFED, 0X3003);
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    
+
+    switch (fil) {
+    case RF_FIL_SHARE:
+        /* easy, just copy the table, and bump the refs */
+        process_share_files(child, A.pr.curr->pid);
+        break;
+    case RF_FIL_CLEAN:
+        /* Already clean */
+        break;
+    default:
+        process_reap(child);
+        _trace(0xDADFED, 0X3005);
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    
+
+    switch (par) {
+    case RF_PARENT_KEEP_RUNNING: parent_state = PARENT_KEEP_RUNNING; break;
+    case RF_PARENT_WAIT: parent_state = PARENT_WAIT; break;
+    case RF_PARENT_DIE: parent_state = PARENT_DIE; break;
+    case RF_PARENT_DETACH: parent_state = PARENT_DETACH; break;
+    default:
+        _trace(0xDADFED, 0X3006);
+        process_reap(child);
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    
+
+    if (flags & RF_LEASE_STDIN) {
+        dev_lease(A.pr.curr->pid, child, PDEV_STDIN);
+        proxy_attach(child, PDEV_STDIN, &A.pr.curr->stdin);
+    }
+
+    if (flags & RF_LEASE_STDOUT) {
+        dev_lease(A.pr.curr->pid, child, PDEV_STDOUT);
+        proxy_attach(child, PDEV_STDOUT, &A.pr.curr->stdout);
+    }
+
+    if (flags & RF_LEASE_STDERR) {
+        dev_lease(A.pr.curr->pid, child, PDEV_STDERR);
+        proxy_attach(child, PDEV_STDERR, &A.pr.curr->stderr);
+    }
+
+    for (i = 0; i < _DEV_NUM; i++) {
+        if ((1U << i) & heirloom) dev_lease(A.pr.curr->pid, child, i);
+    }
+
+    
+
+    if (!fresh) {
+        memcpy(&A.pr.proc[child].ctx, &A.pr.curr->ctx, sizeof(struct ThreadCtx));
+        memcpy(A.pr.proc[child].subs, A.pr.curr->subs, sizeof(A.pr.proc[child].subs));
+        A.pr.proc[child].brk                 = A.pr.curr->brk;
+        A.pr.proc[child].inbox               = A.pr.curr->inbox;
+        A.pr.proc[child].outbox              = A.pr.curr->outbox;
+        A.pr.proc[child].flags               = A.pr.curr->flags;
+        A.pr.proc[child].event_handler       = A.pr.curr->event_handler;
+        A.pr.proc[child].event_mask          = A.pr.curr->event_mask;
+        A.pr.proc[child].pending_events      = A.pr.curr->pending_events;
+        A.pr.proc[child].message_queue_flags = A.pr.curr->message_queue_flags;
+        A.pr.proc[child].ctx.regs[10]        = 0; // fork returns 0;
+    }
+
+    
+
+    A.pr.proc[child].user_ticks   = 0;
+    A.pr.proc[child].system_ticks = 0;
+    A.pr.proc[child].parent_state = parent_state;
+
+    /* we have it! */
+    /* If parent asked to stop the child, do so */
+    if (stopped)
+        process_wait(child);
+    else if (!fresh)
+        A.pr.proc[child].state = READY;
+
+    
+
+    _trace(0xdad11d22, A.pr.curr->ctx.usp, _lwd(REG_SYSTEM_USP));
+
+    _swd(REG_SYSTEM_USP, A.pr.curr->ctx.usp); // TODO: remove this hack
+
+    return child;
+
+fork_error:
+    process_reap(child);
+    err = A_ERROR;
+    return (signed)A_ERROR;
 }
 
 static i32 ak_exec(u32 *win)
@@ -323,32 +523,29 @@ static i32 ak_exec(u32 *win)
     u32    flags  = win[16];
     u8     format = flags & EXEC_FILE_FORMAT_MASK;
 
-    puts("Process: ");
-    puts(A.pr.curr->name);
-    puts(" Trying exec\n");
-    puts(path);
-    puts("\n");
     _trace(0XEE, argc, flags);
 
     if (!process_check_addr(A.pr.curr->pid, (u32)path, PTE_V | PTE_R, false) ||
         (u32)path < AKAI_PROCESS_BASE || (u32)path >= AKAI_PROCESS_STACK_TOP) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     if (argc > 0 || (u32)argv != 0) {
         if (!process_check_addr(A.pr.curr->pid, (u32)argv, PTE_V | PTE_R, false) ||
             (u32)argv < AKAI_PROCESS_BASE || (u32)argv >= AKAI_PROCESS_STACK_TOP) {
             err = P_ERROR_BAD_POINTER;
-            return A_ERROR;
+            return (signed)A_ERROR;
         }
     }
+
+    miniprint("[%s] Exec: %s\n");
 
     // Check if file exists, first thing
     res = f_open(&executable, path, FA_READ | FA_OPEN_EXISTING);
     if (res) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     // load
@@ -360,43 +557,32 @@ static i32 ak_exec(u32 *win)
 
         if (stack_page == NULL) {
             err = A_ERROR_OOM;
-            return A_ERROR;
+            return (signed)A_ERROR;
         }
 
-        get_new_name(path, new_name); // TODO: implement with strrchr('/')
+        get_new_name(path, new_name);
 
         // validate and copy the args to the stack page
         if (!copy_argv((u32 *)stack_page, argc, path, argv, &out_argv)) {
             err = P_ERROR_BAD_ARGV;
-            return A_ERROR;
+            return (signed)A_ERROR;
         };
+
+        miniprint("[KERNEL] copied argc and argv to stack: new -> 0x%06x\n", out_argv);
 
         // orphan the stack page
 
         page_transfer(ORPHAN_PID, stack_page);
-        if (!process_reset(A.pr.curr->pid, new_name, AKAI_PROCESS_BASE, AKAI_PROCESS_STACK_TOP,
+        if (!process_reset(A.pr.curr->pid, new_name, AKAI_PROCESS_BASE, out_argv,
                            (ProcessEntry)AKAI_PROCESS_BASE)) {
             free_page(stack_page);
-            process_terminate(A.pr.curr->pid);
+            process_terminate(A.pr.curr->pid, WARRANT_ERROR);
             process_yield();
-            return A_ERROR;
+            return (signed)A_ERROR;
         };
         // transfer back the stack page, and map it to the process
         page_transfer(A.pr.curr->pid, stack_page);
 
-        /*
-        {
-            u32 *work = (u32*)map_kernel_work_area((u32)A.pr.curr->page_tables[3]);
-            if (!work) {
-                process_terminate(A.pr.curr->pid);
-                process_yield();
-                return A_ERROR;
-            }
-
-            map_pt_entry(work, (AKAI_PROCESS_STACK_TOP - PAGE_SIZE) >> 12, (u32)stack_page, PTE_U |
-        PTE_RW); unmap_kernel_work_area();
-        }
-        */
         map_active_pt_entry((u32)stack_page, AKAI_PROCESS_STACK_TOP - PAGE_SIZE, PTE_U | PTE_RW);
         _trace(0xfaaaa);
         switch (format) {
@@ -408,24 +594,99 @@ static i32 ak_exec(u32 *win)
 
         if (!brk) {
             _trace(0xd1d0);
-            process_terminate(A.pr.curr->pid);
+            process_terminate(A.pr.curr->pid, WARRANT_ERROR);
             process_yield();
-            return A_ERROR;
+            return (signed)A_ERROR;
         }
 
         _trace(0xe1e1e1e);
+        miniprint("[KERNEL] Set process sp to 0x%06x\n", A.pr.curr->ctx.usp);
         A.pr.curr->ctx.regs[12] = argc + 1;
         A.pr.curr->ctx.regs[13] = out_argv;
         A.pr.curr->brk          = (void *)brk;
         process_yield();
-        return A_OK;
+        return (signed)A_OK;
     }
+}
+
+static i32 collect_pid(ProcessPID pid, int *status, bool any)
+{
+    if (any) {
+        usize i;
+        for (i = 1; i < MAX_PROCESS; i++) {
+            if (A.pr.proc[i].state == ZOMBIE && A.pr.proc[i].parent == A.pr.curr->pid) {
+                if (status) *status = A.pr.proc[i].exit_code;
+                process_reap(i);
+                return i;
+            }
+        }
+    } else {
+        if (A.pr.proc[pid].state == ZOMBIE && A.pr.proc[pid].parent == A.pr.curr->pid) {
+            if (status) *status = A.pr.proc[pid].exit_code;
+            process_reap(pid);
+            return pid;
+        }
+    }
+
+    return -1;
 }
 
 static i32 ak_wait(u32 *win)
 {
-    err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    i32  child_pid = win[13];
+    i32 *status    = (i32 *)win[14];
+    u32  options   = win[15];
+
+    i32   res;
+    usize i;
+    bool  any = child_pid == -1, has_children = false;
+
+    if (status &&
+        !process_check_addr(A.pr.curr->pid, (u32)status, PTE_U | PTE_V | PTE_R | PTE_W, false)) {
+        err = P_ERROR_BAD_POINTER;
+        return (signed)A_ERROR;
+    }
+
+    if (!any && ((child_pid == KERNEL_PID) || (child_pid >= MAX_PROCESS) ||
+                 (child_pid == A.pr.curr->pid))) {
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    if (!any &&
+        (A.pr.proc[child_pid].state == FREE || A.pr.proc[child_pid].parent != A.pr.curr->pid)) {
+        err = P_ERROR_NOT_CHILD;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    for (i = 1; i < MAX_PROCESS; i++) {
+        if (A.pr.proc[i].state != FREE && A.pr.proc[i].parent == A.pr.curr->pid) {
+            has_children = true;
+            break;
+        }
+    }
+
+    if (!has_children) {
+        err = A_ERROR_NOCHILDREN;
+        return (signed)A_ERROR_NOCHILDREN;
+    }
+
+    res = collect_pid(child_pid, status, any);
+
+    if (res > 0) return res;
+
+    if (options & WAIT_NOHANG) {
+        return 0;
+    } else if (options == WAIT_HANG) {
+        A.pr.curr->waiting_on = child_pid;
+        process_wait(A.pr.curr->pid);
+        process_yield();
+    } else {
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    return (signed)A_ERROR_UNREACHEABLE;
 }
 
 static i32 ak_hook(u32 *win)
@@ -438,12 +699,12 @@ static i32 ak_hook(u32 *win)
 
     if (A.pr.curr->pid == 0) {
         err = P_ERROR_IPC_PID0;
-        return A_ERROR_IPC; // Do not hook the idle task
+        return (signed)A_ERROR_IPC; // Do not hook the idle task
     }
 
     if ((A.pr.curr->flags & PROC_IPC) != PROC_IPC) {
         err = P_ERROR_IPC_NOINIT;
-        return A_ERROR_IPC; // must initialize IPC.
+        return (signed)A_ERROR_IPC; // must initialize IPC.
     }
 
     result = A.pr.curr->event_mask;
@@ -461,12 +722,12 @@ static i32 ak_unhook(u32 *win)
 
     if (A.pr.curr->pid == 0) {
         err = P_ERROR_IPC_PID0;
-        return A_ERROR_IPC;
+        return (signed)A_ERROR_IPC;
     }
 
     if ((A.pr.curr->flags & PROC_IPC) != PROC_IPC) {
         err = P_ERROR_IPC_NOINIT;
-        return A_ERROR_IPC; // must initialize IPC.
+        return (signed)A_ERROR_IPC; // must initialize IPC.
     }
 
     result = A.pr.curr->event_mask;
@@ -477,12 +738,12 @@ static i32 ak_unhook(u32 *win)
 static i32 ak_ipc_sub(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 static i32 ak_ipc_unsub(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 
 static i32 ak_ipc_init(u32 *win)
@@ -494,7 +755,7 @@ static i32 ak_ipc_init(u32 *win)
     if (!inbox_page) {
         // out of memory
         err = P_ERROR_IPC_INIT;
-        return A_ERROR_OOM;
+        return (signed)A_ERROR_OOM;
     }
 
     // the page tables should be mapped in the process' space per process_create
@@ -507,21 +768,21 @@ static i32 ak_ipc_init(u32 *win)
     A.pr.curr->inbox = inbox_page;
 
     memset(hdrbuf, 0, INBOX_HEADER_SIZE);
-    hdrbuf[INBOX_HEADER_QUEUE_MAX]     = INBOX_QUEUE_MAX >> 8;
-    hdrbuf[INBOX_HEADER_QUEUE_MAX + 1] = INBOX_QUEUE_MAX;
+    hdrbuf[INBOX_HEADER_QUEUE_MAX]     = (u8)INBOX_QUEUE_MAX >> 8;
+    hdrbuf[INBOX_HEADER_QUEUE_MAX + 1] = (u8)INBOX_QUEUE_MAX;
     memcpy((u8 *)AKAI_IPC_INBOX, hdrbuf, INBOX_HEADER_SIZE);
-    return A_OK;
+    return (signed)A_OK;
 }
 
 static i32 ak_ipc_recv(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 static i32 ak_ipc_send(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 
 static i32 ak_dev_ctl(u32 *win)
@@ -540,12 +801,12 @@ static i32 ak_dev_ctl(u32 *win)
     if (!owned && devnum >= _DEV_NUM) {
         _trace(0xFEDB, 0X1);
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
-    if (!owned && A.device_owners[devnum] != A.pr.curr->pid) {
+    if (!owned && A.devices[devnum].deed.owner != A.pr.curr->pid) {
         err = A_ERROR_CLAIM;
-        return A_ERROR_CLAIM;
+        return (signed)A_ERROR_CLAIM;
     }
 
     if (len > 0) {
@@ -554,20 +815,20 @@ static i32 ak_dev_ctl(u32 *win)
             _trace(0xFEDB, 0X2);
 
             err = P_ERROR_FILE_TOO_LARGE;
-            return A_ERROR_INVAL;
+            return (signed)A_ERROR_INVAL;
         }
 
         if (buff + len < buff) {
             _trace(0xFEDB, 0X3);
             err = P_ERROR_FILE_TOO_LARGE;
-            return A_ERROR_INVAL;
+            return (signed)A_ERROR_INVAL;
         }
 
         if (!process_check_addr(A.pr.curr->pid, (u32)buff, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
             !process_check_addr(A.pr.curr->pid, (u32)buff_end, PTE_U | PTE_V | PTE_R | PTE_W,
                                 false)) {
             err = P_ERROR_BAD_POINTER;
-            return A_ERROR_INVAL;
+            return (signed)A_ERROR_INVAL;
         }
 
         // Check page boundaries if the buffer spans more than two pages
@@ -575,17 +836,19 @@ static i32 ak_dev_ctl(u32 *win)
              addr += PAGE_SIZE) {
             if (!process_check_addr(A.pr.curr->pid, addr, PTE_U | PTE_V | PTE_R | PTE_W, false)) {
                 err = P_ERROR_BAD_POINTER;
-                return A_ERROR_INVAL;
+                return (signed)A_ERROR_INVAL;
             }
         }
     }
+
+    _trace(0xdd1deda, devnum);
 
     if (proxy)
         return proxy_ctl(devnum, command, buff, len);
     else if (vdev)
         return vdev_ctl(devnum, command, buff, len);
     else
-        return A.devices[devnum].ctl(command, buff, len);
+        return (signed)A.devices[devnum].ctl(command, buff, len);
 }
 
 static i32 ak_dev_in(u32 *win)
@@ -599,17 +862,17 @@ static i32 ak_dev_in(u32 *win)
 
     if (!owned && devnum >= _DEV_NUM) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
-    if (!owned && A.device_owners[devnum] != A.pr.curr->pid) {
+    if (!owned && A.devices[devnum].deed.owner != A.pr.curr->pid) {
         err = A_ERROR_CLAIM;
-        return A_ERROR_CLAIM;
+        return (signed)A_ERROR_CLAIM;
     }
 
     if (!owned && A.devices[devnum].ports < port) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (proxy)
@@ -617,7 +880,7 @@ static i32 ak_dev_in(u32 *win)
     else if (vdev)
         return vdev_in(devnum, port);
     else
-        return A.devices[devnum].in(port);
+        return (signed)A.devices[devnum].in(port);
 }
 
 static i32 ak_dev_out(u32 *win)
@@ -632,27 +895,28 @@ static i32 ak_dev_out(u32 *win)
 
     if (!owned && devnum >= _DEV_NUM) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
-    if (!owned && A.device_owners[devnum] != A.pr.curr->pid) {
+    if (!owned && A.devices[devnum].deed.owner != A.pr.curr->pid) {
         err = A_ERROR_CLAIM;
-        return A_ERROR_CLAIM;
+        return (signed)A_ERROR_CLAIM;
     }
 
     if (!owned && A.devices[devnum].ports < port) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
-    if (proxy)
+    if (proxy) {
+        _trace(0xd1d1d1, val);
         proxy_out(devnum, port, val);
-    else if (vdev)
+    } else if (vdev)
         vdev_out(devnum, port, val);
     else
         A.devices[devnum].out(port, val);
 
-    return A_OK;
+    return (signed)A_OK;
 }
 
 static i32 ak_dev_claim(u32 *win)
@@ -663,21 +927,27 @@ static i32 ak_dev_claim(u32 *win)
     bool proxy = devnum >= PDEV_STDIN && devnum <= PDEV_STDERR;
     bool owned = vdev || proxy;
 
-    if (owned) return A_OK;
+    if (owned) return (signed)A_OK;
 
     if (devnum >= _DEV_NUM) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
-    if (A.device_owners[devnum] != KERNEL_PID) {
+    if (A.devices[devnum].deed.owner != KERNEL_PID) {
         err = A_ERROR_CLAIM;
-        return A_ERROR_CLAIM;
+        return (signed)A_ERROR_CLAIM;
     }
 
-    A.device_owners[devnum] = A.pr.curr->pid;
-    return A_OK;
+    A.devices[devnum].deed.owner = A.pr.curr->pid;
+
+    if (A.devices[devnum].deed.original == KERNEL_PID) {
+        A.devices[devnum].deed.original = A.pr.curr->pid;
+    }
+
+    return (signed)A_OK;
 }
+
 static i32 ak_open(u32 *win)
 {
     const char *path  = (const char *)win[13];
@@ -693,7 +963,7 @@ static i32 ak_open(u32 *win)
 
     if (new_open_files > MAX_OPEN_FILES) {
         err = P_ERROR_TOO_MANY_FILES;
-        return A_ERROR_OOF;
+        return (signed)A_ERROR_OOF;
     }
 
     for (i = 0; i < MAX_OPEN_FILES; i++) {
@@ -705,7 +975,7 @@ static i32 ak_open(u32 *win)
 
     if (fd == -1) {
         err = P_ERROR_TOO_MANY_FILES;
-        return A_ERROR_OOF;
+        return (signed)A_ERROR_OOF;
     }
 
     for (i = 0; i < FILE_POOL_MAX; i++) {
@@ -718,12 +988,12 @@ static i32 ak_open(u32 *win)
 
     if (!f) {
         err = P_ERROR_FILE_POOL_EXHAUSTED;
-        return A_ERROR_OOF;
+        return (signed)A_ERROR_OOF;
     }
 
     if (!process_check_addr(A.pr.curr->pid, (u32)path, PTE_V | PTE_R | PTE_U, false)) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (flags & O_READ) fatfs_flags |= FA_READ;
@@ -735,7 +1005,7 @@ static i32 ak_open(u32 *win)
 
     if ((res = f_open(f, path, fatfs_flags)) != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     A.fp.refs[f_index]    = 1;
@@ -746,7 +1016,7 @@ static i32 ak_open(u32 *win)
 
 static i32 ak_dup(u32 *win)
 {
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 
 static i32 ak_close(u32 *win)
@@ -761,19 +1031,19 @@ static i32 ak_close(u32 *win)
 
     if (new_open_files < 0) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (fd < 0 || fd >= MAX_OPEN_FILES) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     f_index = A.pr.curr->fds[fd];
 
     if (f_index < 0 || f_index >= FILE_POOL_MAX) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     f    = &A.fp.files[f_index];
@@ -781,7 +1051,7 @@ static i32 ak_close(u32 *win)
 
     if (refs == 0) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (refs > 1) {
@@ -790,7 +1060,7 @@ static i32 ak_close(u32 *win)
         res = f_close(f);
         if (res != FR_OK) {
             err = FS_ERROR | res;
-            return A_ERROR;
+            return (signed)A_ERROR;
         }
 
         A.fp.refs[f_index] = 0;
@@ -798,32 +1068,81 @@ static i32 ak_close(u32 *win)
 
     A.pr.curr->open_files = new_open_files;
     A.pr.curr->fds[fd]    = FREE_FD;
-    return A_OK;
+    return (signed)A_OK;
 }
 static i32 ak_unlink(u32 *win)
 {
-    err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    // TODO: insecure becasuse of path
+    const char *path = (const char *)win[13];
+    u8          drive;
+    FRESULT     res;
+
+    if (!process_check_addr(A.pr.curr->pid, (u32)path, PTE_V | PTE_R | PTE_U, false)) {
+        err = P_ERROR_BAD_POINTER;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    drive = path_get_drive(path);
+
+    // how do I check if the file is opened?
+    if (!(drive == 0 && A.pr.curr->pid < 1)) {
+        // Only the kernel or pid 1 (the shell/executor) can remove files from TPS A
+        err = P_ERROR_NO_PERM;
+        return (signed)A_ERROR_FORBIDDEN;
+    }
+
+    res = f_unlink(path);
+    if (res != FR_OK) {
+        err = FS_ERROR | res;
+        return (signed)A_ERROR;
+    }
+
+    return (signed)A_ERROR;
 }
 static i32 ak_rename(u32 *win)
 {
-    err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    // TODO: insecure becasuse of path
+    const char *oldname = (const char *)win[13];
+    const char *newname = (const char *)win[14];
+    u8          drive;
+    FRESULT     res;
+
+    if (!process_check_addr(A.pr.curr->pid, (u32)oldname, PTE_V | PTE_R | PTE_U, false) ||
+        !process_check_addr(A.pr.curr->pid, (u32)newname, PTE_V | PTE_R | PTE_U, false)) {
+        err = P_ERROR_BAD_POINTER;
+        return (signed)A_ERROR_INVAL;
+    }
+
+    drive = path_get_drive(oldname);
+
+    if (!(drive == 0 && A.pr.curr->pid < 1)) {
+        // Only the kernel or pid 1 (the shell/executor) can rename files from TPS A
+        err = P_ERROR_NO_PERM;
+        return (signed)A_ERROR_FORBIDDEN;
+    }
+
+    res = f_rename(oldname, newname);
+    if (res != FR_OK) {
+        err = FS_ERROR | res;
+        return (signed)A_ERROR;
+    }
+
+    return (signed)A_ERROR;
 }
 static i32 ak_mkdir(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 static i32 ak_chmod(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 static i32 ak_utime(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 static i32 ak_read(u32 *win)
 {
@@ -840,7 +1159,7 @@ static i32 ak_read(u32 *win)
 
     if (f_index == FREE_FD || A.fp.refs[f_index] == 0) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     f = &A.fp.files[f_index];
@@ -848,13 +1167,13 @@ static i32 ak_read(u32 *win)
     if (btr > 10 * 1024 * 1024) {
         // arbitrary limit of 10 megs per read
         err = P_ERROR_FILE_TOO_LARGE;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (buff + btr < buff) {
         // arbitrary limit of 10 megs per read
         err = P_ERROR_FILE_TOO_LARGE;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (btr == 0) return 0;
@@ -862,7 +1181,7 @@ static i32 ak_read(u32 *win)
     if (!process_check_addr(A.pr.curr->pid, (u32)buff, PTE_U | PTE_V | PTE_W, false) ||
         !process_check_addr(A.pr.curr->pid, (u32)buff + btr - 1, PTE_U | PTE_V | PTE_W, false)) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     // Check page boundaries if the buffer spans more than two pages
@@ -870,7 +1189,7 @@ static i32 ak_read(u32 *win)
          addr += PAGE_SIZE) {
         if (!process_check_addr(A.pr.curr->pid, addr, PTE_U | PTE_V | PTE_W, false)) {
             err = P_ERROR_BAD_POINTER;
-            return A_ERROR_INVAL;
+            return (signed)A_ERROR_INVAL;
         }
     }
 
@@ -878,7 +1197,7 @@ static i32 ak_read(u32 *win)
 
     if (res != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     return br;
@@ -898,7 +1217,7 @@ static i32 ak_write(u32 *win)
 
     if (f_index == FREE_FD || A.fp.refs[f_index] == 0) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     f = &A.fp.files[f_index];
@@ -906,13 +1225,13 @@ static i32 ak_write(u32 *win)
     if (btw > 10 * 1024 * 1024) {
         // arbitrary limit of 10 megs per read
         err = P_ERROR_FILE_TOO_LARGE;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (buff + btw < buff) {
         // arbitrary limit of 10 megs per read
         err = P_ERROR_FILE_TOO_LARGE;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (btw == 0) return 0;
@@ -920,7 +1239,7 @@ static i32 ak_write(u32 *win)
     if (!process_check_addr(A.pr.curr->pid, (u32)buff, PTE_U | PTE_V | PTE_R, false) ||
         !process_check_addr(A.pr.curr->pid, (u32)buff + btw - 1, PTE_U | PTE_V | PTE_R, false)) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     // Check page boundaries if the buffer spans more than two pages
@@ -928,7 +1247,7 @@ static i32 ak_write(u32 *win)
          addr += PAGE_SIZE) {
         if (!process_check_addr(A.pr.curr->pid, addr, PTE_U | PTE_V | PTE_R, false)) {
             err = P_ERROR_BAD_POINTER;
-            return A_ERROR_INVAL;
+            return (signed)A_ERROR_INVAL;
         }
     }
 
@@ -936,7 +1255,7 @@ static i32 ak_write(u32 *win)
 
     if (res != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     return bw;
@@ -954,7 +1273,7 @@ static i32 ak_seek(u32 *win)
 
     if (f_index == FREE_FD || A.fp.refs[f_index] == 0) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     f = &A.fp.files[f_index];
@@ -967,19 +1286,19 @@ static i32 ak_seek(u32 *win)
         target = (i32)f_size(f) + offset;
     else {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (target < 0) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     res = f_lseek(f, (FSIZE_t)target);
 
     if (res != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     return f_tell(f);
@@ -988,19 +1307,19 @@ static i32 ak_seek(u32 *win)
 static i32 ak_trunc(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 
 static i32 ak_stat(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 
 static i32 ak_sync(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 
 static i32 ak_opendir(u32 *win)
@@ -1013,29 +1332,29 @@ static i32 ak_opendir(u32 *win)
 
     if (flags != 0) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (!process_check_addr(A.pr.curr->pid, (u32)d, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
         !process_check_addr(A.pr.curr->pid, (u32)d + AKAI_DIR_SIZE - 1,
                             PTE_U | PTE_V | PTE_R | PTE_W, false)) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (!process_check_addr(A.pr.curr->pid, (u32)path, PTE_V | PTE_R | PTE_U | PTE_W, false)) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     res = f_opendir(d, path);
 
     if (res != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
-    return A_OK;
+    return (signed)A_OK;
 }
 
 static i32 ak_closedir(u32 *win)
@@ -1047,24 +1366,24 @@ static i32 ak_closedir(u32 *win)
 
     if (flags != 0) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (!process_check_addr(A.pr.curr->pid, (u32)d, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
         !process_check_addr(A.pr.curr->pid, (u32)d + AKAI_DIR_SIZE - 1,
                             PTE_U | PTE_V | PTE_R | PTE_W, false)) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     res = f_closedir(d);
 
     if (res != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
-    return A_OK;
+    return (signed)A_OK;
 }
 
 static u32 fat_to_unix(u16 date, u16 time)
@@ -1119,28 +1438,28 @@ static i32 ak_readdir(u32 *win)
 
     if (flags != 0) {
         err = A_ERROR_INVAL;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (!process_check_addr(A.pr.curr->pid, (u32)d, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
         !process_check_addr(A.pr.curr->pid, (u32)d + AKAI_DIR_SIZE - 1,
                             PTE_U | PTE_V | PTE_R | PTE_W, false)) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (!process_check_addr(A.pr.curr->pid, (u32)info, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
         !process_check_addr(A.pr.curr->pid, (u32)info + AKAI_DIR_ENTRY_SIZE - 1,
                             PTE_U | PTE_V | PTE_R | PTE_W, false)) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     res = f_readdir(d, &filinfo);
 
     if (res != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     memset(info, 0, AKAI_DIR_ENTRY_SIZE);
@@ -1151,24 +1470,7 @@ static i32 ak_readdir(u32 *win)
     ADIR_FS(info->data)      = d->obj.fs->fs_type;
     memcpy(ADIR_FNAME(info->data), filinfo.fname, sizeof(filinfo.fname));
 
-    return A_OK;
-}
-
-static u8 path_get_drive(const char *path)
-{
-    // assume path has been checked
-    switch (path[0]) {
-    case 'A':
-        if (path[1] == ':') return 0;
-        break;
-    case 'B':
-        if (path[1] == ':') return 1;
-        break;
-    case 'H':
-        if (path[1] == 'C' && path[2] == 'S' && path[3] == ':') return 2;
-        break;
-    }
-    return A.pr.curr->curr_drive;
+    return (signed)A_OK;
 }
 
 static i32 ak_chdir(u32 *win)
@@ -1181,18 +1483,18 @@ static i32 ak_chdir(u32 *win)
     u8  drive;
 
     if (!process_check_addr(A.pr.curr->pid, (u32)path, PTE_V | PTE_R | PTE_U, false)) {
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     res = f_opendir(&d, path);
     if (res != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
     res = f_chdir(path);
     if (res != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
     cluster = d.obj.sclust;
@@ -1202,7 +1504,7 @@ static i32 ak_chdir(u32 *win)
     A.pr.curr->curr_drive         = drive;
 
     f_closedir(&d);
-    return A_OK;
+    return (signed)A_OK;
 }
 
 static i32 ak_getcwd(u32 *win)
@@ -1216,13 +1518,13 @@ static i32 ak_getcwd(u32 *win)
     if (len > 10 * 1024 * 1024) {
         // arbitrary limit of 10 megs per read
         err = P_ERROR_FILE_TOO_LARGE;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (buff + len < buff) {
         // arbitrary limit of 10 megs per read
         err = P_ERROR_FILE_TOO_LARGE;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     if (len == 0) return 0;
@@ -1231,7 +1533,7 @@ static i32 ak_getcwd(u32 *win)
         !process_check_addr(A.pr.curr->pid, (u32)buff + len - 1, PTE_U | PTE_V | PTE_R | PTE_W,
                             false)) {
         err = P_ERROR_BAD_POINTER;
-        return A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
     }
 
     // Check page boundaries if the buffer spans more than two pages
@@ -1239,33 +1541,33 @@ static i32 ak_getcwd(u32 *win)
          addr += PAGE_SIZE) {
         if (!process_check_addr(A.pr.curr->pid, addr, PTE_U | PTE_V | PTE_R | PTE_W, false)) {
             err = P_ERROR_BAD_POINTER;
-            return A_ERROR_INVAL;
+            return (signed)A_ERROR_INVAL;
         }
     }
 
     res = f_getcwd(buff, len);
     if (res != FR_OK) {
         err = FS_ERROR | res;
-        return A_ERROR;
+        return (signed)A_ERROR;
     }
 
-    return A_OK;
+    return (signed)A_OK;
 }
 
 static i32 ak_mount(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 static i32 ak_expand(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 static i32 ak_forward(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 
 // NOTE: for arcane reasons, sbrk returns (void*)-1. Lets keep to tradition
@@ -1326,17 +1628,89 @@ rollback:
 static i32 ak_shm_make(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
 static i32 ak_shm_unmake(u32 *win)
 {
     err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    return (signed)A_ERROR;
 }
+
 static i32 ak_error(u32 *win)
 {
-    err = P_ERROR_NO_SYSCALL;
-    return A_ERROR;
+    ProcessPID pid = win[13];
+
+    if (pid == KERNEL_PID)
+        return err;
+    else if (pid < MAX_PROCESS)
+        return A.pr.proc[pid].last_error;
+    else {
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+}
+
+static i32 ak_getpid(u32 *win)
+{
+    (void)win;
+    return A.pr.curr->pid;
+}
+
+static i32 ak_abort(u32 *win)
+{
+    (void)win;
+    process_terminate(A.pr.curr->pid, WARRANT_ABORT);
+}
+
+static i32 ak_time(u32 *win)
+{
+    (void)win;
+    _sbd(REG_SYSTEM_YEAR, TALEA_SYSTEM_UNIXTIME_MODE);
+    return _lwd(REG_SYSTEM_YEAR);
+}
+
+static i32 ak_clock(u32 *win)
+{
+    u32       *outuser   = (u32 *)win[13];
+    u32       *outsystem = (u32 *)win[14];
+    ProcessPID pid       = win[15];
+
+    if (!process_check_addr(A.pr.curr->pid, (u32)outuser, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
+        !process_check_addr(A.pr.curr->pid, (u32)outsystem, PTE_U | PTE_V | PTE_R | PTE_W, false)) {
+        err = P_ERROR_BAD_POINTER;
+        return (signed)A_ERROR;
+    }
+
+    if (pid == KERNEL_PID) {
+        *outuser   = A.pr.curr->user_ticks;
+        *outsystem = A.pr.curr->system_ticks;
+        return A.pr.curr->user_ticks + A.pr.curr->system_ticks;
+    } else if (pid < MAX_PROCESS) {
+        *outuser   = A.pr.proc[pid].user_ticks;
+        *outsystem = A.pr.proc[pid].system_ticks;
+        return A.pr.proc[pid].user_ticks + A.pr.proc[pid].system_ticks;
+    } else {
+        err = A_ERROR_INVAL;
+        return (signed)A_ERROR_INVAL;
+    }
+}
+
+static i32 ak_calendar(u32 *win)
+{
+    u32 *out1 = (u32 *)win[13];
+    u32 *out2 = (u32 *)win[14];
+
+    if (!process_check_addr(A.pr.curr->pid, (u32)out1, PTE_U | PTE_V | PTE_R | PTE_W, false) ||
+        !process_check_addr(A.pr.curr->pid, (u32)out2, PTE_U | PTE_V | PTE_R | PTE_W, false)) {
+        err = P_ERROR_BAD_POINTER;
+        return (signed)A_ERROR;
+    }
+
+    _sbd(REG_SYSTEM_YEAR, TALEA_SYSTEM_CALENDAR_MODE);
+    *out1 = _lwd(REG_SYSTEM_YEAR);
+    *out2 = _lhud(REG_SYSTEM_MINUTE);
+
+    return A_OK;
 }
 
 static AkaiSyscall ak_syscalls[] = {
@@ -1365,7 +1739,7 @@ i32 akai_syscall(u32 service)
     if (service < NUM_SYSCALLS && ak_syscalls[service] != NULL) {
         result = ak_syscalls[service](win);
     } else {
-        result = A_ERROR;
+        result = (signed)A_ERROR;
         err    = P_ERROR_NO_SYSCALL;
     }
 

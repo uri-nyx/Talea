@@ -1,3 +1,8 @@
 #include <stdlib.h>
 
-void          abort(void){}
+extern void ak_abort(void);
+
+void abort(void)
+{
+    ak_abort();
+}

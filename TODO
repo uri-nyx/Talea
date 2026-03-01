@@ -58,10 +58,10 @@ Hardware:
 
 Software:
     Ttty library:
-        ☐ multiplexer
-        ☐ printf
-        ☐ ANSI escapes
-        ☐ colors?
+        ✔ multiplexer @done(26-02-28 01:32)
+        ✔ printf @done(26-02-28 01:32)
+        ✔ ANSI escapes @done(26-02-28 01:32)
+        ✔ colors (in the Kernel)? @done(26-02-28 01:32)
 
     8. Make a simple SDK for games and little apps:
         Minimal OS:
@@ -69,8 +69,32 @@ Software:
             ✔ multitasking @done(26-02-19 23:49)
             ✔ userland @done(26-02-19 23:49)
             ☐ ipc
-            ☐ streams
+            ✔ streams @done(26-02-28 01:32)
             ☐ syscalls
+        Self hosting:
+            Phase 1 — libc:
+                ✔ errno.h @done(26-02-28 03:32)
+                ☐ sys/wait.h
+                ✔ assert.h @done(26-02-28 14:43)
+                ✔ time.h (optional) @done(26-02-28 19:38)
+                ✔ mini-stdio (no floats) @done(26-02-28 03:21)
+                ☐ optional: signal.h
+                ✔ setjmp.h @done(26-02-28 16:03)
+            Phase 2 — kernel:
+                ☐ spawn()
+                ✔ exec() @done(26-02-28 20:32)
+                ✔ waitpid() @done(26-02-28 22:20)
+                ☐ executable format detection
+                ☐ foreground process tracking
+            Phase 3 — I/O + kill switch:
+                ☐ keyboard driver → input events
+                ☐ console driver → output
+                ☐ kill(fg_process) emergency path
+            Phase 4 — shell:
+                ☐ input loop
+                ☐ tokenizer
+                ☐ built-ins
+                ☐ spawn + waitpid integration
 
         ☐ Text editor (visual)
         ☐ Assembler
@@ -87,12 +111,12 @@ Software:
             ☐ signal.h	
             ✔ stdarg.h @done(26-02-21 22:31)
             ✔ stddef.h @done(26-02-21 22:31)
-            ☐ stdio.h	
+            ✔ stdio.h @done(26-02-28 01:31)
             stdlib.h:
                 ☐ abort
                 ✔ abs @done(26-02-21 22:32)
                 ☐ atexit
-                ☐ atof
+                ✔ atof @done(26-02-26 17:17)
                 ✔ atoi @done(26-02-21 23:57)
                 ✔ atol @done(26-02-21 23:57)
                 ☐ bsearch
@@ -111,7 +135,7 @@ Software:
                 ✔ rand @done(26-02-21 22:32)
                 ✔ realloc @done(26-02-21 22:32)
                 ✔ srand @done(26-02-21 22:33)
-                ☐ strtod
+                ✔ strtod @done(26-02-26 17:15)
                 ✔ strtol @done(26-02-21 23:57)
                 ✔ strtoul @done(26-02-21 23:57)
                 ☐ system

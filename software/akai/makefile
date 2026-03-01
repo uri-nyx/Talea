@@ -55,11 +55,18 @@ compiler-test:
 	$(CC) -v -S t.c
 	micro t.s
 
+compiler-test-d:
+	$(CC) -v -S -Wf-d t.c
+	micro t.s
+
 naimen: kernel
 	$(MAKE) -C naimen
 
 libs:
 	$(MAKE) -C naimen libs
+
+libc-d:
+	$(MAKE) -C naimen libc-d
 
 apps:
 	$(MAKE) -C naimen apps

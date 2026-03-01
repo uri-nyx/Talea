@@ -1,10 +1,14 @@
-.globl main
+.globl _program
 .globl _exit
 .globl _syscall
+.globl main
 .globl _trace
 .text
 _start:
-    call main
+    li x5, 0x11223344
+    li x6, 0x55667788
+    trace x5, x6, x2, x0
+    call _program
     mv x12, x10
     call _exit
 
@@ -20,6 +24,35 @@ _syscall:
 _trace:
     trace x12, x13, x14, x15
     ret
+
+__float64_add:
+__float64_sub:
+__float64_mul:
+__float64_div:
+__float64_neg:
+__float64_eq:
+__float64_ne:
+__float64_lt:
+__float64_le:
+__float64_gt:
+__float64_ge:
+__int32_to_float64:
+__float64_to_int32:
+__int64_to_float64:
+__float64_to_int64:
+__float64_to_float:
+__float_to_float64:
+__add64:
+__sub64:
+__and64:
+__or64:
+__xor64:
+__not64:
+__neg64:
+    mv x10, x0
+    mv x11, x0
+    ret
+
 .text
 .globl ak_exit
 ak_exit:
@@ -37,6 +70,15 @@ ak_yield:
     ret
     
 .text
+.globl ak_rfork
+ak_rfork:
+    mv x14, x13 # u32 heirloom
+    mv x13, x12 # u32 flags
+    li x12, 2
+    syscall x0, 0x40 
+    ret
+    
+.text
 .globl ak_exec
 ak_exec:
     mv x16, x15 # int flags
@@ -44,6 +86,16 @@ ak_exec:
     mv x14, x13 # int argc
     mv x13, x12 # const char* path
     li x12, 3
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_wait
+ak_wait:
+    mv x15, x14 # int options
+    mv x14, x13 # int* status
+    mv x13, x12 # int pid
+    li x12, 4
     syscall x0, 0x40 
     ret
     
@@ -67,7 +119,7 @@ ak_dev_in:
 .text
 .globl ak_dev_out
 ak_dev_out:
-    mv x14, x13 # u8 value
+    mv x15, x14 # u8 value
     mv x14, x13 # u8 port
     mv x13, x12 # u32 devnum
     li x12, 13
@@ -191,6 +243,57 @@ ak_getcwd:
 ak_sbrk:
     mv x13, x12 # u32 brk_increment
     li x12, 38
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_error
+ak_error:
+    mv x13, x12 # ProcessPID pid
+    li x12, 41
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_getpid
+ak_getpid:
+
+    li x12, 42
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_abort
+ak_abort:
+
+    li x12, 43
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_time
+ak_time:
+
+    li x12, 44
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_clock
+ak_clock:
+    mv x15, x14 # ProcessPID pid
+    mv x14, x13 # u32* system
+    mv x13, x12 # u32* user
+    li x12, 45
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_calendar
+ak_calendar:
+    mv x14, x13 # u32* calendar_2
+    mv x13, x12 # u32* calendar_1
+    li x12, 46
     syscall x0, 0x40 
     ret
     

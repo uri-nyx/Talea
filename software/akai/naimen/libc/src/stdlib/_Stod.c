@@ -1,4 +1,4 @@
-//#include "xmath.h"
+#include "../math/xmath.h"
 #include <ctype.h>
 #include <limits.h>
 //#include <locale.h>
@@ -6,13 +6,10 @@
 
 #define SIG_MAX 32
 
-double _Dtento(double x, short exp) {
-    return 0.0;
-}
 
 double _Stod(const char *s, char **endptr)
 {
-    const char  point = '.';//localeconv()->decimal_point[0];
+    const char  point = '.';//localeconv()->decimal_point[0]; //TODO: implement locale
     const char *sc;
     char        buf[SIG_MAX], sign;
     double      x;

@@ -1,5 +1,5 @@
 CPPFLAGS := -I$(SDK) -I$(NAIMEN)/libc/include
-LIBS := -l $(NAIMEN)/libc/libc.a
+LIBS := -l $(NAIMEN)/libc/libcmin.a
 
 all: sh.c
 	$(CC) $(CPPFLAGS) -c $(CRT0) sh.c

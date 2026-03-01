@@ -165,11 +165,12 @@ enum VideoCSR {
     VIDEO_QUEUE_FULL   = 0X80,
 };
 
+#define TEXTMODE_CHAR (0xFF000000U)
+#define TEXTMODE_FG   (0X00FF0000U)
+#define TEXTMODE_BG   (0X0000FF00U)
+#define TEXTMODE_ATT  (0X000000FFU)
+
 enum TextModeAttrib {
-    TEXTMODE_CHAR = 0xFF000000,
-    TEXTMODE_FG   = 0X00FF0000,
-    TEXTMODE_BG   = 0X0000FF00,
-    TEXTMODE_ATT  = 0X000000FF,
 
     TEXTMODE_ATT_CODEPAGE    = 0x01,
     TEXTMODE_ATT_ALT_FONT    = 0x02,
@@ -376,30 +377,28 @@ enum PortsAudio {
     AUDIO_PCM_FIFOL      = 0xe,
 };
 
-enum AudioGlobalStatus {
-    AUDIO_GLOB_NOTE_ENDED0       = (1U << 0U),
-    AUDIO_GLOB_NOTE_ENDED1       = (1U << 1U),
-    AUDIO_GLOB_NOTE_ENDED2       = (1U << 2U),
-    AUDIO_GLOB_NOTE_ENDED3       = (1U << 3U),
-    AUDIO_GLOB_NOTE_ENDED4       = (1U << 4U),
-    AUDIO_GLOB_NOTE_ENDED5       = (1U << 5U),
-    AUDIO_GLOB_NOTE_ENDED6       = (1U << 6U),
-    AUDIO_GLOB_NOTE_ENDED7       = (1U << 7U),
-    AUDIO_GLOB_NOTE_ENDED8       = (1U << 8U),
-    AUDIO_GLOB_NOTE_ENDED_MASK   = 0x1ff,
-    AUDIO_GLOB_BUSY0             = (1U << 9U),
-    AUDIO_GLOB_BUSY1             = (1U << 10U),
-    AUDIO_GLOB_BUSY2             = (1U << 11U),
-    AUDIO_GLOB_BUSY3             = (1U << 12U),
-    AUDIO_GLOB_BUSY4             = (1U << 13U),
-    AUDIO_GLOB_BUSY5             = (1U << 14U),
-    AUDIO_GLOB_BUSY6             = (1U << 15U),
-    AUDIO_GLOB_BUSY7             = (1U << 16U),
-    AUDIO_GLOB_BUSY8             = (1U << 17U),
-    AUDIO_GLOB_BUSY_MASK         = 0x3fE00,
-    AUDIO_GLOB_PCM_FIFO_FULL     = (1U << 20U),
-    AUDIO_GLOB_PCM_LOW_WATERMARK = (1U << 21U),
-};
+#define AUDIO_GLOB_NOTE_ENDED0       (1U << 0U)
+#define AUDIO_GLOB_NOTE_ENDED1       (1U << 1U)
+#define AUDIO_GLOB_NOTE_ENDED2       (1U << 2U)
+#define AUDIO_GLOB_NOTE_ENDED3       (1U << 3U)
+#define AUDIO_GLOB_NOTE_ENDED4       (1U << 4U)
+#define AUDIO_GLOB_NOTE_ENDED5       (1U << 5U)
+#define AUDIO_GLOB_NOTE_ENDED6       (1U << 6U)
+#define AUDIO_GLOB_NOTE_ENDED7       (1U << 7U)
+#define AUDIO_GLOB_NOTE_ENDED8       (1U << 8U)
+#define AUDIO_GLOB_NOTE_ENDED_MASK   (0x1ffU)
+#define AUDIO_GLOB_BUSY0             (1U << 9U)
+#define AUDIO_GLOB_BUSY1             (1U << 10U)
+#define AUDIO_GLOB_BUSY2             (1U << 11U)
+#define AUDIO_GLOB_BUSY3             (1U << 12U)
+#define AUDIO_GLOB_BUSY4             (1U << 13U)
+#define AUDIO_GLOB_BUSY5             (1U << 14U)
+#define AUDIO_GLOB_BUSY6             (1U << 15U)
+#define AUDIO_GLOB_BUSY7             (1U << 16U)
+#define AUDIO_GLOB_BUSY8             (1U << 17U)
+#define AUDIO_GLOB_BUSY_MASK         (0x3fE00)
+#define AUDIO_GLOB_PCM_FIFO_FULL     (1U << 20U)
+#define AUDIO_GLOB_PCM_LOW_WATERMARK (1U << 21U)
 
 enum AudioCsr {
     AUDIO_CSR_TRIGGER    = 1UL << 0, // Starts the note

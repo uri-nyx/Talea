@@ -2,16 +2,66 @@
 
 #define err A.pr.curr->last_error
 
+void proxy_attach(ProcessPID pid, u32 proxy, struct IOStream *stream)
+{
+    int res_type = stream->res_type;
+    u32 res      = res_type == HW   ? stream->res.hw->num :
+                   res_type == FILE ? stream->res.fd :
+                                      stream->res.vdevnum;
+    switch (proxy) {
+    case PDEV_STDIN:
+
+        if (res_type == HW) {
+            if (res < _DEV_NUM && res != DEV_KEYBOARD && res != DEV_SERIAL) return;
+            if (A.devices[res].deed.owner != pid) return;
+            A.pr.proc[pid].stdin.res_type = HW;
+            A.pr.proc[pid].stdin.res.hw   = &A.devices[res];
+        } else if (res_type == FILE) {
+            if (A.pr.proc[pid].fds[res] == FREE_FD) return;
+            A.pr.proc[pid].stdin.res_type = FILE;
+            A.pr.proc[pid].stdin.res.fd   = A.pr.proc[pid].fds[res];
+        }
+
+        break;
+    case PDEV_STDOUT:
+        if (res_type == HW) {
+            if (res < _DEV_NUM && res != DEV_TEXTBUFFER && res != DEV_SERIAL) return;
+            if (A.devices[res].deed.owner != pid) return;
+            A.pr.proc[pid].stdout.res_type = HW;
+            A.pr.proc[pid].stdout.res.hw   = &A.devices[res];
+        } else if (res_type == FILE) {
+            if (A.pr.proc[pid].fds[res] == FREE_FD) return;
+            A.pr.proc[pid].stdout.res_type = FILE;
+            A.pr.proc[pid].stdout.res.fd   = A.pr.proc[pid].fds[res];
+        }
+
+        break;
+    case PDEV_STDERR:
+        if (res_type == HW) {
+            if (res < _DEV_NUM && res != DEV_TEXTBUFFER && res != DEV_SERIAL) return;
+            if (A.devices[res].deed.owner != pid) return;
+            A.pr.proc[pid].stderr.res_type = HW;
+            A.pr.proc[pid].stderr.res.hw   = &A.devices[res];
+        } else if (res_type == FILE) {
+            if (A.pr.proc[pid].fds[res] == FREE_FD) return;
+            A.pr.proc[pid].stderr.res_type = FILE;
+            A.pr.proc[pid].stderr.res.fd   = A.pr.proc[pid].fds[res];
+        }
+        break;
+    default: return;
+    }
+}
+
 static i32 attach(u32 devnum, int res_type, u32 res)
 {
     if (res_type == VDEV) {
         err = P_ERROR_NOT_IMPLEMENTED;
-        return A_ERROR_CTL;
+        return (signed)A_ERROR_CTL;
     }
 
     if (res_type != VDEV && res_type != HW && res_type != FILE) {
         err = A_ERROR_INVAL;
-        return A_ERROR_CTL;
+        return (signed)A_ERROR_CTL;
     }
 
     switch (devnum) {
@@ -20,12 +70,12 @@ static i32 attach(u32 devnum, int res_type, u32 res)
         if (res_type == HW) {
             if (res < _DEV_NUM && res != DEV_KEYBOARD && res != DEV_SERIAL) {
                 err = P_ERROR_CANNOT_ATTACH;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             }
 
-            if (A.device_owners[res] != A.pr.curr->pid) {
+            if (A.devices[res].deed.owner != A.pr.curr->pid) {
                 err = A_ERROR_CLAIM;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             }
 
             A.pr.curr->stdin.res_type = HW;
@@ -33,7 +83,7 @@ static i32 attach(u32 devnum, int res_type, u32 res)
         } else if (res_type == FILE) {
             if (A.pr.curr->fds[res] == FREE_FD) {
                 err = P_ERROR_CANNOT_ATTACH;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             }
 
             A.pr.curr->stdin.res_type = FILE;
@@ -45,12 +95,12 @@ static i32 attach(u32 devnum, int res_type, u32 res)
         if (res_type == HW) {
             if (res < _DEV_NUM && res != DEV_TEXTBUFFER && res != DEV_SERIAL) {
                 err = P_ERROR_CANNOT_ATTACH;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             }
 
-            if (A.device_owners[res] != A.pr.curr->pid) {
+            if (A.devices[res].deed.owner != A.pr.curr->pid) {
                 err = A_ERROR_CLAIM;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             }
 
             A.pr.curr->stdout.res_type = HW;
@@ -58,7 +108,7 @@ static i32 attach(u32 devnum, int res_type, u32 res)
         } else if (res_type == FILE) {
             if (A.pr.curr->fds[res] == FREE_FD) {
                 err = P_ERROR_CANNOT_ATTACH;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             }
 
             A.pr.curr->stdout.res_type = FILE;
@@ -70,12 +120,12 @@ static i32 attach(u32 devnum, int res_type, u32 res)
         if (res_type == HW) {
             if (res < _DEV_NUM && res != DEV_TEXTBUFFER && res != DEV_SERIAL) {
                 err = P_ERROR_CANNOT_ATTACH;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             }
 
-            if (A.device_owners[res] != A.pr.curr->pid) {
+            if (A.devices[res].deed.owner != A.pr.curr->pid) {
                 err = A_ERROR_CLAIM;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             }
 
             A.pr.curr->stderr.res_type = HW;
@@ -83,17 +133,17 @@ static i32 attach(u32 devnum, int res_type, u32 res)
         } else if (res_type == FILE) {
             if (A.pr.curr->fds[res] == FREE_FD) {
                 err = P_ERROR_CANNOT_ATTACH;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             }
 
             A.pr.curr->stderr.res_type = FILE;
             A.pr.curr->stderr.res.fd   = A.pr.curr->fds[res];
         }
         break;
-    default: err = P_ERROR_NO_DEV; return A_ERROR_CTL;
+    default: err = P_ERROR_NO_DEV; return (signed)A_ERROR_CTL;
     }
 
-    return A_OK;
+    return (signed)A_OK;
 }
 
 i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
@@ -104,32 +154,56 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
 
         if (len < (2 * sizeof(u32))) {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
 
         return attach(devnum, args[0], args[1]);
+    }
+    case PX_GET_DEV: {
+        struct IOStream *s;
+        u32              dev;
+
+        if (devnum < PDEV_STDIN || devnum > PDEV_STDERR) {
+            err = A_ERROR_INVAL;
+            return (signed)A_ERROR_CTL;
+        }
+
+        s = devnum == PDEV_STDOUT ? &A.pr.curr->stdout :
+            devnum == PDEV_STDERR ? &A.pr.curr->stderr :
+                                    &A.pr.curr->stdin;
+
+        if (s->res_type == FILE)
+            return PDEV_TYPE_FILE;
+        else if (s->res_type == HW)
+            return (PDEV_TYPE_HW | s->res.hw->num);
+        else if (s->res_type == VDEV)
+            return (PDEV_TYPE_VDEV | s->res.vdevnum);
+        else {
+            err = A_ERROR_INVAL;
+            return (signed)A_ERROR_CTL;
+        }
     }
     case PX_READ: {
         int res_type = A.pr.curr->stdin.res_type;
         if (devnum != PDEV_STDIN) goto noctl;
         if (res_type == VDEV) {
             err = P_ERROR_NOT_IMPLEMENTED;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         } else if (res_type == HW) {
-            return A.pr.curr->stdin.res.hw->ctl(PX_READ, buff, len);
+            return (signed)A.pr.curr->stdin.res.hw->ctl(PX_READ, buff, len);
         } else if (res_type == FILE) {
             FIL    *f = &A.fp.files[A.pr.curr->stdin.res.fd];
             UINT    br;
             FRESULT res = f_read(f, buff, len, &br);
             if (res != FR_OK) {
                 err = FS_ERROR | res;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             } else {
                 return br;
             }
         } else {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
         break;
     }
@@ -141,7 +215,7 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
 
         if (res_type == VDEV) {
             err = P_ERROR_NOT_IMPLEMENTED;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         } else if (res_type == HW) {
             return s->res.hw->ctl(PX_WRITE, buff, len);
         } else if (res_type == FILE) {
@@ -150,13 +224,13 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
             FRESULT res = f_write(f, buff, len, &bw);
             if (res != FR_OK) {
                 err = FS_ERROR | res;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             } else {
                 return bw;
             }
         } else {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
         break;
     }
@@ -169,7 +243,7 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
 
         if (res_type == VDEV) {
             err = P_ERROR_NOT_IMPLEMENTED;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         } else if (res_type == HW) {
             return s->res.hw->ctl(PX_POLL, buff, len);
         } else if (res_type == FILE) {
@@ -177,7 +251,7 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
             return 1;
         } else {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
         break;
     }
@@ -189,7 +263,7 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
 
         if (res_type == VDEV) {
             err = P_ERROR_NOT_IMPLEMENTED;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         } else if (res_type == HW) {
             return s->res.hw->ctl(PX_FLUSH, buff, len);
         } else if (res_type == FILE) {
@@ -197,13 +271,13 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
             FRESULT res = f_sync(f);
             if (res != FR_OK) {
                 err = FS_ERROR | res;
-                return A_ERROR_CTL;
+                return (signed)A_ERROR_CTL;
             } else {
-                return A_OK;
+                return (signed)A_OK;
             }
         } else {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
         break;
     }
@@ -217,14 +291,14 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
 
         if (res_type == VDEV) {
             err = P_ERROR_NOT_IMPLEMENTED;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         } else if (res_type == HW) {
             return s->res.hw->ctl(PX_SETCANON, buff, len);
         } else if (res_type == FILE) {
-            return A_OK; // Files are always in raw mode
+            return (signed)A_OK; // Files are always in raw mode
         } else {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
         break;
     }
@@ -238,14 +312,14 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
 
         if (res_type == VDEV) {
             err = P_ERROR_NOT_IMPLEMENTED;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         } else if (res_type == HW) {
             return s->res.hw->ctl(PX_GETCANON, buff, len);
         } else if (res_type == FILE) {
-            return A_OK; // Files are always in raw mode
+            return (signed)A_OK; // Files are always in raw mode
         } else {
             err = A_ERROR_INVAL;
-            return A_ERROR_CTL;
+            return (signed)A_ERROR_CTL;
         }
         break;
     }
@@ -253,11 +327,11 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
     default: {
 noctl:
         err = P_ERROR_NO_CTL_COMMAND;
-        return A_ERROR_CTL;
+        return (signed)A_ERROR_CTL;
     }
     }
 
-    return A_OK;
+    return (signed)A_OK;
 }
 
 u8 proxy_in(u32 devnum, u8 port)
@@ -277,10 +351,40 @@ u8 proxy_in(u32 devnum, u8 port)
 i32 proxy_out(u32 devnum, u8 port, u8 val)
 {
     u8 buff[2];
-
-    _trace(0xDAF0, devnum);
+    _trace(0xDAF0, devnum, val);
     buff[0] = val;
     buff[1] = 0;
     (void)port;
-    return proxy_ctl(devnum, PX_WRITE, &buff, 1);
+    return proxy_ctl(devnum, PX_WRITE, buff, 1);
+}
+
+bool dev_lease(ProcessPID lessor, ProcessPID receiver, u32 devnum)
+{
+    struct DeviceDeed *deed;
+
+    if (lessor == receiver) return false; // no leasing to oneself
+    if (deed->lessor == receiver) return false;
+
+    if (devnum < _DEV_NUM) {
+        // Hardware device
+        deed = &A.devices[devnum].deed;
+    } else if (devnum >= PDEV_STDIN && devnum <= PDEV_STDERR) {
+        // Proxy device, deref deed
+        struct IOStream *s = devnum == PDEV_STDIN  ? &A.pr.proc[lessor].stdin :
+                             devnum == PDEV_STDOUT ? &A.pr.proc[lessor].stdout :
+                                                     &A.pr.proc[lessor].stderr;
+        if (s->res_type != HW)
+            return false; // cannot lease a file or a VDEV
+        else
+            deed = &s->res.hw->deed;
+    } else {
+        return false; // cannot lease a VDEV
+    }
+
+    if (lessor != deed->owner) return false;
+    // what to do here? For know, only keeping the last lessor,
+    // though an inheritance stack would be neat...
+    deed->lessor = lessor;
+    deed->owner  = receiver;
+    return true;
 }
