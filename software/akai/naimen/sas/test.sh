@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LCC="$HOME/Akai/lcc-sirius/lcc/bin/lcc"
+LCC="/mnt/c/Users/Lenovo/Documents/GitHub/Talea/tools/lcc-sirius/lcc/bin/lcc"
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -14,7 +14,7 @@ for file in test/*.sas; do
   "$LCC" -h -o "test/$base_name.as.out" "test/$base_name.s" 2>/dev/null
   
   # Compare the binary outputs
-  if diff "test/$base_name.sas.out" "test/$base_name.as.out" >/dev/null; then
+  if diff "test/$base_name.sas.out" "test/$base_name.as.out" >/dev/null ; then
     echo -e "${GREEN}Success:${NC} $base_name"
   else
     echo -e "${RED}Failure:${NC} $base_name"

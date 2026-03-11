@@ -1,7 +1,7 @@
 #ifndef SAS_H
 #define SAS_H
 
-#define SAS_DEBUG
+
 #define HAS_LIBC /* we have functioning libc */
 #define COPY_LEXEMES /* we copy the lexemes to the tokens for better error messages*/
 
@@ -137,9 +137,11 @@ enum Opcode {
 
     /* Block ops */
     OP_COPY =   0x10,
-    OP_COPYMD = 0x110,
-    OP_COPYDM = 0x210,
+    OP_COPYDM = 0x110,
+    OP_COPYMD = 0x210,
     OP_COPYDD = 0x310,
+    OP_COPYBCK= 0x410,
+
     OP_SWAP =   0x11,
     OP_SWAPMD = 0x111,
     OP_SWAPDM = 0x211,

@@ -1,5 +1,6 @@
 _start:    
     copy x1, x2, x3 ; OP_COPY
+    copybck x1, x2, x3 ; OP_COPYBCK
     copymd x1, x2, x3 ; OP_COPYMD
     copydm x1, x2, x3 ; OP_COPYDM
     copydd x1, x2, x3 ; OP_COPYDD

@@ -7,9 +7,6 @@ static size_t text_pointer = 0;
 static unsigned char data_stream[SAS_MAX_DATA_SIZE];
 static size_t data_pointer = 0;
 
-static int base_address_set = 0;
-static size_t base_address  = 0;
-
 static unsigned char assembled[SAS_MAX_OBJ_SIZE];
 
 static enum Section curr_section = SECTION_TEXT;
@@ -563,7 +560,6 @@ static size_t do_op(struct Token *stream) {
             add_patch(patches, immed->line,  immed->value.identifier, curr_section, sections[curr_section], METHOD_R15, value); /*is this value right?*/
         } else {
             value = (immed->type == NUMBER) ? immed->value.number : immed->value.address;
-            value /= 2;
         }
 
         opcode = op->value.opcode;
@@ -677,7 +673,6 @@ static size_t do_op(struct Token *stream) {
     case OP_ADDI:
     case OP_MV:
     case OP_ORI:
-    case OP_ANDI:
     case OP_XORI:
     case OP_SLTI:
     case OP_SLTIU:
@@ -910,6 +905,7 @@ static size_t do_op(struct Token *stream) {
     }
     /* format3CFS */
     case OP_COPY:
+    case OP_COPYBCK:
     case OP_COPYMD:
     case OP_COPYDM:
     case OP_COPYDD:
@@ -933,11 +929,10 @@ static size_t do_op(struct Token *stream) {
         rs2 = expect_and_get(stream, REGISTER, "Expected Register, instead got ");
 
         direction = (op->value.opcode & 0xf00) >> 8;
-        
         if(rd && rs1 && rs2)
             instruction_size += emit_be32((op->value.opcode  & 0x7F) << 25 
             | rd->value.opcode << 20 | rs1->value.opcode << 15 | rs2->value.opcode << 10 
-            | direction & 0x3);
+            | (direction & 0x7));
         break;
     }
     /* formatSCALL */
@@ -1267,18 +1262,7 @@ static size_t do_directive(struct Token *stream) {
             warning(arg->line, "setting origin with .org directive in .text section to an address that is not 32 bit aligned. Expect faults!", arg->lex);
         }
 
-        if (curr_section != SECTION_TEXT) {
-            error(d->line, ".org directive only allowed on .text section", arg->lex);
-        }
-        if (!base_address_set) {
-            base_address = addr;
-            base_address_set = 1;
-            /* Don't advance the pointer yet, this IS our start */
-            text_pointer = 0; 
-        } else {
-            /* Handle subsequent .orgs as padding relative to base */
-            text_pointer = addr - base_address;
-        }
+        sections[curr_section] = addr;
         break;
     }
     case CONST: {
@@ -1390,22 +1374,19 @@ unsigned char *assemble(const char *asm_source, size_t source_len, size_t *objec
     print_symtable(symtable);
 #endif
 
-    
-    file_size    = sections[SECTION_TEXT]
+    file_size    = sections[SECTION_TEXT] 
                  + sections[SECTION_DATA]
                  + sections[SECTION_BSS];
     *object_size = file_size + align(4, file_size);
 
     fill_patches(patches, symtable);
-    printf("Passed fill patches\n");
+
 
     memcpy(assembled, text_stream, sections[SECTION_TEXT]);
     memcpy(assembled + sections[SECTION_TEXT], data_stream, sections[SECTION_DATA]);
     /* I don't have to copy the bss right?*/
-    printf("Patching.\n");
 
     patch(patches, assembled);
-    printf("Patched.\n");
 
     return assembled;
 }

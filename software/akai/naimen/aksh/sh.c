@@ -30,6 +30,8 @@ static bool aksh_exit        = false;
 static bool aksh_prompt_path = false;
 static char aksh_prompt[10]  = "> ";
 
+static int aksh_last_exit_code = 0;
+
 static int aksh_exec(int argc, char **argv);
 
 struct AkshBuiltin {
@@ -232,7 +234,6 @@ static int cmd_cat(int argc, char **argv)
         char  buf[256];
         usize n;
         while ((n = fread(buf, 1, sizeof(buf), stdin)) > 0) {
-            fprintf(stderr, "Read %d bytes\n", n);
             fwrite(buf, 1, n, stdout);
         }
         return 0;
@@ -427,6 +428,11 @@ static int cmd_buildinfo(int argc, char **argv)
     return 0;
 }
 
+static int cmd_lastexit(int argc, char **argv)
+{
+    printf("%d\n", aksh_last_exit_code);
+}
+
 static int cmd_help(int argc, char **argv);
 
 static const struct AkshBuiltin builtins[] = { { "clear", cmd_clear },
@@ -442,6 +448,7 @@ static const struct AkshBuiltin builtins[] = { { "clear", cmd_clear },
                                                { "mkdir", cmd_mkdir },
                                                { "rmdir", cmd_rmdir },
                                                { "prompt", cmd_prompt },
+                                               { "lastexit", cmd_lastexit },
                                                { "exit", cmd_exit },
                                                { "buildinfo", cmd_buildinfo },
                                                { NULL, NULL } };
@@ -582,12 +589,6 @@ static int spawn_and_wait(const char *path, int argc, char **argv, struct AkshRe
             ak_dev_ctl(PDEV_STDOUT, PX_ATTACH, buf, sizeof(buf));
         }
 
-        {
-            usize i;
-            for (i = 0; i < argc; i++) fputs(argv[i], stderr), fputc('#', stderr);
-            fputc('\n', stderr);
-        }
-
         res = ak_exec(path, argc, argv, O_EXEC_GUESS);
         fprintf(stderr, "Error executing %s (%d) [%x]\n", path, res, ak_error(0));
         if (stdin_fd >= 0) ak_close(stdin_fd);
@@ -701,16 +702,21 @@ static int aksh_exec(int argc, char **argv)
 
     if (!(argc > 0 && argv && argv[0])) {
         fprintf(stderr, "Invalid input to aksh_exec\n");
-        return 127;
+        res = 127;
+        goto setcode;
     }
 
-    if (argv[0][0] == '#') return 0;
+    if (argv[0][0] == '#') {
+        res = aksh_last_exit_code;
+        goto setcode;
+    }
 
     parse_redirection(&argc, argv, &r);
 
     while (builtins[i].name) {
         if (strcmp(argv[0], builtins[i].name) == 0) {
-            return run_builtin_with_redir(builtins[i].func, argc, argv, &r);
+            res = run_builtin_with_redir(builtins[i].func, argc, argv, &r);
+            goto setcode;
         }
         i++;
     }
@@ -722,17 +728,21 @@ static int aksh_exec(int argc, char **argv)
 
         if ((sargc = check_shebang(fullpath, bangs, sizeof(bangs), sargv, AKSH_MAX_ARGV))) {
             usize i;
-            fputs("Shebang\n", stderr);
             for (i = 0; i < argc; i++) sargv[sargc + i] = argv[i];
-            return spawn_and_wait(sargv[0], sargc + argc - 1, &sargv[1], &r);
+            res = spawn_and_wait(sargv[0], sargc + argc - 1, &sargv[1], &r);
+            goto setcode;
         } else {
-            return spawn_and_wait(fullpath, argc - 1, &argv[1], &r);
+            res = spawn_and_wait(fullpath, argc - 1, &argv[1], &r);
+            goto setcode;
         }
     } else {
         fprintf(stderr, "Command not found: %s\n", argv[0]);
     }
 
-    return 127;
+    res = 127;
+setcode:
+    aksh_last_exit_code = res;
+    return res;
 }
 
 int repl(const char *autoexec)
@@ -772,10 +782,7 @@ reset:
             int argc = tokenize(line, strlen(line), argv, AKSH_MAX_ARGV);
             if (argc > 0) res = aksh_exec(argc, argv);
 
-            if (aksh_exit) {
-                printf("res = %d, exiting\n", res);
-                break;
-            }
+            if (aksh_exit) break;
         }
     }
 

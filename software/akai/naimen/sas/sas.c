@@ -9,9 +9,8 @@ static char asm_source[SAS_MAX_SOURCE_SIZE];
 
 static char *read_asm_source(const char *file, size_t *asm_size) {
     FILE *inf;
-    size_t sz, sz_read;
 
-    inf = fopen(file, "rb");
+    inf = fopen(file, "r");
     if (inf == NULL) {
         puts("Could not open file for reading: ");
         puts(file);
@@ -26,11 +25,7 @@ static char *read_asm_source(const char *file, size_t *asm_size) {
         fatal("source does not fit in buffer");
     }
 
-    sz = *asm_size;
-    sz_read = fread(asm_source, 1, sz, inf);
-    if (sz_read != sz) {
-        printf("%lu != %lu\n", sz_read, sz);
-        perror("On reading");
+    if (fread(asm_source, 1, *asm_size, inf) != *asm_size) {
         fatal("Error reading input file");
     }
 
@@ -41,7 +36,6 @@ static char *read_asm_source(const char *file, size_t *asm_size) {
 
 static void write_object_file(const char *file, unsigned char *object_code, size_t object_size) {
     FILE *outf;
-    size_t sz;
 
     outf = fopen(file, "wb");
     if (outf == NULL) {
@@ -50,9 +44,7 @@ static void write_object_file(const char *file, unsigned char *object_code, size
         fatal("writing object code");
     }
 
-    sz = fwrite(object_code, 1, object_size, outf);
-    printf("written: %lu, osize: %lu\n", sz, object_size);
-    if (sz != object_size) {
+    if (fwrite(object_code, 1, object_size, outf) != object_size) {
         puts("Error writing object code file: ");
         puts(file);
         fatal("writing object code");
@@ -119,5 +111,3 @@ void fatal(const char *msg) {
     printf("FATAL: %s\n", msg);
     exit(1);
 }
-
-

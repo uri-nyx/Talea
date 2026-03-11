@@ -687,7 +687,6 @@ static usize do_op(struct Token *stream)
             expect_and_get_immediate(stream, "Expected NUMBER, ADDRESS or IDENTIFIER, instead got");
 
         value = (immed->type == NUMBER) ? immed->value.number : immed->value.address;
-        value /= 2;
 
         opcode = op->value.opcode;
         if (opcode & 0x100) {

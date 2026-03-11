@@ -121,8 +121,8 @@ enum Opcode {
 
     /* Block ops */
     OP_COPY    = 0x10,
-    OP_COPYMD  = 0x110,
-    OP_COPYDM  = 0x210,
+    OP_COPYDM  = 0x110,
+    OP_COPYMD  = 0x210,
     OP_COPYDD  = 0x310,
     OP_COPYBCK = 0x410,
     OP_SWAP    = 0x11,

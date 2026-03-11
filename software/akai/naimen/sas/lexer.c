@@ -133,6 +133,7 @@ static int which_opcode(const char *s) {
     else if (!strcmp(s, "shd")) return OP_SHD ;
     else if (!strcmp(s, "swd")) return OP_SWD ;
     else if (!strcmp(s, "copy")) return OP_COPY ;
+    else if (!strcmp(s, "copybck")) return OP_COPYBCK ;
     else if (!strcmp(s, "copymd")) return OP_COPYMD ;
     else if (!strcmp(s, "copydm")) return OP_COPYDM ;
     else if (!strcmp(s, "copydd")) return OP_COPYDD ;
@@ -513,4 +514,3 @@ void lex(struct Lexer *l) {
 
     add_token(l, &t);
 }
-

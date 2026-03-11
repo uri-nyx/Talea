@@ -115,14 +115,14 @@ Software:
             stdlib.h:
                 ☐ abort (does not raise())
                 ✔ abs @done(26-02-21 22:32)
-                ☐ atexit
+                ✔ atexit @done(26-03-11 14:43)
                 ✔ atof @done(26-02-26 17:17)
                 ✔ atoi @done(26-02-21 23:57)
                 ✔ atol @done(26-02-21 23:57)
                 ☐ bsearch
                 ✔ calloc @done(26-02-21 22:32)
                 ✔ div @done(26-02-21 22:32)
-                ☐ exit (stub)
+                ✔ exit @done(26-03-11 14:43)
                 ✔ free @done(26-02-21 22:32)
                 ☐ getenv
                 ✔ labs @done(26-02-21 22:32)
@@ -138,7 +138,7 @@ Software:
                 ✔ strtod @done(26-02-26 17:15)
                 ✔ strtol @done(26-02-21 23:57)
                 ✔ strtoul @done(26-02-21 23:57)
-                ☐ system
+                ✔ system @done(26-03-11 14:54)
                 ☐ wctomb
                 ☐ wcstombs	
             ✔ string.h @done(26-02-21 22:31)
