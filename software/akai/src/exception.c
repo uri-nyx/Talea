@@ -182,40 +182,34 @@ halt:
 
 void akai_exception(u8 vector, u32 fault_addr)
 {
-    u32  status;
-    u32 *win;
-    status = _lwd(AKAI_KERNEL_STATUS_SAVE);
-
-    save_ctx(A.pr.curr);
-    win = A.pr.curr->ctx.regs;
+    u32 status = _lwd(AKAI_KERNEL_STATUS_SAVE);
+    u32 pc     = _lwd(AKAI_KERNEL_PC_SAVE);
 
     if (status & CPU_STATUS_SUPERVISOR || A.pr.curr->pid == 0) {
         // this is a kernel panic.
         kernel_panic(vector, fault_addr, &A.pr.curr->ctx);
     }
 
-    load_window(sirius_cwp - 1, win);
-
-    miniprint("Exception %s in process %s\n", exception_names[vector], A.pr.curr->name);
-
     switch (vector) {
     case EXCEPTION_PAGE_FAULT: {
-        u32  faddr       = _lwd(REG_SYSTEM_FAULT_ADDR);
+        u32  faddr       = fault_addr;
         u8   cause       = _lbud(REG_SYSTEM_FAULT_CAUSE);
         u8   access_type = cause & 0x3;
-        bool unmapped    = cause >> 6;
-        bool leaf        = cause >> 7;
+        bool unmapped    = (cause & CAUSE_UNMAPPED) >> 6;
+        bool leaf        = (cause & CAUSE_LEAF) >> 7;
 
-        if (!unmapped && access_type != ACCESS_EXEC) {
+        if (unmapped && access_type != ACCESS_EXEC) {
             if (faddr < AKAI_PROCESS_STACK_TOP && faddr >= AKAI_PROCESS_STACK_END) {
                 u8 *new_page = alloc_pages_contiguous(A.pr.curr->pid, 1);
                 if (!new_page) {
+                    miniprint("Coulf not allocate page. Killing %d\n", A.pr.curr->pid);
                     A.pr.curr->last_error = P_ERROR_STACK_GROW;
                     process_terminate(A.pr.curr->pid, WARRANT_OOM);
                     process_yield();
                 }
 
                 if (!map_active_pt_entry((u32)new_page, faddr & ~0xFFFU, PTE_U | PTE_RW)) {
+                    miniprint("Coulf not map page. Killing %d\n", A.pr.curr->pid);
                     A.pr.curr->last_error = P_ERROR_STACK_GROW;
                     process_terminate(A.pr.curr->pid, WARRANT_OOM);
                     process_yield();
@@ -223,20 +217,31 @@ void akai_exception(u8 vector, u32 fault_addr)
 
                 memset((u8 *)(faddr & ~0xFFFU), 0, PAGE_SIZE);
             } else {
+                miniprint(
+                    "Constraints for stack growth do not hold. (faddr: %x, cause: %x). Killing %d\n",
+                    faddr, cause, A.pr.curr->pid);
+
                 process_terminate(A.pr.curr->pid, WARRANT_SEG);
                 process_yield();
             }
         } else {
+            miniprint(
+                "Constraints for stack growth do not hold. (faddr: %x cause: %x, access: %x, unmapped: %d). Killing %d\n",
+                faddr, cause, access_type, unmapped, A.pr.curr->pid);
             process_terminate(A.pr.curr->pid, WARRANT_SEG);
             process_yield();
         }
         break;
     }
     default:
+        miniprint("Exception %s in process %s. Killing\n", exception_names[vector], A.pr.curr->name);
         A.pr.curr->exit_code = -vector;
         _trace(0xDEAD00B, A.pr.curr->pid, vector);
         process_terminate(A.pr.curr->pid, WARRANT_EXCEPTION);
         process_yield();
         break;
     }
+
+    _swd(AKAI_KERNEL_STATUS_RESTORE, status);
+    _swd(AKAI_KERNEL_PC_RESTORE, pc);
 }

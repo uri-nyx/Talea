@@ -39,17 +39,17 @@ init: src/init.s
 	$(AS) -o init.out src/init.s && $(LD) -o init.bin -rc 524288 -h init.out && xxd -i init.bin > include/init_code.h
 	rm init.out init.bin
 
-kernel: src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c img init
-	$(CC) $(CPPFLAGS) -Iinclude/ -c src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c
-	$(LD) -h -ra -o build/kernel.bin -m build/kernel.map entry.o hw.o kernel.o mmu.o mem.o process.o exception.o syscall.o interrupt.o storage.o ff.o diskio.o kstring.o proxy.o kb.o video.o
-	rm entry.o kernel.o mmu.o hw.o mem.o process.o exception.o syscall.o interrupt.o storage.o ff.o diskio.o kstring.o proxy.o kb.o video.o
+kernel: src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c img init
+	$(CC) $(CPPFLAGS) -Iinclude/ -c src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c
+	$(LD) -h -ra -o build/kernel.bin -m build/kernel.map entry.o hw.o kernel.o mmu.o mem.o process.o exception.o syscall.o interrupt.o storage.o ff.o diskio.o kstring.o proxy.o kb.o video.o asm.o
+	rm entry.o kernel.o mmu.o hw.o mem.o process.o exception.o syscall.o interrupt.o storage.o ff.o diskio.o kstring.o proxy.o kb.o video.o asm.o
 	mcopy -i build/akai.img build/kernel.bin "::KERNEL"
 
 check:
-	clang -nostdinc -nobuiltininc -H -Iinclude/ -fsyntax-only -std=c89 -Wall -Wextra -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c
+	clang -nostdinc -nobuiltininc -H -Iinclude/ -fsyntax-only -std=c89 -Wall -Wextra -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c
 
 check-errors:
-	clang -nostdinc -nobuiltininc -H -Iinclude/ -fsyntax-only -std=c89 -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c
+	clang -nostdinc -nobuiltininc -H -Iinclude/ -fsyntax-only -std=c89 -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c
 
 compiler-test:
 	$(CC) -v -S t.c

@@ -1,0 +1,10 @@
+#!/A/BIN/SH -f
+echo "Hello from script"
+echo "see a file"
+cat idle.s
+echo "and now, some ed"
+ed -s -q -c "g/x0/s//zero/g" idle.s
+echo "see the changes!"
+cat idle.s
+echo "bye!"
+exit

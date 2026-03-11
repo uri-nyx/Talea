@@ -65,8 +65,8 @@ _init:
     # exec the terminal
     li x12, 3 	    # SYSCALL_EXEC
 	la x13, shell
-	mv x14, x0      # argc
-	mv x15, x0      # argv
+	li x14, 2      # argc
+	la x15, argv   # argv
 	li x16, 1       # EXEC_AOUT_FLAT
 	syscall x0, 0x40
     trace x0, x31, x7, x9
@@ -82,12 +82,29 @@ _exit:
 .data
 .align 4
 kb:
-    .word 0 # hardware
+    .word 1 # hardware
     .word 5 # kb
 .align 4
 tb:
-    .word 0 # hardware
+    .word 1 # hardware
     .word 1 # kb
 .align 4
 shell:
-    .ascii "A:SH"
+    .ascii "/A/BIN/SH"
+    .byte 0
+
+.align 4
+opt:
+    .ascii "-x"
+    .byte 0
+
+.align 4
+autoexec:
+    .ascii "/A/AUTOEXEC.ASH"
+    .byte 0
+
+.align 4
+argv:
+    .word opt
+    .word autoexec
+    .word 0

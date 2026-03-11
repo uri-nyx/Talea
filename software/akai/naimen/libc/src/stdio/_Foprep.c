@@ -11,6 +11,7 @@ FILE *_Foprep(const char *name, const char *mods, FILE *str)
     str->_Rend   = &str->_Cbuf;
     str->_Wend   = &str->_Cbuf;
     str->_Nback  = 0;
+    str->_Mode = (str->_Mode & _MALFIL);
     str->_Mode   = (str->_Mode & _MALFIL) | (*mods == 'r' ? _MOPENR :
                                              *mods == 'w' ? _MCREAT | _MOPENW | _MTRUNC :
                                              *mods == 'a' ? _MCREAT | _MOPENW | _MOPENA :

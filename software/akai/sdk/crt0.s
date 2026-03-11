@@ -163,6 +163,31 @@ ak_close:
     ret
     
 .text
+.globl ak_unlink
+ak_unlink:
+    mv x13, x12 # const char* path
+    li x12, 19
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_rename
+ak_rename:
+    mv x14, x13 # const char* new_name
+    mv x13, x12 # const char* old_name
+    li x12, 20
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_mkdir
+ak_mkdir:
+    mv x13, x12 # const char* path
+    li x12, 21
+    syscall x0, 0x40 
+    ret
+    
+.text
 .globl ak_read
 ak_read:
     mv x15, x14 # u32 count
@@ -189,6 +214,15 @@ ak_seek:
     mv x14, x13 # i32 offset
     mv x13, x12 # int fd
     li x12, 26
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_stat
+ak_stat:
+    mv x14, x13 # AkaiDirEntry* out_entry
+    mv x13, x12 # const char* path
+    li x12, 28
     syscall x0, 0x40 
     ret
     
@@ -294,6 +328,34 @@ ak_calendar:
     mv x14, x13 # u32* calendar_2
     mv x13, x12 # u32* calendar_1
     li x12, 46
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_getppid
+ak_getppid:
+
+    li x12, 47
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_set_preempt
+ak_set_preempt:
+    mv x13, x12 # u32 mode
+    li x12, 48
+    syscall x0, 0x40 
+    ret
+    
+.text
+.globl ak_asm
+ak_asm:
+    mv x17, x16 # usize out_size
+    mv x16, x15 # u8* out
+    mv x15, x14 # usize curr_address
+    mv x14, x13 # usize len
+    mv x13, x12 # const char* line
+    li x12, 49
     syscall x0, 0x40 
     ret
     

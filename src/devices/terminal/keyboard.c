@@ -56,12 +56,12 @@ void Keyboard_ProcessKeypress(TaleaMachine *m, bool is_down, int key, u8 chr, u1
     u8   csr  = m->terminal.kb.csr;
     bool fire = false;
 
-    TALEA_LOG_TRACE("Polling keyboard, csr %0x \n", csr);
+    //TALEA_LOG_TRACE("Polling keyboard, csr %0x \n", csr);
     if (csr & TERMINAL_KB_GLOBAL_EN) {
         bool want_down   = (csr & TERMINAL_KB_IE_DOWN) && is_down;
         bool want_up     = (csr & TERMINAL_KB_IE_UP) && !is_down;
         bool char_filter = (csr & TERMINAL_KB_IE_CHAR);
-        TALEA_LOG_TRACE("Polling keyboard, want down %d, want up %d\n", want_down, want_up);
+        //TALEA_LOG_TRACE("Polling keyboard, want down %d, want up %d\n", want_down, want_up);
 
         if (want_down || want_up) {
             // If filter is on, only fire if it's a character

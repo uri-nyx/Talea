@@ -30,7 +30,7 @@ u8 Terminal_Read(TaleaMachine *m, u8 port)
     case P_TERMINAL_TIMER_PRESCALER: return m->terminal.timer.prescaler;
     case P_TERMINAL_TIMER_CSR: return m->terminal.timer.csr; break;
     case P_TERMINAL_KBD_CSR: {
-        TALEA_LOG_TRACE("READ_FROM_KBD_CSR\n");
+        //TALEA_LOG_TRACE("READ_FROM_KBD_CSR\n");
         if (m->terminal.kb.csr & TERMINAL_KB_GET_CSR) {
             // If bit 4 is set: Return Config (bits 0-3)
             u8 config = m->terminal.kb.csr;

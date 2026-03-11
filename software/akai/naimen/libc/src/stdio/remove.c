@@ -5,5 +5,5 @@ int ak_unlink(const char *);
 
 int(remove)(const char *fname)
 { /* remove a file */
-    return (unlink(fname));
+    return (ak_unlink(fname));
 }

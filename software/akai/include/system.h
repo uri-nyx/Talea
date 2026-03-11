@@ -2,11 +2,15 @@
 #define SYSTEM_H
 
 #include "libsirius/devices.h"
+#include "libsirius/keys.h"
 
 #define sirius_cwp (_lbud(REG_SYSTEM_CWP))
 
 #define AKAI_TIMER_PRESCALER_1OOHZ 100
 #define AKAI_TIMER_INTERVAL_100HZ  1000
+
+// Kill switch key
+#define AKAI_KILL_SWITCH KEY_F8
 
 /* Critical kernel scratchpad in DATA memory */
 #define AKAI_KERNEL_PC_SAVE        (0x1000U)

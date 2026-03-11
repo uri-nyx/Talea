@@ -8,82 +8,92 @@
 /* @AKAI: 300_SYSCALLS */
 #define X(serivice, function, args, ret, doc)
 /* BEGIN_SYSCALL_LIST */
-#define SYSCALL_LIST                                                                              \
-    /* Process management */                                                                      \
-    X(SYSCALL_EXIT, ak_exit, "int x13: exit code", "none", "the process exits")                   \
-    X(SYSCALL_YIELD, ak_yield, "none", "none", "the process yields execution to the scheduler")   \
-    X(SYSCALL_RFORK, ak_rfork, "u32 x13: flags, u32 x14: heirloom", "pid/ERROR",                  \
-      "fork a process with selected configuration")                                               \
-    X(SYSCALL_EXEC, ak_exec,                                                                      \
-      "const char* x13: path, int x14: argc, char** x15: argv, int x16: flags", "none/ERROR",     \
-      "process is replaced with executable image")                                                \
-    X(SYSCALL_WAIT, ak_wait, "int x13: pid, int* x14: status, int x15: options",                  \
-      "ProcessPID/ERROR", "waits on a child or any child to exit")                                \
-    /* IPC and Hardware*/                                                                         \
-    X(SYSCALL_HOOK, ak_hook, "MODIFY API", "MODIFY", "MODIFY")                                    \
-    X(SYSCALL_UNHOOK, ak_unhook, "MODIFY API", "MODIFY", "MODIFY")                                \
-    X(SYSCALL_IPC_SUB, ak_ipc_sub, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")       \
-    X(SYSCALL_IPC_UNSUB, ak_ipc_unsub, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")   \
-    X(SYSCALL_IPC_INIT, ak_ipc_init, "none", "OK/ERROR", "initialize buffers for IPC")            \
-    X(SYSCALL_IPC_RECV, ak_ipc_recv, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")     \
-    X(SYSCALL_IPC_SEND, ak_ipc_send, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")     \
-    X(SYSCALL_DEV_IN, ak_dev_in, "u32 x13: devnum, u8 x14: port", "u8/ERROR",                     \
-      "read an owned device's port")                                                              \
-    X(SYSCALL_DEV_OUT, ak_dev_out, "u32 x13: devnum, u8 x14: port, u8 x15: value", "OK/ERROR",    \
-      "write to an owned device's port")                                                          \
-    X(SYSCALL_DEV_CTL, ak_dev_ctl, "u32 x13: devnum, u32 x14: cmd, void* x15: buf, u32 x16: len", \
-      "res/ERROR", "send a command to an owned device")                                           \
-    X(SYSCALL_DEV_CLAIM, ak_dev_claim, "u32 x13: devnum", "OK/ERROR",                             \
-      "claim ownership of a harware device")                                                      \
-    /* Filesystem */                                                                              \
-    X(SYSCALL_OPEN, ak_open, "const char* x13: path, int x14: open mode", "fd/ERROR",             \
-      "opens a file for the specified operation")                                                 \
-    X(SYSCALL_DUP, ak_dup, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")               \
-    X(SYSCALL_CLOSE, ak_close, "int x13: fd", "OK/ERROR", "closes an already open file")          \
-    X(SYSCALL_UNLINK, ak_unlink, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")         \
-    X(SYSCALL_RENAME, ak_rename, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")         \
-    X(SYSCALL_MKDIR, ak_mkdir, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")           \
-    X(SYSCALL_CHMOD, ak_chmod, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")           \
-    X(SYSCALL_UTIME, ak_utime, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")           \
-    X(SYSCALL_READ, ak_read, "int x13: fd, void* x14: buf, u32 x15: count", "bytes read/ERROR",   \
-      "read from an opened file into a buffer")                                                   \
-    X(SYSCALL_WRITE, ak_write, "int x13: fd, void *x14: buf, u32 x15: count",                     \
-      "bytes written/ERROR", "writes from a buffer to a file")                                    \
-    X(SYSCALL_SEEK, ak_seek, "int x13: fd, i32 x14: offset, int x15: whence", "offset/ERROR",     \
-      "positions the file read write pointer (in bytes) according to offset and whence")          \
-    X(SYSCALL_TRUNC, ak_trunc, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")           \
-    X(SYSCALL_STAT, ak_stat, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")             \
-    X(SYSCALL_SYNC, ak_sync, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")             \
-    X(SYSCALL_OPENDIR, ak_opendir, "AkaiDir* x13: dir, const char* x14: path, int x15: flags",    \
-      "OK/ERROR", "open a directory")                                                             \
-    X(SYSCALL_CLOSEDIR, ak_closedir, "AkaiDir* x13: dir, int x14: flags", "OK/ERROR",             \
-      "close a directory")                                                                        \
-    X(SYSCALL_READDIR, ak_readdir,                                                                \
-      "AkaiDir* x13: dir, AkaiDirEntry* x14: out entry, int x15: flags", "OK/ERROR",              \
-      "reads a directory entry")                                                                  \
-    X(SYSCALL_CHDIR, ak_chdir, "const char* x13: path", "OK/ERROR",                               \
-      "changes a process' current directory")                                                     \
-    X(SYSCALL_GETCWD, ak_getcwd, "void* x13: buf, u32 x14: len", "OK/ERROR",                      \
-      "writes the current directory path into buf up to len characters")                          \
-    X(SYSCALL_MOUNT, ak_mount, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")           \
-    X(SYSCALL_EXPAND, ak_expand, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")         \
-    X(SYSCALL_FORWARD, ak_forward, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")       \
-    /* Memory */                                                                                  \
-    X(SYSCALL_SBRK, ak_sbrk, "u32 x13: brk increment", "old bkr/ERROR (-1)",                      \
-      "increments a process brk, allocating memory as needed")                                    \
-    X(SYSCALL_SHM_MAKE, ak_shm_make, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")     \
-    X(SYSCALL_SHM_UNMAKE, ak_shm_unmake, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED") \
-    /* Queries */                                                                                 \
-    X(SYSCALL_ERROR, ak_error, "ProcessPID x13: pid", "ERROR",                                    \
-      "returns the queried process' last error, 0 for self")                                      \
-    X(SYSCALL_GETPID, ak_getpid, "none", "pid/ERROR", "returns the caller's pid")                 \
-    X(SYSCALL_ABORT, ak_abort, "none", "none", "the process is aborted")                          \
-    /* Time */                                                                                    \
-    X(SYSCALL_TIME, ak_time, "none", "int/ERROR", "returns time (in seconds) since the epoch")    \
-    X(SYSCALL_CLOCK, ak_clock, "u32* x13: user, u32* x14: system, ProcessPID x15: pid",           \
-      "ticks/ERROR", "returns the process' ticks elapsed")                                        \
-    X(SYSCALL_CALENDAR, ak_calendar, "u32* x13: calendar 1, u32* x14: calendar 2", "ERROR",       \
-      "returns the calendar time in a compressed format")
+#define SYSCALL_LIST                                                                                       \
+    /* Process management */                                                                               \
+    X(SYSCALL_EXIT, ak_exit, "int x13: exit code", "none", "the process exits")                            \
+    X(SYSCALL_YIELD, ak_yield, "none", "none", "the process yields execution to the scheduler")            \
+    X(SYSCALL_RFORK, ak_rfork, "u32 x13: flags, u32 x14: heirloom", "pid/ERROR",                           \
+      "fork a process with selected configuration")                                                        \
+    X(SYSCALL_EXEC, ak_exec,                                                                               \
+      "const char* x13: path, int x14: argc, char** x15: argv, int x16: flags", "none/ERROR",              \
+      "process is replaced with executable image")                                                         \
+    X(SYSCALL_WAIT, ak_wait, "int x13: pid, int* x14: status, int x15: options",                           \
+      "ProcessPID/ERROR", "waits on a child or any child to exit")                                         \
+    /* IPC and Hardware*/                                                                                  \
+    X(SYSCALL_HOOK, ak_hook, "MODIFY API", "MODIFY", "MODIFY")                                             \
+    X(SYSCALL_UNHOOK, ak_unhook, "MODIFY API", "MODIFY", "MODIFY")                                         \
+    X(SYSCALL_IPC_SUB, ak_ipc_sub, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")                \
+    X(SYSCALL_IPC_UNSUB, ak_ipc_unsub, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")            \
+    X(SYSCALL_IPC_INIT, ak_ipc_init, "none", "OK/ERROR", "initialize buffers for IPC")                     \
+    X(SYSCALL_IPC_RECV, ak_ipc_recv, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")              \
+    X(SYSCALL_IPC_SEND, ak_ipc_send, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")              \
+    X(SYSCALL_DEV_IN, ak_dev_in, "u32 x13: devnum, u8 x14: port", "u8/ERROR",                              \
+      "read an owned device's port")                                                                       \
+    X(SYSCALL_DEV_OUT, ak_dev_out, "u32 x13: devnum, u8 x14: port, u8 x15: value", "OK/ERROR",             \
+      "write to an owned device's port")                                                                   \
+    X(SYSCALL_DEV_CTL, ak_dev_ctl, "u32 x13: devnum, u32 x14: cmd, void* x15: buf, u32 x16: len",          \
+      "res/ERROR", "send a command to an owned device")                                                    \
+    X(SYSCALL_DEV_CLAIM, ak_dev_claim, "u32 x13: devnum", "OK/ERROR",                                      \
+      "claim ownership of a harware device")                                                               \
+    /* Filesystem */                                                                                       \
+    X(SYSCALL_OPEN, ak_open, "const char* x13: path, int x14: open mode", "fd/ERROR",                      \
+      "opens a file for the specified operation")                                                          \
+    X(SYSCALL_DUP, ak_dup, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")                        \
+    X(SYSCALL_CLOSE, ak_close, "int x13: fd", "OK/ERROR", "closes an already open file")                   \
+    X(SYSCALL_UNLINK, ak_unlink, "const char* x13: path", "OK/ERROR", "removes a file")                    \
+    X(SYSCALL_RENAME, ak_rename, "const char* x13: old name, const char* x14: new name",                   \
+      "OK/ERROR", "changes a file's name")                                                                 \
+    X(SYSCALL_MKDIR, ak_mkdir, "const char* x13: path", "OK/ERROR",                                        \
+      "creates a new empty directory")                                                                     \
+    X(SYSCALL_CHMOD, ak_chmod, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")                    \
+    X(SYSCALL_UTIME, ak_utime, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")                    \
+    X(SYSCALL_READ, ak_read, "int x13: fd, void* x14: buf, u32 x15: count", "bytes read/ERROR",            \
+      "read from an opened file into a buffer")                                                            \
+    X(SYSCALL_WRITE, ak_write, "int x13: fd, void *x14: buf, u32 x15: count",                              \
+      "bytes written/ERROR", "writes from a buffer to a file")                                             \
+    X(SYSCALL_SEEK, ak_seek, "int x13: fd, i32 x14: offset, int x15: whence", "offset/ERROR",              \
+      "positions the file read write pointer (in bytes) according to offset and whence")                   \
+    X(SYSCALL_TRUNC, ak_trunc, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")                    \
+    X(SYSCALL_STAT, ak_stat, "const char* x13: path, AkaiDirEntry* x14: out entry", "OK/ERROR",            \
+      "gives information on given path")                                                                   \
+    X(SYSCALL_SYNC, ak_sync, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")                      \
+    X(SYSCALL_OPENDIR, ak_opendir, "AkaiDir* x13: dir, const char* x14: path, int x15: flags",             \
+      "OK/ERROR", "open a directory")                                                                      \
+    X(SYSCALL_CLOSEDIR, ak_closedir, "AkaiDir* x13: dir, int x14: flags", "OK/ERROR",                      \
+      "close a directory")                                                                                 \
+    X(SYSCALL_READDIR, ak_readdir,                                                                         \
+      "AkaiDir* x13: dir, AkaiDirEntry* x14: out entry, int x15: flags", "OK/ERROR",                       \
+      "reads a directory entry")                                                                           \
+    X(SYSCALL_CHDIR, ak_chdir, "const char* x13: path", "OK/ERROR",                                        \
+      "changes a process' current directory")                                                              \
+    X(SYSCALL_GETCWD, ak_getcwd, "void* x13: buf, u32 x14: len", "OK/ERROR",                               \
+      "writes the current directory path into buf up to len characters")                                   \
+    X(SYSCALL_MOUNT, ak_mount, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")                    \
+    X(SYSCALL_EXPAND, ak_expand, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")                  \
+    X(SYSCALL_FORWARD, ak_forward, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")                \
+    /* Memory */                                                                                           \
+    X(SYSCALL_SBRK, ak_sbrk, "u32 x13: brk increment", "old bkr/ERROR (-1)",                               \
+      "increments a process brk, allocating memory as needed")                                             \
+    X(SYSCALL_SHM_MAKE, ak_shm_make, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")              \
+    X(SYSCALL_SHM_UNMAKE, ak_shm_unmake, "NOT IMPLEMENTED", "NOT IMPLEMENTED", "NOT IMPLEMENTED")          \
+    /* Queries */                                                                                          \
+    X(SYSCALL_ERROR, ak_error, "ProcessPID x13: pid", "ERROR",                                             \
+      "returns the queried process' last error, 0 for self")                                               \
+    X(SYSCALL_GETPID, ak_getpid, "none", "pid/ERROR", "returns the caller's pid")                          \
+    X(SYSCALL_ABORT, ak_abort, "none", "none", "the process is aborted")                                   \
+    /* Time */                                                                                             \
+    X(SYSCALL_TIME, ak_time, "none", "int/ERROR", "returns time (in seconds) since the epoch")             \
+    X(SYSCALL_CLOCK, ak_clock, "u32* x13: user, u32* x14: system, ProcessPID x15: pid",                    \
+      "ticks/ERROR", "returns the process' ticks elapsed")                                                 \
+    X(SYSCALL_CALENDAR, ak_calendar, "u32* x13: calendar 1, u32* x14: calendar 2", "ERROR",                \
+      "returns the calendar time in a compressed format")                                                  \
+    X(SYSCALL_GETPPID, ak_getppid, "none", "pid/ERROR", "returns the caller's parent pid")                 \
+    X(SYSCALL_SET_PREEMPT, ak_set_preempt, "u32 x13: mode", "OK/ERROR",                                    \
+      "sets the kernel preemption mode")                                                                   \
+    X(SYSCALL_ASM, ak_asm,                                                                                 \
+      "const char* x13: line, usize x14: len, usize x15: curr address, u8* x16: out, usize x17: out size", \
+      "bytes/ERROR", "Assembles one instruction to *out buffer")
+
 /* END_SYSCALL_LIST */
 #undef X
 
@@ -91,6 +101,11 @@ enum AkaiSyscalls {
 #define X(service, function, args, ret, doc) service,
     SYSCALL_LIST
 #undef X
+};
+
+enum PreemptMode {
+    NO_PREEMPT    = 0,
+    PREEMPT_ROBIN = 1,
 };
 
 enum FsCtl {
@@ -104,17 +119,56 @@ enum FsCtl {
 #define MAX_EXEC_ARGS    32
 #define MAX_EXEC_ARG_LEN 64
 
-#define EXEC_FILE_FORMAT_MASK 0xf
+#define EXEC_FILE_FORMAT_MASK 0xff
 
 enum ExecFlags {
     O_EXEC_AOUT,        // a.out executable, with sections aligned to page boundaries
     O_EXEC_AOUT_FLAT,   // a.out executable, with sections not aligned to page boundaries
     O_EXEC_BIN,         // flat binary.
-    O_EXEC_BIN_SIGNED,  // a flat binary with a signature prepended
-    O_EXEC_GUESS = 100, // Guess the format based on information encoded in the file and heuristics,
-                        // never will guess flat binary
+    O_EXEC_BIN_SIGNED,  // a flat binary with a signature prepended (first u32: any value, then
+                        // 'AKAIBIN!')
+    O_EXEC_GUESS = 255, // Guess the format based on information encoded in the file and
+                        // heuristics, never will guess flat binary
 };
 
+/*
+ * RFORK API
+ * ----------------------
+ * int ak_rfork(int flags, int heirloom);
+ *
+ * ## Memory configuration flags (RF_MEM_CFG):
+ *     Exactly one of the following must be selected:
+ *         - RF_MEM_COPY   – Child receives a full copy of the parent's memory.
+ *         - RF_MEM_SHARE  – Child shares all memory with the parent.
+ *         - RF_MEM_FRESH  – Child starts with no memory mapped.
+ *
+ * ## File descriptor configuration flags (RF_FIL_CFG):
+ *     Exactly one of the following must be selected:
+ *         - RF_FIL_SHARE  – Child inherits the parent's file table.
+ *         - RF_FIL_CLEAN  – Child starts with an empty file table.
+ *
+ * ## Parent behavior configuration flags (RF_PARENT_CFG):
+ *     Exactly one of the following must be selected:
+ *         - RF_PARENT_WAIT         – Parent blocks until child exits.
+ *                                  - Child's exit status is not recoverable
+ *         - RF_PARENT_DIE          – Parent is terminated immediately.
+ *         - RF_PARENT_DETACH       – Child is reparented to kernel.
+ *         - RF_PARENT_KEEP_RUNNING – Parent continues execution normally.
+ *
+ * ## Child behavior:
+ *     - RF_CHILD_WAIT  - Child is created in STOPPED state.
+ *
+ *         If RF_CHILD_WAIT is set, the parent MUST be KEEP_RUNNING.
+ *         Otherwise a deadlock is guaranteed. Thus, not doing so, reusults
+ *         A_ERROR_INVAL.
+ *
+ * ## Heirloom device mask:
+ *     'heirloom' is a bitmask of devices the child inherits ownership of.
+ *
+ *         - heirloom < (1U << _DEV_NUM) must be true
+ *         - For each bit set in heirloom:
+ *               The current process MUST be the owner of that device.
+ */
 enum RForkFlags {
     RF_MEM_COPY            = 0X0000, // Clone all parent's memory
     RF_MEM_SHARE           = 0X0001, // Share all parent's memory

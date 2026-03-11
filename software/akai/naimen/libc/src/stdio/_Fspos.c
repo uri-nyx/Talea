@@ -20,7 +20,7 @@ long _Fspos(FILE *str, const fpos_t *ptr, long loff, int way)
         loff -= str->_Nback ? str->_Rsave - str->_Next + str->_Nback + NNL(str, _Next, _Rsave) :
                               str->_Rend - str->_Next + NNL(str, _Next, _Rend);
     if (way == SEEK_CUR && loff != 0 || way != SEEK_SET || loff != -1)
-        loff = ak_lseek(str->_Handle, loff, way);
+        loff = ak_seek(str->_Handle, loff, way);
     if (loff == -1) { /* request failed */
         errno = EFPOS;
         return (EOF);

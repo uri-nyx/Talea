@@ -11,5 +11,6 @@ char        *strcpy(char *dst, const char *src);
 usize        strlen(const char *str);
 i32          strlen_max(const char *str, usize max);
 char        *strrchr(const char *str, int character);
+int          strcmp(const char *s1, const char *s2);
 
 #endif /* KSTRING_H */

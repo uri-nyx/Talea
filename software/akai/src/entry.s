@@ -92,7 +92,7 @@ _kstart:
     call     kmain
 
 #       5. Trap if somehow execution comes here
-
+.globl _halt
 _halt:
     sti
     j       _halt
@@ -116,6 +116,14 @@ _exception:
     call    akai_exception
 
     restore x0, x0, x0
+    swd x5, 0x1010(x0)
+    lwd x5, 0x1008(x0)
+    trace x5, x0, x0, x0
+    sw x5, 4(x2)
+    lwd x5, 0x100C(x0)
+    trace x5, x0, x0, x0
+    sw x5, 0(x2)
+    lwd x5, 0x1010(x0)
     sysret
 
  .globl akai_interrupt
@@ -368,8 +376,3 @@ memset:
     mv   x10, x12
     fill x12, x14, x13 
     ret
-
-
-
-
-

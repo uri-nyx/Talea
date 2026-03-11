@@ -308,10 +308,12 @@ transfer: {
         poweroff();
     }
 
-    if (size > (sys.boot_device < 2 ? 255 : 65535)) {
-        beep(6);
-        poweroff();
-    }
+    /*
+        if (size > (sys.boot_device < 2 ? 255 : 65535)) {
+            beep(6);
+            poweroff();
+        }
+    */
 
     if (entry > (size * 512)) {
         beep(7);
@@ -335,8 +337,11 @@ transfer: {
     if (sys.boot_device < 2) {
         usize i;
         for (i = 0; i < size; i++) {
-            _trace(0xc0ffe, i, size);
-            if (!tps_sector_io(&sys, STORAGE_COMMAND_LOAD, 0, offset + i + 1,
+            u8 sec = (offset + i + 1);
+            u8 bank   = (offset + i + 1) / 256;
+            _trace(0xc0ffe1, i, size);
+            _trace(0xc0ffe0, sec, bank);
+            if (!tps_sector_io(&sys, STORAGE_COMMAND_LOAD, bank, sec,
                                (u8 *)load_addr + (i * 512))) {
                 beep(9);
                 poweroff();
@@ -345,8 +350,10 @@ transfer: {
     } else {
         usize i;
         for (i = 0; i < size; i++) {
+            u16 sec = offset + i + 1;
+            u8  bank   = (offset + i + 1) / 65536;
             _trace(0xc0ffe, i, size);
-            if (!hcs_sector_io(&sys, STORAGE_COMMAND_LOAD, 0, offset + i + 1,
+            if (!hcs_sector_io(&sys, STORAGE_COMMAND_LOAD, bank, sec,
                                (u8 *)load_addr + (i * 512))) {
                 beep(9);
                 poweroff();

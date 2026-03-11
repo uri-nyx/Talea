@@ -18,8 +18,8 @@ typedef struct {
     unsigned int x25;
     unsigned int x26;
     unsigned int x27;
-} jmp_buff[1];
+} jmp_buf[1];
 
-extern void longjmp(jmp_buff, int);
+extern void longjmp(jmp_buf, int);
 
 #endif /* _SETJMP_H */

@@ -124,10 +124,21 @@ void kbd_scan_hook(u32 *win, struct IPCMessage *msg_out)
 
     sreg       = _disable_interrupts();
     wait_queue = A.kb.wait_queue;
-    kb_owner   = A.devices[DEV_KEYBOARD].deed.owner;
+    kb_owner   = DEED_OWNER(&A.devices[DEV_KEYBOARD].deed);
     owner      = &A.pr.proc[kb_owner];
     dance      = false;
     event      = _lwd(A.info.terminal + TERMINAL_KBD_CSR);
+
+    // KILL SWITCH
+    if ((u16)(event & (~0x8000U)) == AKAI_KILL_SWITCH && kb_owner > 1) {
+        miniprint("Kill switch pressed, owner %d (%s)\n", kb_owner, owner->name);
+        process_terminate(kb_owner, WARRANT_ABORT);
+        kbd_reset();
+        process_yield();
+    } else if ((u16)(event & (~0x8000U)) == AKAI_KILL_SWITCH && kb_owner <= 1) {
+        miniprint("Kill switch pressed, owner %d (%s). Yielding\n", kb_owner, owner->name);
+        process_yield();
+    }
 
     // TODO: define messages internal protocol for interrupts
     msg_out->sender  = KERNEL_PID;
@@ -215,7 +226,7 @@ get_ansi:
             goto get_ansi;
         }
 
-    } else if (A.kb.canonical & IN_BLOCK && A.kb.blocking) {
+    } else if ((A.kb.canonical & IN_BLOCK) && A.kb.blocking) {
         u8  c;
         u8 *out      = (u8 *)owner->ctx.regs[15];
         u32 expected = owner->ctx.regs[16];
@@ -231,12 +242,11 @@ get_ansi:
 
             if (BIT_TEST(wait_queue, kb_owner) && A.kb.next < expected) {
                 copy_to_user(owner, out + A.kb.next++, &c, 1);
-
                 if (A.kb.next == expected) {
                     BIT_CLR(wait_queue, kb_owner);
                     process_set_ready(kb_owner);
                     owner->ctx.regs[10] = A.kb.next;
-                    A.kb.blocking = false;
+                    A.kb.blocking       = false;
                     _restore_interrupts(sreg);
                     return;
                 }

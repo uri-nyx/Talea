@@ -31,6 +31,8 @@
 
 #define PAGE_ALIGN_UP(addr) (((addr) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
 
+static const char *drive_labels[] = { "/A", "/B", "/H" };
+
 struct FilePool {
     FIL files[FILE_POOL_MAX];
     u8  refs[FILE_POOL_MAX];
@@ -72,6 +74,6 @@ u8  *map_kernel_work_area(u32 page);
 u8  *remap_kernel_work_area(u32 page);
 void unmap_kernel_work_area();
 
-void miniprint(const char* fmt, ...);
+void miniprint(const char *fmt, ...);
 
 #endif /* KERNEL_H */

@@ -14,6 +14,16 @@ typedef i32 (*DevOut)(u8, u8);
 #define PDEV_TYPE_FILE 0x2000
 #define PDEV_TYPE_VDEV 0x4000
 
+#define PDEV_GET_RES_TYPE(r)           \
+    ((r) & PDEV_TYPE_HW   ? RES_HW :   \
+     (r) & PDEV_TYPE_FILE ? RES_FILE : \
+     (r) & PDEV_TYPE_VDEV ? RES_VDEV : \
+                            RES_NODEV)
+
+#define PDEV_GET_RES(r) ((r) & ~(PDEV_TYPE_HW | PDEV_TYPE_FILE | PDEV_TYPE_VDEV))
+
+#define BAD_RES 0xffffffff
+
 enum HwDevices {
     DEV_FRAMEBUFFER,
     DEV_TEXTBUFFER,
@@ -76,12 +86,17 @@ enum TxtCtl {
     TCTL_GET_ATTR,
 };
 
+enum { RES_NODEV = 0, RES_HW, RES_VDEV, RES_FILE };
+
 /* @AKAI */
 
+#define DEED_UNCLAIMED(deed) ((deed)->depth == 0)
+#define DEED_OWNER(deed)     ((deed)->lineage[(deed)->depth - 1]) // Do NOT use a function here
+#define DEED_ORIGINAL(deed)  ((deed)->lineage[0])
+
 struct DeviceDeed {
-    ProcessPID original;
-    ProcessPID lessor;
-    ProcessPID owner;
+    ProcessPID lineage[MAX_PROCESS];
+    usize      depth;
 };
 
 struct Device {
@@ -97,7 +112,7 @@ struct Device {
 };
 
 struct IOStream {
-    enum { HW, VDEV, FILE } res_type;
+    enum { NODEV = 0, HW, VDEV, FILE } res_type;
     union {
         struct Device *hw;
         u32            vdevnum;
@@ -109,7 +124,12 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len);
 u8  proxy_in(u32 devnum, u8 port);
 i32 proxy_out(u32 devnum, u8 port, u8 val);
 
+struct DeviceDeed *get_deed(ProcessPID pid, u32 devnum);
+
+bool is_in_lineage(ProcessPID pid, struct DeviceDeed*deed);
+
 bool dev_lease(ProcessPID lessor, ProcessPID receiver, u32 devnum);
+bool dev_return(ProcessPID owner, u32 devnum);
 void proxy_attach(ProcessPID pid, u32 proxy, struct IOStream *stream);
 
 #endif /* DEV_H */

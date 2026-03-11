@@ -18,9 +18,13 @@ static inline u8 freq_to_byte(float targetMhz)
 
 u8 System_Read(TaleaMachine *m, u16 addr)
 {
-    static double uptime;
-    static u64    instructionsRetired;
-    static u64    cycles;
+    static u64        instructionsRetired;
+    static u64        cycles;
+    static double     uptime;
+    static time_t     now;
+    static struct tm *timeinfo;
+    time(&now);
+    timeinfo = localtime(&now);
 
     switch (addr) {
     case REG_SYSTEM_ARCH_ID: return TAELA_ARCH_ID;
@@ -46,13 +50,10 @@ u8 System_Read(TaleaMachine *m, u16 addr)
 
     /* Time */
     case REG_SYSTEM_YEAR:
-        time_t now;
-
-        time(&now);
-        struct tm *timeinfo = localtime(&now);
-        uptime              = GetTime();
-
-        m->sys.lastRawtime = now;
+        time_t n;
+        time(&n);
+        uptime             = GetTime();
+        m->sys.lastRawtime = n;
         m->sys.uptime      = GetTime();
 
         if (m->sys.unixtimeMode) {
@@ -140,6 +141,7 @@ u8 System_Read(TaleaMachine *m, u16 addr)
     case REG_SYSTEM_FAULT_ADDR + 2: return (m->cpu.faultAddr >> 8);
     case REG_SYSTEM_FAULT_ADDR + 3: {
         u8 addr          = m->cpu.faultAddr;
+        TALEA_LOG_TRACE("Clearing fault addr\n");
         m->cpu.faultAddr = 0;
         return addr;
     };
@@ -397,17 +399,17 @@ void System_Write(TaleaMachine *m, u16 addr, u8 value)
         m->cpu.status = (m->cpu.status & 0xFFFF00FF) | ((u32)value << 8);
         break;
     case REG_SYSTEM_TLB:
-        TALEA_LOG_TRACE("TLB REG written %x\n", value);
+        //TALEA_LOG_TRACE("TLB REG written %x\n", value);
         if (value == 0xFF) {
             // TODO: document this
             MMU_FlushTLB(m);
         }
         break;
     case REG_SYSTEM_MMU:
-        TALEA_LOG_TRACE("MMU REG written %x\n", value);
+        //TALEA_LOG_TRACE("MMU REG written %x\n", value);
         if (value == 0xFF) {
             // TODO: document this
-            TALEA_LOG_TRACE("Switching MMU ON!\n");
+          //  TALEA_LOG_TRACE("Switching MMU ON!\n");
             m->cpu.status |= 0x20000000;
         } else if (value == 0) {
             m->cpu.status &= ~(0x20000000);

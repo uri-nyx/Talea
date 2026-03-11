@@ -9,8 +9,7 @@
 #define NUM_REGS 32
 
 /* @AKAI: 400_PROCESS */
-#define MAX_PROCESS     255
-#define PROCESS_NAMELEN 10
+#define PROCESS_NAMELEN 12
 #define MAX_OPEN_FILES  8
 /* @AKAI */
 
@@ -53,13 +52,14 @@ struct Process {
     ProcessEntry     entry;
     u32             *page_tables[4];
     u16              pdt;
-    char             name[10];
+    char             name[13];
     enum { FREE, NEWBORN, WAITING, READY, RUNNING, ZOMBIE } state;
     void *brk;
     u32   flags;
     i32   exit_code;
     u32   last_error;
     i32   waiting_on;
+    bool  no_collect;
     int   parent_state;
 
     // timing
@@ -237,7 +237,7 @@ void        store_window(u8 wp, void *buf);
 void process_init(uptr idle_base);
 
 ProcessPID process_create(const char *name, ProcessEntry entry);
-bool       process_reset(ProcessPID pid, const char *name, u32 brk, u32 stack, ProcessEntry entry);
+bool       process_reset(ProcessPID pid, const char *name, u32 brk, u32 stack, ProcessEntry entry, int flags);
 void       process_run(ProcessPID pid, enum ParentState parent_new_state);
 void       process_stop(ProcessPID pid);
 void       process_wait(ProcessPID pid);
@@ -256,6 +256,7 @@ void process_share_files(ProcessPID dst, ProcessPID src);
 
 u32  save_ctx(struct Process *p);
 void restore_ctx(struct Process *p);
+void newborn_ctx(struct Process *p, u32 usp);
 
 extern void _load_and_switch(u32 pc, u32 status, u32 *regs);
 extern void _load_init(u32 pc, u32 status, u32 *regs);

@@ -39,31 +39,16 @@ void process_init(uptr idle_base)
     u32              *code;
 
     memset(p, 0, sizeof(struct Processes));
-
-    _trace(0xdaaaaa, idle_base);
-
-    p->count       = 1;
-    p->proc[0].pid = 0;
-
-    p->proc[0].ctx.pc     = idle_base;
-    p->proc[0].ctx.status = AKAI_PROCESS_STATUS;
-    // the idle task should not need a stack
-    p->proc[0].ctx.usp = idle_base + 255;
-    p->proc[0].ctx.wp  = 0;
-
     memset(p->proc[0].ctx.regs, 0, NUM_REGS * sizeof(u32));
 
-    p->proc[0].parent = 0;
+    p->count          = 1;
     p->proc[0].pid    = 0;
-    p->proc[0].entry  = (ProcessEntry)idle_base;
+    p->proc[0].parent = 0;
 
     code = alloc_pages_contiguous(KERNEL_PID, 1);
     if (!code) {
-        // TODO: implement -> kernel_panic_internal("In process init: could not allocate pages for
-        // idle process.");
-        _trace(0xDEADC0DE);
-l:
-        goto l;
+        miniprint("[KERNEL INTERNAL PANIC] Could not allocate pages for idle process.\n");
+        _halt();
     }
 
     p->proc[0].pdt = AKAI_PDT_BASE;
@@ -78,20 +63,22 @@ l:
     memcpy((u8 *)idle_base, idle_code, sizeof(idle_code));
     tlb_flush();
 
-    memcpy(p->proc[0].name, name, 10);
+    memcpy(p->proc[0].name, name, 12);
 
+    p->proc[0].entry   = (ProcessEntry)idle_base;
     p->proc[0].state   = NEWBORN;
     p->proc[0].brk     = NULL; // idle must not have a heap
     p->proc[0].flags   = 0;
     p->proc->exit_code = 0;
 
-    save_ctx(&p->proc[0]);
+    newborn_ctx(&p->proc[0], idle_base + 255);
     p->curr = &p->proc[0];
 }
 
 enum {
-    PROCESS_NOREUSE_PT,
-    PROCESS_REUSE_PT,
+    PROCESS_NOREUSE_PT = 1,
+    PROCESS_REUSE_PT   = 2,
+    PROCESS_KEEP_FILES = 4,
 };
 
 void process_share_files(ProcessPID dst, ProcessPID src)
@@ -219,7 +206,8 @@ static bool populate_process(ProcessPID pid, const char *name, ProcessEntry entr
     p->pid = pid;
 
     // Set the pdt as pid AKAI_BASE_PDT + (0-255) << 4
-    p->pdt = AKAI_PDT_BASE + ((u16)pid << 4);
+    p->pdt = AKAI_PDT_BASE | ((u16)pid << 4);
+    _trace(0xDAD111e, pid, p->pdt);
 
     // map pt0 and A.Hpt in the page directory.
     // the index in the page directory is (pid << 2) + pt_number,
@@ -236,16 +224,23 @@ static bool populate_process(ProcessPID pid, const char *name, ProcessEntry entr
     p->flags = 0;
 
     // Set the name
-    memcpy(p->name, name, 10); // TODO: use strncpy
+    memcpy(p->name, name, 12); // TODO: use strncpy
     p->name[9] = 0;
 
     // Set the entry point
     p->entry = entry;
 
-    // reset open files
-    for (i = 0; i < MAX_OPEN_FILES; i++) {
-        p->fds[i] = FREE_FD;
+    if (!(flags & PROCESS_KEEP_FILES)) {
+        // reset open files
+        for (i = 0; i < MAX_OPEN_FILES; i++) {
+            p->fds[i] = FREE_FD;
+        }
     }
+
+    // reset the standard streams
+    p->stdin.res_type  = NODEV;
+    p->stdout.res_type = NODEV;
+    p->stderr.res_type = NODEV;
 
     return true;
 }
@@ -274,42 +269,44 @@ ProcessPID process_create(const char *name, ProcessEntry entry)
     if (!populate_process(pid, name, entry, PROCESS_NOREUSE_PT)) return 0;
 
     // Fill regs and pc, usp, and status
-    save_ctx(&p->proc[pid]);
+    newborn_ctx(&p->proc[pid], AKAI_PROCESS_STACK_TOP);
 
     // Set parent as curr process
-    p->proc[pid].ctx.usp        = AKAI_PROCESS_STACK_TOP;
-    p->proc[pid].parent         = p->curr->pid;
-    p->proc[pid].curr_drive     = p->curr->curr_drive;
-    p->proc[pid].cwd_cluster[0] = p->curr->cwd_cluster[0];
-    p->proc[pid].cwd_cluster[1] = p->curr->cwd_cluster[1];
-    p->proc[pid].cwd_cluster[2] = p->curr->cwd_cluster[2];
-
-    _swd(REG_SYSTEM_USP, p->proc[pid].ctx.usp);
+    p->proc[pid].parent     = p->curr->pid;
+    p->proc[pid].curr_drive = p->curr->curr_drive;
+    memcpy(&p->proc[pid].cwd_cluster, &p->curr->cwd_cluster, sizeof(p->proc[pid].cwd_cluster));
 
     // brk left to zero, only initialize on exec() or rfork()
     return pid;
 }
 
 // reset a process to NEWBORN. Wipe all, for overlaying a new image. true on succes
-bool process_reset(ProcessPID pid, const char *name, u32 brk, u32 stack, ProcessEntry entry)
+bool process_reset(ProcessPID pid, const char *name, u32 brk, u32 stack, ProcessEntry entry,
+                   int flags)
 {
     struct Processes *p = &A.pr;
     usize             i;
 
-    ProcessPID parent = p->proc[pid].parent; // cache the parent
+    ProcessPID      parent = p->proc[pid].parent; // cache the parent
+    struct IOStream stdin, stdout, stderr;        // Cache streams
 
-    if (!populate_process(pid, name, entry, PROCESS_REUSE_PT)) return false;
+    memcpy(&stdin, &p->proc[pid].stdin, sizeof(stdin));
+    memcpy(&stdout, &p->proc[pid].stdout, sizeof(stdout));
+    memcpy(&stderr, &p->proc[pid].stderr, sizeof(stderr));
+
+    if (!populate_process(pid, name, entry, PROCESS_REUSE_PT | flags)) return false;
     // Fill only zero out regs, we set the stack, pc and status
-    memset(p->proc[pid].ctx.regs, 0, 32 * 4);
+    newborn_ctx(&p->proc[pid], stack);
 
-    p->proc[pid].brk        = (void *)brk;
-    p->proc[pid].ctx.pc     = (u32)entry;
-    p->proc[pid].ctx.usp    = stack;
-    p->proc[pid].ctx.status = ((p->proc[pid].pdt >> 4) << 8) | AKAI_PROCESS_STATUS;
+    p->proc[pid].brk = (void *)brk;
+
     // Restore parent
     p->proc[pid].parent = parent;
 
-    _swd(REG_SYSTEM_USP, p->proc[pid].ctx.usp);
+    // Restore the streams
+    memcpy(&p->proc[pid].stdin, &stdin, sizeof(stdin));
+    memcpy(&p->proc[pid].stdout, &stdout, sizeof(stdout));
+    memcpy(&p->proc[pid].stderr, &stderr, sizeof(stderr));
 
     return true;
 }
@@ -348,7 +345,7 @@ static bool clone_page(ProcessPID dst_pid, ProcessPID src_pid, u32 vaddr)
     if (!phys_dst) return false; // OOM
 
     src = (u8 *)map_kernel_work_area((u32)phys_src);
-    dst = (u8 *)remap_kernel_work_area((u32)phys_dst);
+    dst = (u8 *)map_kernel_work_area((u32)phys_dst);
     if (!src || !dst) {
         if (src) unmap_kernel_work_area();
         if (dst) unmap_kernel_work_area();
@@ -357,6 +354,7 @@ static bool clone_page(ProcessPID dst_pid, ProcessPID src_pid, u32 vaddr)
     }
 
     memcpy(dst, src, PAGE_SIZE);
+    _trace(0xC0DEC0DE, *(u32 *)src, *(u32 *)src);
     unmap_kernel_work_area(); // dst
     unmap_kernel_work_area(); // src
 
@@ -381,15 +379,23 @@ static bool clone_page(ProcessPID dst_pid, ProcessPID src_pid, u32 vaddr)
         unmap_kernel_work_area();
 
         // map into dstp
+        _trace(0xDADA1000, vaddr, (u32)phys_src);
         saved     = A.pr.curr;
         A.pr.curr = dstp;
         if (!map_active_pt_entry((u32)phys_dst, vaddr, pte & 0x1F)) goto fail;
         A.pr.curr = saved;
+        {
+            u32 ppar = (u32)phys_from_v(srcp, vaddr);
+            u32 pch  = (u32)phys_from_v(dstp, vaddr);
+            _trace(0xDADA1001, ppar, pch);
+        }
     }
 
+    tlb_flush();
     return true;
 
 fail:
+    tlb_flush();
     free_page(phys_dst);
     return false;
 }
@@ -426,9 +432,12 @@ static bool share_page_mapping(ProcessPID dst_pid, ProcessPID src_pid, u32 vaddr
     A.pr.curr = dstp;
     if (!map_active_pt_entry((u32)phys, vaddr, pte & 0x1F)) goto fail;
     A.pr.curr = saved;
+
+    tlb_flush();
     return true;
 
 fail:
+    tlb_flush();
     free_page(phys);
     return false;
 }
@@ -436,13 +445,19 @@ fail:
 bool process_clone_memory(ProcessPID dst, ProcessPID src)
 {
     u32 v0, v1, verr;
+    _trace(0xDADAFA99, dst, src);
     // code+data+heap
     for (v0 = AKAI_PROCESS_BASE; v0 < AKAI_PROCESS_END; v0 += PAGE_SIZE)
         if (!clone_page(dst, src, v0)) goto fail_v0;
 
     // stack
-    for (v1 = AKAI_PROCESS_STACK_END; v1 < AKAI_PROCESS_STACK_TOP; v1 += PAGE_SIZE)
+    for (v1 = AKAI_PROCESS_STACK_END; v1 < AKAI_PROCESS_STACK_TOP; v1 += PAGE_SIZE) {
+        if (v1 == (0xf6fe58 & (~0xFFFU))) {
+            _trace(0xDADADA90, v1);
+        } else
+            _trace(0xDADADA91, v1);
         if (!clone_page(dst, src, v1)) goto fail_v1;
+    }
 
     if (A.pr.proc[src].inbox) {
         if (!clone_page(dst, src, AKAI_IPC_INBOX)) goto fail_inbox;
@@ -452,6 +467,7 @@ bool process_clone_memory(ProcessPID dst, ProcessPID src)
         if (!clone_page(dst, src, AKAI_IPC_OUTBOX)) goto fail_outbox;
     }
 
+    tlb_flush();
     return true;
 
 fail_outbox:
@@ -462,6 +478,7 @@ fail_v1:
     for (verr = AKAI_PROCESS_STACK_END; verr < v1; verr += PAGE_SIZE) free_and_unmap(dst, verr);
 fail_v0:
     for (verr = AKAI_PROCESS_BASE; verr < v0; verr += PAGE_SIZE) free_and_unmap(dst, verr);
+    tlb_flush();
     return false;
 }
 
@@ -484,6 +501,7 @@ bool process_share_memory(ProcessPID dst, ProcessPID src)
         if (!share_page_mapping(dst, src, AKAI_IPC_OUTBOX)) goto fail_outbox;
     }
 
+    tlb_flush();
     return true;
 
 fail_outbox:
@@ -494,6 +512,7 @@ fail_v1:
     for (verr = AKAI_PROCESS_STACK_END; verr < v1; verr += PAGE_SIZE) free_and_unmap(dst, verr);
 fail_v0:
     for (verr = AKAI_PROCESS_BASE; verr < v0; verr += PAGE_SIZE) free_and_unmap(dst, verr);
+    tlb_flush();
     return false;
 }
 
@@ -557,10 +576,41 @@ static void inject_event(u32 active_events)
     p->curr->pending_events &= ~active_events;
 }
 
+static void enter_newborn_userspace(struct Process *p, ProcessPID previous)
+{
+    _trace(0xCCCCCC, p->ctx.usp, p->pid, sirius_cwp);
+    _trace(0xCCCCCC, A.pr.curr->pid, p->ctx.pc, p->ctx.wp);
+    _trace(0xCCCCCC, A.pr.curr->ctx.status, p->ctx.status);
+    _swd(REG_SYSTEM_USP, p->ctx.usp);
+    if (p->pid == 1 && previous == 0 && sirius_cwp == 0) {
+        _load_init(p->ctx.pc, p->ctx.status, p->ctx.regs);
+    } else {
+        _load_and_switch(p->ctx.pc, p->ctx.status, p->ctx.regs);
+    }
+}
+
+static void switch_address_space(struct Process *p)
+{
+    u32 sreg = _gsreg();
+    _trace(0XDDDDD, p->pid);
+    sreg &= ~(0x000FFF00U);
+    sreg |= (p->pdt >> 4) << 8;
+    _trace(0XBBBBB, sreg, _gsreg());
+    _trace(0XBBBBB, p->page_tables[0], p->page_tables[3]);
+    _trace(0XBBBBB, _lwd(p->pdt), _lwd(p->pdt + 12));
+    _ssreg(sreg);
+    tlb_flush();
+}
+
+static void switch_cwd(struct Process *p)
+{
+    A.fs[p->curr_drive].cdir = p->cwd_cluster[p->curr_drive];
+    if (p->curr_drive < 3) f_chdrive(drive_labels[p->curr_drive]);
+}
+
 void process_run(ProcessPID pid, enum ParentState parent_new_state)
 {
-    struct Processes *p = &A.pr;
-    u32               sreg;
+    struct Processes *p       = &A.pr;
     ProcessPID        old_pid = p->curr->pid;
 
     struct Process *target = &p->proc[pid];
@@ -585,6 +635,7 @@ void process_run(ProcessPID pid, enum ParentState parent_new_state)
             case PARENT_WAIT:
                 process_wait(parent->pid);
                 parent->waiting_on = pid;
+                parent->no_collect = true;
                 break;
             case PARENT_DIE: process_terminate(parent->pid, WARRANT_PARRICIDE); break;
             case PARENT_DETACH:
@@ -601,31 +652,15 @@ void process_run(ProcessPID pid, enum ParentState parent_new_state)
 
 skip:
     _trace(0xEEEEEE);
-    p->curr                       = target;
-    A.fs[target->curr_drive].cdir = target->cwd_cluster[target->curr_drive];
-
-    // switch pdt. There should be no problem, since the kernel is mapped there too
-    sreg = _gsreg();
-    sreg &= ~(0x000FFF00U);
-    sreg |= (p->curr->pdt >> 4) << 8;
-    _trace(0XBBBBB, sreg, _gsreg());
-    _trace(0XBBBBB, p->curr->page_tables[0], p->curr->page_tables[3]);
-    _trace(0XBBBBB, _lwd(p->curr->pdt), _lwd(p->curr->pdt + 12));
-    if (p->curr->pid == 0) {
-    }
-    _ssreg(sreg);
-    tlb_flush();
-    _trace(0XDDDDD);
+    p->curr = target;
+    switch_cwd(p->curr);
+    // switch address spaces. There should be no problem, since the kernel is mapped there too
+    switch_address_space(p->curr);
 
     if (target->state == NEWBORN) {
         // a newborn cannot possibly run an event
         process_set_ready(pid);
-        if (pid == 1 && old_pid == 0 && sirius_cwp == 0) {
-            _load_init(p->curr->ctx.pc, p->curr->ctx.status, p->curr->ctx.regs);
-
-        } else {
-            _load_and_switch(p->curr->ctx.pc, p->curr->ctx.status, p->curr->ctx.regs);
-        }
+        enter_newborn_userspace(p->curr, old_pid);
     } else {
         u32 active_events = p->curr->event_mask & p->curr->pending_events;
 
@@ -672,30 +707,10 @@ static void run_inheritance(ProcessPID pid)
     usize i;
     for (i = 0; i < _DEV_NUM; i++) {
         // relinquish owned devices
-        struct DeviceDeed *deed     = &A.devices[i].deed;
-        ProcessPID         owner    = deed->owner;
-        ProcessPID         lessor   = deed->lessor;
-        ProcessPID         original = deed->original;
+        struct DeviceDeed *deed = &A.devices[i].deed;
 
-        if (owner == pid) {
-            deed->owner  = KERNEL_PID;
-            deed->lessor = KERNEL_PID;
-
-            if (lessor != KERNEL_PID && ISALIVE(lessor)) {
-                deed->owner = lessor;
-            } else if (original != KERNEL_PID && ISALIVE(original)) {
-                deed->owner = original;
-            } else {
-                deed->original = KERNEL_PID;
-            }
-        }
-
-        if (lessor == pid) {
-            deed->lessor = KERNEL_PID;
-        }
-
-        if (original == pid) {
-            deed->original = KERNEL_PID;
+        if (is_in_lineage(pid, deed)) {
+            dev_return(pid, i);
         }
     }
 }
@@ -706,24 +721,32 @@ void process_terminate(ProcessPID pid, i32 warrant)
 
     usize      i;
     bool       parent_waiting = false;
-    ProcessPID parent         = p->curr->parent;
+    ProcessPID parent         = p->proc[pid].parent;
 
     _trace(0xDEADB001, pid);
     if (pid == 0) return; // idle process is not killable
 
+    _trace(0xDADA112, pid, p->proc[pid].exit_code, warrant);
     if (warrant) p->proc[pid].exit_code = warrant;
+    _trace(0xDADA112, parent, p->proc[pid].exit_code, warrant);
 
+    // miniprint("Terminating %d, warrant %d, exit %d\n", pid, warrant, p->proc[pid].exit_code);
     if (parent != KERNEL_PID && p->proc[parent].state == WAITING &&
         (p->proc[parent].waiting_on == WAITON_ANY || p->proc[parent].waiting_on == pid)) {
         // wake the parent
         int  status[1];
-        int *dest      = (int *)p->proc[parent].ctx.regs[14];
-        status[0]      = p->proc[pid].exit_code;
+        int *dest = (int *)p->proc[parent].ctx.regs[14];
+        status[0] = p->proc[pid].exit_code;
+        _trace(0xDADA112, status[0], dest);
         parent_waiting = true;
 
-        if (dest) copy_to_user(&p->proc[parent], dest, status, 1);
+        if (dest && !p->proc[parent].no_collect) {
+            copy_to_user(&p->proc[parent], dest, status, sizeof(status));
+            _trace(0xDADA113, 0x14);
+        }
         p->proc[parent].ctx.regs[10] = pid;
 
+        p->proc[parent].no_collect = false;
         process_set_ready(parent);
     }
 
@@ -739,7 +762,8 @@ void process_terminate(ProcessPID pid, i32 warrant)
         if (fi >= 0) {
             A.fp.refs[fi] -= A.fp.refs[fi] ? 1 : 0;
             if (A.fp.refs[fi] == 0) {
-                // dont care about errors
+                // miniprint("EXIT: closing file %d (%d)\n", i, fi);
+                //  dont care about errors
                 f_close(&A.fp.files[fi]);
             }
             p->proc[pid].fds[i] = FREE_FD;
@@ -775,10 +799,10 @@ void process_reap(ProcessPID pid)
 
 void process_yield(void)
 {
-    struct Processes *p = &A.pr;
-
-    usize      i;
-    ProcessPID n;
+    struct Processes *p        = &A.pr;
+    static int        last_pid = 0;
+    usize             i;
+    ProcessPID        n;
     // some scheduler logic would be neat. for now, KISS, first ready process runs
 
     if (p->curr->state == RUNNING) p->curr->state = READY;
@@ -788,11 +812,15 @@ void process_yield(void)
     for (i = 0; i < MAX_PROCESS; i++) {
         ProcessPID k = (n + i) % MAX_PROCESS;
         if ((p->proc[k].state == READY || p->proc[k].state == NEWBORN) && p->proc[k].pid != 0) {
-            int parent_state = p->proc[k].state == NEWBORN ? p->proc[k].parent_state :
-                                                             PARENT_KEEP_RUNNING;
-
+            int parent_state        = p->proc[k].state == NEWBORN ? p->proc[k].parent_state :
+                                                                    PARENT_KEEP_RUNNING;
             p->proc[k].parent_state = PARENT_KEEP_RUNNING;
             _trace(0xAAA, k, p->proc[k].state);
+            if (last_pid != k) {
+                //miniprint("Yielding to pid %d (%s)\n", k, p->proc[k].name);
+            }
+            last_pid = k;
+
             process_run(k, parent_state);
         }
     }
@@ -837,19 +865,29 @@ void store_window(u8 wp, void *buf)
     _trace(0xFBD, 4);
 }
 
+void newborn_ctx(struct Process *p, u32 usp)
+{
+    if (p->state == NEWBORN) {
+        // process being created in the kernel
+        memset(&p->ctx, 0, sizeof(struct ThreadCtx));
+        p->ctx.pc     = (u32)p->entry;
+        p->ctx.usp    = usp;
+        p->ctx.status = ((p->pdt >> 4) << 8) | AKAI_PROCESS_STATUS;
+    }
+}
+
 u32 save_ctx(struct Process *p)
 {
     u32 sreg = _disable_interrupts();
-    if (p->state == NEWBORN) {
-        // process being created in the kernel
-        u32 stat;
-        load_window(p->ctx.wp, p->ctx.regs);
-        p->ctx.pc     = (u32)p->entry;
-        p->ctx.status = ((p->pdt >> 4) << 8) | AKAI_PROCESS_STATUS;
-        _swd(REG_SYSTEM_USP, p->ctx.usp); // oh, its here too then
-    } else if (sirius_cwp == 0 && p->pid != 0 && p->state != NEWBORN) {
-        // panic here
-    } else if (p->state != FREE && p->state != ZOMBIE) {
+    if (p->pid != A.pr.curr->pid) {
+        _restore_interrupts(sreg);
+        return 0;
+    }
+
+    if (sirius_cwp == 0 && p->pid != 0 && p->state != NEWBORN) {
+        miniprint("[KERNEL INTERNAL PANIC] Attempted to save process with wp 0 and pid != 0.\n");
+        _halt();
+    } else if (ISALIVE(p->pid) && p->state != NEWBORN) {
         u8 cwp        = sirius_cwp;
         p->ctx.pc     = _lwd(AKAI_KERNEL_PC_SAVE);     // 0x1000); // save user pc
         p->ctx.status = _lwd(AKAI_KERNEL_STATUS_SAVE); // 0x1004); // save user status register
@@ -858,7 +896,6 @@ u32 save_ctx(struct Process *p)
         _trace(0x67, p->pid, cwp);
         p->ctx.wp = cwp ? cwp - 1 : cwp;
         load_window(p->ctx.wp, p->ctx.regs);
-        // Assume it was saved upon entering the kernel. Otherwise this will fault
     }
 
     _trace(0x1002, p->pid, sreg);
@@ -868,11 +905,7 @@ u32 save_ctx(struct Process *p)
 
 void restore_ctx(struct Process *p)
 {
-    if (p->state == NEWBORN) {
-        // false restore, to transfer to usermode
-        _trace(0xfa1, p->pid);
-        save_ctx(p); // we just want a clean register file<
-    } else if (p->state != FREE && p->state != ZOMBIE) {
+    if (ISALIVE(p->pid) && p->state != NEWBORN) {
         _trace(0xfa0, p->pid, p->ctx.wp, p->ctx.regs[1]);
         store_window(p->ctx.wp, p->ctx.regs);
         _swd(REG_SYSTEM_USP, p->ctx.usp); // store saved usp

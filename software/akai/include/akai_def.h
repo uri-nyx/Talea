@@ -4,6 +4,8 @@
 #include "libsirius/types.h"
 
 /* @AKAI: 002_DEF */
+#define MAX_PROCESS     255
+
 typedef u8 ProcessPID;
 typedef int (*ProcessEntry)(int, char **);
 
@@ -45,6 +47,8 @@ enum {
     P_ERROR_NO_PERM,             // Process lacks permissions to attempt action
     P_ERROR_NOT_CHILD,           // The pid requested was not a child of the process
     P_ERROR_NO_PID,              // Could not acquire a PID
+    P_ERROR_NO_EXEC,             // Not an executable file
+    P_ERROR_NOENT,               // No directory entry
     P_ERROR_NOT_IMPLEMENTED,     //
 };
 

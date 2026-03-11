@@ -294,14 +294,22 @@ void mmu_init(void)
 
 static void fs_mount()
 {
-    static const char *lab[] = { "A:", "B:", "HCS:" };
+    FRESULT res;
 
     usize i;
     for (i = 0; i < 3; i++) {
-        f_mount(&A.fs[i], lab[i], 0);
+        res = f_mount(&A.fs[i], drive_labels[i], 0);
+        if (res != FR_OK) {
+            miniprint("[KERNEL] Fatal error mounting filesystems. halt (%d)\n", res);
+            _halt();
+        }
     }
 
-    f_chdrive("B:");
+    res = f_chdrive("/B/"); // drive B, universal path format
+    if (res != FR_OK) {
+        miniprint("[KERNEL] Fatal error setting drive B. halt (%d)\n", res);
+        _halt();
+    }
 }
 
 static void timer_init(void)
@@ -313,13 +321,13 @@ static void timer_init(void)
     _sbd(TERMINAL_TIMER_CSR, csr | TIM_INTERVAL_EN);
 }
 
-static void timer_on(void)
+void timer_on(void)
 {
     u8 csr = _lbud(TERMINAL_TIMER_CSR);
     _sbd(TERMINAL_TIMER_CSR, csr | TIM_GLOBAL_EN);
 }
 
-static void timer_off(void)
+void timer_off(void)
 {
     u8 csr = _lbud(TERMINAL_TIMER_CSR);
     _sbd(TERMINAL_TIMER_CSR, csr & ~TIM_GLOBAL_EN);
@@ -358,30 +366,19 @@ static ProcessPID init_proc(const char *name)
     u32            *work;
 
     ProcessPID init_pid = process_create(name, (ProcessEntry)AKAI_PROCESS_BASE);
-    //_trace(0xDF000); // FIXME: this trace is absolutely necesary, or an illegal instruction
-    // triggers
-    // a kernel panic
 
-    if (!init_pid) {
-        _trace(0xDF000E0); // FIXME: this trace is absolutely necesary, or an illegal instruction
-                           // triggers a kernel panic
-
-        return 0;
-    }
+    if (!init_pid) return 0;
 
     // manual exec
     init  = &A.pr.proc[init_pid];
     code  = alloc_pages_contiguous(init_pid, 1);
     stack = alloc_pages_contiguous(init_pid, 1);
-    //_trace(0xDF001);
 
     if (!code || !stack) {
-        //_trace(0xDF000E1);
         process_terminate(init_pid, WARRANT_NONE);
-        //_trace(0xDF000E2);
-
         return 0;
     }
+
     _trace(0x888555, 0x777888, code, init_bin_len);
 
     // map its page tables to us, so we can write to it
@@ -408,10 +405,24 @@ static ProcessPID init_proc(const char *name)
     unmap_kernel_work_area();
     tlb_flush();
 
-    init->ctx.usp  = AKAI_PROCESS_STACK_TOP;
-    A.pr.curr->brk = (void *)(AKAI_PROCESS_BASE + PAGE_SIZE);
+    init->ctx.usp = AKAI_PROCESS_STACK_TOP;
+    init->brk     = (void *)(AKAI_PROCESS_BASE + PAGE_SIZE);
+
+    // intialize standard streams
+    init->stdin.res_type  = HW;
+    init->stdout.res_type = HW;
+    init->stderr.res_type = HW;
 
     return init_pid;
+}
+
+static void lineages_init(void)
+{
+    usize i;
+    for (i = 0; i < _DEV_NUM; i++) {
+        A.devices[i].deed.depth = 0;
+        memset(A.devices[i].deed.lineage, 0, sizeof(A.devices[i].deed.lineage));
+    }
 }
 
 void kmain(u16 sys_info_data_addr)
@@ -439,15 +450,16 @@ void kmain(u16 sys_info_data_addr)
 
     miniprint("[KERNEL] [%09d]    PMM initialized        [OK]\n", uptime());
 
+    lineages_init();
     video_driver_init();
     miniprint("[KERNEL] [%09d]    Video initialized      [OK]\n", uptime());
 
     kbd_driver_init();
     miniprint("[KERNEL] [%09d]    Keyboard initialized   [OK]\n", uptime());
-
     // init the process manager
     process_init(AKAI_IDLE_BASE);
     miniprint("[KERNEL] [%09d]    Scheduler initialized  [OK]\n", uptime());
+    _trace(0xAFF);
 
     // hook hernel interrupt handlers
     interrupt_init();

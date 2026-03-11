@@ -1,19 +1,27 @@
+#include "hw.h"
 #include "kernel.h"
 
 #define err A.pr.curr->last_error
 
+#define GET_RES(type)                       \
+    ((type) == HW   ? stream->res.hw->num : \
+     (type) == FILE ? stream->res.fd :      \
+     (type) == VDEV ? stream->res.vdevnum : \
+                      BAD_RES)
+
 void proxy_attach(ProcessPID pid, u32 proxy, struct IOStream *stream)
 {
     int res_type = stream->res_type;
-    u32 res      = res_type == HW   ? stream->res.hw->num :
-                   res_type == FILE ? stream->res.fd :
-                                      stream->res.vdevnum;
+    u32 res      = GET_RES(res_type);
+
+    if (res == BAD_RES) return;
+
     switch (proxy) {
     case PDEV_STDIN:
 
         if (res_type == HW) {
             if (res < _DEV_NUM && res != DEV_KEYBOARD && res != DEV_SERIAL) return;
-            if (A.devices[res].deed.owner != pid) return;
+            if (DEED_OWNER(&A.devices[res].deed) != pid) return;
             A.pr.proc[pid].stdin.res_type = HW;
             A.pr.proc[pid].stdin.res.hw   = &A.devices[res];
         } else if (res_type == FILE) {
@@ -26,7 +34,7 @@ void proxy_attach(ProcessPID pid, u32 proxy, struct IOStream *stream)
     case PDEV_STDOUT:
         if (res_type == HW) {
             if (res < _DEV_NUM && res != DEV_TEXTBUFFER && res != DEV_SERIAL) return;
-            if (A.devices[res].deed.owner != pid) return;
+            if (DEED_OWNER(&A.devices[res].deed) != pid) return;
             A.pr.proc[pid].stdout.res_type = HW;
             A.pr.proc[pid].stdout.res.hw   = &A.devices[res];
         } else if (res_type == FILE) {
@@ -39,7 +47,7 @@ void proxy_attach(ProcessPID pid, u32 proxy, struct IOStream *stream)
     case PDEV_STDERR:
         if (res_type == HW) {
             if (res < _DEV_NUM && res != DEV_TEXTBUFFER && res != DEV_SERIAL) return;
-            if (A.devices[res].deed.owner != pid) return;
+            if (DEED_OWNER(&A.devices[res].deed) != pid) return;
             A.pr.proc[pid].stderr.res_type = HW;
             A.pr.proc[pid].stderr.res.hw   = &A.devices[res];
         } else if (res_type == FILE) {
@@ -73,7 +81,7 @@ static i32 attach(u32 devnum, int res_type, u32 res)
                 return (signed)A_ERROR_CTL;
             }
 
-            if (A.devices[res].deed.owner != A.pr.curr->pid) {
+            if (DEED_OWNER(&A.devices[res].deed) != A.pr.curr->pid) {
                 err = A_ERROR_CLAIM;
                 return (signed)A_ERROR_CTL;
             }
@@ -98,7 +106,7 @@ static i32 attach(u32 devnum, int res_type, u32 res)
                 return (signed)A_ERROR_CTL;
             }
 
-            if (A.devices[res].deed.owner != A.pr.curr->pid) {
+            if (DEED_OWNER(&A.devices[res].deed) != A.pr.curr->pid) {
                 err = A_ERROR_CLAIM;
                 return (signed)A_ERROR_CTL;
             }
@@ -107,9 +115,11 @@ static i32 attach(u32 devnum, int res_type, u32 res)
             A.pr.curr->stdout.res.hw   = &A.devices[res];
         } else if (res_type == FILE) {
             if (A.pr.curr->fds[res] == FREE_FD) {
+                //("CANNOT ATTACH: %d\n", res);
                 err = P_ERROR_CANNOT_ATTACH;
                 return (signed)A_ERROR_CTL;
             }
+            //("ATTACHED: %d (%d)\n", res, A.pr.curr->fds[res]);
 
             A.pr.curr->stdout.res_type = FILE;
             A.pr.curr->stdout.res.fd   = A.pr.curr->fds[res];
@@ -123,7 +133,7 @@ static i32 attach(u32 devnum, int res_type, u32 res)
                 return (signed)A_ERROR_CTL;
             }
 
-            if (A.devices[res].deed.owner != A.pr.curr->pid) {
+            if (DEED_OWNER(&A.devices[res].deed) != A.pr.curr->pid) {
                 err = A_ERROR_CLAIM;
                 return (signed)A_ERROR_CTL;
             }
@@ -148,6 +158,7 @@ static i32 attach(u32 devnum, int res_type, u32 res)
 
 i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
 {
+    _trace(0xdd1dede, devnum, command);
     switch (command) {
     case PX_ATTACH: {
         u32 *args = (u32 *)buff;
@@ -173,7 +184,7 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
                                     &A.pr.curr->stdin;
 
         if (s->res_type == FILE)
-            return PDEV_TYPE_FILE;
+            return (PDEV_TYPE_FILE | s->res.fd);
         else if (s->res_type == HW)
             return (PDEV_TYPE_HW | s->res.hw->num);
         else if (s->res_type == VDEV)
@@ -211,6 +222,9 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
         struct IOStream *s        = devnum == PDEV_STDOUT ? &A.pr.curr->stdout : &A.pr.curr->stderr;
         int              res_type = s->res_type;
 
+        _trace(0xdd1dedd, res_type, devnum);
+        //("[KERNEL] writing to proxy io stream (type: %d, devnum: %d)\n", res_type, devnum);
+
         if (devnum != PDEV_STDOUT && devnum != PDEV_STDERR) goto noctl;
 
         if (res_type == VDEV) {
@@ -222,10 +236,13 @@ i32 proxy_ctl(u32 devnum, u32 command, void *buff, u32 len)
             FIL    *f = &A.fp.files[s->res.fd];
             UINT    bw;
             FRESULT res = f_write(f, buff, len, &bw);
+            //("[KERNEL] writing to proxy io stream: %d\n", s->res.fd);
             if (res != FR_OK) {
+                //("[KERNEL] writing failed: %d\n", res);
                 err = FS_ERROR | res;
                 return (signed)A_ERROR_CTL;
             } else {
+                //("[KERNEL] writing succeded: %d bytes written\n", bw);
                 return bw;
             }
         } else {
@@ -363,28 +380,81 @@ bool dev_lease(ProcessPID lessor, ProcessPID receiver, u32 devnum)
     struct DeviceDeed *deed;
 
     if (lessor == receiver) return false; // no leasing to oneself
-    if (deed->lessor == receiver) return false;
 
-    if (devnum < _DEV_NUM) {
-        // Hardware device
-        deed = &A.devices[devnum].deed;
-    } else if (devnum >= PDEV_STDIN && devnum <= PDEV_STDERR) {
-        // Proxy device, deref deed
-        struct IOStream *s = devnum == PDEV_STDIN  ? &A.pr.proc[lessor].stdin :
-                             devnum == PDEV_STDOUT ? &A.pr.proc[lessor].stdout :
-                                                     &A.pr.proc[lessor].stderr;
-        if (s->res_type != HW)
-            return false; // cannot lease a file or a VDEV
-        else
-            deed = &s->res.hw->deed;
-    } else {
-        return false; // cannot lease a VDEV
+    deed = get_deed(lessor, devnum);
+    if (!deed) return false;
+
+    if (DEED_OWNER(deed) == receiver) return false;
+    if (lessor != DEED_OWNER(deed)) return false;
+
+    if (deed->depth >= MAX_PROCESS) {
+        // should this warrant a kernel panic?
+        miniprint("unreacheable: dev_lease\n");
+        return false;
     }
 
-    if (lessor != deed->owner) return false;
-    // what to do here? For know, only keeping the last lessor,
-    // though an inheritance stack would be neat...
-    deed->lessor = lessor;
-    deed->owner  = receiver;
+    deed->lineage[deed->depth++] = receiver;
+
     return true;
+}
+
+bool dev_return(ProcessPID owner, u32 devnum)
+{
+    struct DeviceDeed *deed = get_deed(owner, devnum);
+    usize              i;
+
+    if (!deed) return false;
+
+    if (DEED_UNCLAIMED(deed)) return true;
+
+    if (DEED_OWNER(deed) == owner) {
+        deed->lineage[deed->depth - 1] = KERNEL_PID;
+        deed->depth--;
+        return true;
+    }
+
+    for (i = deed->depth; i > 0; i--) {
+        if (deed->lineage[i - 1] == owner) {
+            deed->lineage[i - 1] = KERNEL_PID;
+            _copybck(&deed->lineage[i], &deed->lineage[i - 1], deed->depth - i);
+            deed->depth--;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+struct DeviceDeed *get_deed(ProcessPID pid, u32 devnum)
+{
+    if (devnum < _DEV_NUM) {
+        // Hardware device
+        return &A.devices[devnum].deed;
+    } else if (devnum >= PDEV_STDIN && devnum <= PDEV_STDERR) {
+        // Proxy device, deref deed
+        struct IOStream *s = devnum == PDEV_STDIN  ? &A.pr.proc[pid].stdin :
+                             devnum == PDEV_STDOUT ? &A.pr.proc[pid].stdout :
+                                                     &A.pr.proc[pid].stderr;
+        if (s->res_type != HW)
+            return NULL; // cannot lease a file or a VDEV
+        else
+            return &s->res.hw->deed;
+    } else {
+        return NULL; // cannot lease a VDEV
+    }
+}
+
+bool is_in_lineage(ProcessPID pid, struct DeviceDeed *deed)
+{
+    usize i;
+
+    if (!deed) return false;
+    if (DEED_UNCLAIMED(deed)) return false;
+    if (DEED_OWNER(deed) == pid) return true;
+
+    for (i = 0; i < deed->depth; i++) {
+        if (deed->lineage[i] == pid) return true;
+    }
+
+    return false;
 }

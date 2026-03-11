@@ -81,39 +81,39 @@ Software:
                 ☐ optional: signal.h
                 ✔ setjmp.h @done(26-02-28 16:03)
             Phase 2 — kernel:
-                ☐ spawn()
+                ✔ rfork() @done(26-03-01 22:58)
                 ✔ exec() @done(26-02-28 20:32)
                 ✔ waitpid() @done(26-02-28 22:20)
-                ☐ executable format detection
+                ✔ executable format detection @done(26-03-02 02:20)
                 ☐ foreground process tracking
             Phase 3 — I/O + kill switch:
-                ☐ keyboard driver → input events
-                ☐ console driver → output
+                ✔ keyboard driver → input events @done(26-03-02 02:21)
+                ✔ console driver → output @done(26-03-02 02:21)
                 ☐ kill(fg_process) emergency path
             Phase 4 — shell:
-                ☐ input loop
-                ☐ tokenizer
-                ☐ built-ins
-                ☐ spawn + waitpid integration
+                ✔ input loop @done(26-03-06 00:06)
+                ✔ tokenizer @done(26-03-06 00:06)
+                ✔ built-ins @done(26-03-06 00:06)
+                ✔ spawn + waitpid integration @done(26-03-06 00:06)
 
         ☐ Text editor (visual)
         ☐ Assembler
         ☐ C cross compiler
         ANSI C libc:
-            ☐ assert.h	
+            ✔ assert.h @done(26-03-11 14:38)
             ✔ ctype.h @done(26-02-21 22:31)
-            ☐ errno.h	
+            ✔ errno.h @done(26-03-11 14:38)
             ✔ float.h @done(26-02-21 22:31)
             ✔ limits.h @done(26-02-21 22:31)
             ☐ locale.h	
             ☐ math.h	
-            ☐ setjmp.h	
+            ✔ setjmp.h @done(26-03-11 14:38)
             ☐ signal.h	
             ✔ stdarg.h @done(26-02-21 22:31)
             ✔ stddef.h @done(26-02-21 22:31)
             ✔ stdio.h @done(26-02-28 01:31)
             stdlib.h:
-                ☐ abort
+                ☐ abort (does not raise())
                 ✔ abs @done(26-02-21 22:32)
                 ☐ atexit
                 ✔ atof @done(26-02-26 17:17)
@@ -122,7 +122,7 @@ Software:
                 ☐ bsearch
                 ✔ calloc @done(26-02-21 22:32)
                 ✔ div @done(26-02-21 22:32)
-                ☐ exit
+                ☐ exit (stub)
                 ✔ free @done(26-02-21 22:32)
                 ☐ getenv
                 ✔ labs @done(26-02-21 22:32)
@@ -142,7 +142,7 @@ Software:
                 ☐ wctomb
                 ☐ wcstombs	
             ✔ string.h @done(26-02-21 22:31)
-            ☐ time.h	 
+            ✔ time.h @done(26-03-11 14:38)
         ☐ Self hosted compiler (can be any language)
         ☐ Interpreter
         Hardware libraries and for games:
@@ -190,4 +190,5 @@ Bugs:
 
     ☐ Extremely weird bugs in the kernel (looked at assembly, no visible changes)
     ☐ The linker option -ra does not play well with the OS loader
-    ☐ OUT on PDEV_STDOUT prints garbage
+    ✔ OUT on PDEV_STDOUT prints garbage @done(26-03-05 03:48)
+    ☐ If the timer fires while an interrupt is being handled it can lead to an underspill...

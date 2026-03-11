@@ -79,10 +79,12 @@ static inline u32 GET_PC(TaleaMachine *m)
 
 static inline void trace(TaleaMachine *m, u8 r1, u8 r2, u8 r3, u8 r4)
 {
+    /*
     TALEA_LOG_TRACE(
         "[TRACE] R%d: %08x | R%d: %08x | R%d: %08x | R%d: %08x --- at %08x (ra: %08x) (sp: %08x) cwp: %d\n",
         r1, GPR_GET(m, r1), r2, GPR_GET(m, r2), r3, GPR_GET(m, r3), r4, GPR_GET(m, r4), GET_PC(m),
         GPR_GET(m, x1), GPR_GET(m, x2), m->cpu.cwp);
+    */
 }
 
 static inline void SetSupervisor(TaleaMachine *m)
@@ -113,7 +115,8 @@ static inline u32 PopW(TaleaMachine *m)
 }
 
 #define DEBUG_LOG_EXCEPTIONS
-#define DEBUG_LOG_INTERRUPTS
+//#define DEBUG_LOG_SYSCALLS
+//#define DEBUG_LOG_INTERRUPTS
 
 static void Exception(TaleaMachine *m, u8 vector, int trap_type)
 {
@@ -164,6 +167,16 @@ static void Exception(TaleaMachine *m, u8 vector, int trap_type)
     SET_PC(m, handler_addr); // This has to set the virtual pc if mmu enabled
 
 #ifdef DEBUG_LOG_EXCEPTIONS
+    #ifndef DEBUG_LOG_SYSCALLS
+    if (trap_type == TRAP_TYPE_EXCEPTION) {
+        TALEA_LOG_TRACE("%s %s (0x%x), jumping from 0x%06x to 0x%06x, fault at: 0x%06x, cwp: %d, spilled: %d, ra: 0x%08x\n",
+        trap_type == TRAP_TYPE_INTERRUPT ? "Interrupt" :
+        trap_type == TRAP_TYPE_SYSCALL   ? "Syscall" :
+                                           "Exception",
+        getExceptionName(vector), vector, trap_type != TRAP_TYPE_EXCEPTION ? pc - 4 : pc,
+        handler_addr, cpu->faultAddr, cpu->cwp, cpu->spilledWindows, GPR_GET(m, x1));
+    }
+    #else
     TALEA_LOG_TRACE(
         "%s %s (0x%x), jumping from 0x%06x to 0x%06x, fault at: 0x%06x, cwp: %d, spilled: %d, ra: 0x%08x\n",
         trap_type == TRAP_TYPE_INTERRUPT ? "Interrupt" :
@@ -171,6 +184,7 @@ static void Exception(TaleaMachine *m, u8 vector, int trap_type)
                                            "Exception",
         getExceptionName(vector), vector, trap_type != TRAP_TYPE_EXCEPTION ? pc - 4 : pc,
         handler_addr, cpu->faultAddr, cpu->cwp, cpu->spilledWindows, GPR_GET(m, x1));
+    #endif
 #endif
 
     m->cpu.exception     = EXCEPTION_NONE;
