@@ -35,6 +35,13 @@ utils:
 	dd if=/dev/zero of=build/test.img bs=512 count=2048
 	mkfs.fat -F 12 build/test.img -f2 -s2 -n "UTILS" -S512 -M 0xf0 -r 16
 
+format-hcs:
+	dd if=/dev/zero of=build/hcs.img bs=512 count=65536
+	mkfs.fat -F 16 build/hcs.img -f2 -s1 -n "NAI" -S512 -M 0xf8 -r 512
+	python3 $(TOOLS)/tpstools/hcs_wrap.py build/hcs.img FAT16 32M
+	mv hcs.hcs ../../resources/emulated/devices/hcs/drive.hcs
+
+
 init: src/init.s
 	$(AS) -o init.out src/init.s && $(LD) -o init.bin -rc 524288 -h init.out && xxd -i init.bin > include/init_code.h
 	rm init.out init.bin

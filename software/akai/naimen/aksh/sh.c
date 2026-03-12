@@ -453,6 +453,16 @@ static const struct AkshBuiltin builtins[] = { { "clear", cmd_clear },
                                                { "buildinfo", cmd_buildinfo },
                                                { NULL, NULL } };
 
+/*
+cp
+
+mv
+
+hexdump
+
+cmp
+*/
+
 static int cmd_help(int argc, char **argv)
 {
     usize i;

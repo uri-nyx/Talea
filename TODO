@@ -97,7 +97,7 @@ Software:
                 ✔ spawn + waitpid integration @done(26-03-06 00:06)
 
         ☐ Text editor (visual)
-        ☐ Assembler
+        ✔ Assembler @done(26-03-11 16:13)
         ☐ C cross compiler
         ANSI C libc:
             ✔ assert.h @done(26-03-11 14:38)

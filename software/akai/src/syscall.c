@@ -17,7 +17,7 @@ static u8 path_get_drive(const char *path)
     case 'A': return 0;
     case 'b':
     case 'B': return 1;
-    case 'c':
+    case 'h':
     case 'H': return 2;
     }
 
