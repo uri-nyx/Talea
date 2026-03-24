@@ -358,10 +358,10 @@ static void instr_Save(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u8 r
     u32 reg2 = GPR_GET(m, r2);
     u32 reg3 = GPR_GET(m, r3);
 
-    /*
+    #ifndef NOTRACE
     TALEA_LOG_TRACE("Saving, cwp: %d, spill: %d. Transfer R%d: %x, R%d: %x, R%d: %x\n", cpu->cwp,
                     cpu->spilledWindows, r1, reg1, r2, reg2, r3, reg3);
-    */
+    #endif
 
     if (m->cpu.cwp < 7) {
         m->cpu.cwp++;
@@ -395,10 +395,11 @@ static void instr_Restore(TaleaMachine *m, CpuState *cpu, u8 r1, u8 r2, u8 r3, u
     u32 reg1 = GPR_GET(m, r1);
     u32 reg2 = GPR_GET(m, r2);
     u32 reg3 = GPR_GET(m, r3);
-    /*
+    
+#ifndef NOTRACE
     TALEA_LOG_TRACE("Restoring, cwp: %d, spill: %d. Transfer R%d: %x, R%d: %x, R%d: %x\n", cpu->cwp,
                     cpu->spilledWindows, r1, reg1, r2, reg2, r3, reg3);
-    */
+#endif
 
     if (m->cpu.spilledWindows > 0) {
         m->cpu.spilledWindows--;

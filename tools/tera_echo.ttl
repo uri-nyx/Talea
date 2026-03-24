@@ -1,0 +1,10 @@
+while 1
+; Wait for 1 byte of data
+waitn 1
+
+; After receiving, the data is stored in "inputstr"
+if result = 1 then
+    ; Send back whatever was received
+    send inputstr
+endif
+endwhile

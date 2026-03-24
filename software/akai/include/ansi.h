@@ -38,6 +38,7 @@ enum AnsiCmd {
     ANSI_ED  = 'J',
     ANSI_EL  = 'K',
     ANSI_SGR = 'm',
+    ANSI_DSR = 'n',
     ANSI_SU  = 'S',
     ANSI_SD  = 'T',
 
@@ -79,8 +80,6 @@ enum AnsiSGR {
 
 #define ANSI_MAX_PARAMS 16
 
-/* @AKAI */
-
 enum AnsiState { ANSI_STATE_GROUND, ANSI_STATE_ESC, ANSI_STATE_CSI };
 
 typedef struct {
@@ -88,6 +87,7 @@ typedef struct {
     int            params[ANSI_MAX_PARAMS];
     int            p_idx;
     int            current_num;
+    usize          lit_i;
     bool           is_private;
 } AnsiParser;
 
@@ -96,6 +96,8 @@ typedef struct {
     int          params[ANSI_MAX_PARAMS];
     int          param_count;
     u8           chr; /* The actual character if type == ANSI_CHAR */
+    char         lit[32];
 } AnsiToken;
+/* @AKAI */
 
 #endif /* ANSI_H */

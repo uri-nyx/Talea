@@ -23,7 +23,9 @@ typedef i8 bool;
 #define true  1
 #define false 0
 
+#ifndef NULL
 #define NULL ((void *)0)
+#endif
 
 struct akai_ringbuffer {
     u8   *data;
@@ -55,6 +57,8 @@ struct akai_natural_ringbufferu32 {
 #define BIT_SET(bitmap, bit)  ((bitmap)[(bit) >> 3] |= 1 << (bit & 0x7))
 #define BIT_CLR(bitmap, bit)  ((bitmap)[(bit) >> 3] &= ~(1 << (bit & 0x7)))
 
+#define MAX_PROCESS 255
+
 typedef u8 ProcessPID;
 typedef int (*ProcessEntry)(int, char **);
 
@@ -74,6 +78,7 @@ typedef int (*ProcessEntry)(int, char **);
 #define A_ERROR_UNREACHEABLE 0xDEADBEEFU
 
 #define FS_ERROR 0x80000000U // flag for FatFs errors
+#define V_ERROR  0x90000000U // flag for video errors
 
 // Process error
 enum {
@@ -122,6 +127,8 @@ static const u32 days_start_of_year[128] = {
 };
 #endif
 
+extern void *_fillw(void *s, u32 c, usize n);
+extern void *_copybck(void *src, void *dest, usize sz);
 /* STARNDARD TALEA DEVICE IDS */
 #define DEVICE_ID_TTY     'K'
 #define DEVICE_ID_VIDEO   'V'
@@ -165,19 +172,23 @@ enum KeyboardCSR {
                          // //TODO: Document this
 };
 
+
+#ifndef _IN_KERNEL
 enum PortsTerminal {
     TERMINAL_SERIAL_DATA     = 0x0,
     TERMINAL_SERIAL_STATUS   = 0x1,
     TERMINAL_SERIAL_CTRL     = 0x2,
     TERMINAL_SERIAL_RXCOUNT  = 0x3,
-    TERMINAL_TIMER_TIMEOUT   = 0x6,
-    TERMINAL_TIMER_INTERVAL  = 0x8,
-    TERMINAL_TIMER_PRESCALER = 0xa,
-    TERMINAL_TIMER_CSR       = 0xb,
-    TERMINAL_KBD_CSR         = 0xc,
-    TERMINAL_KBD_CHAR        = 0xd,
-    TERMINAL_KBD_CODE        = 0xe,
+    TERMINAL_TIMER_TIMEOUT   = 0x0,
+    TERMINAL_TIMER_INTERVAL  = 0x2,
+    TERMINAL_TIMER_PRESCALER = 0x4,
+    TERMINAL_TIMER_CSR       = 0x5,
+    TERMINAL_KBD_CSR         = 0x0,
+    TERMINAL_KBD_CHAR        = 0x1,
+    TERMINAL_KBD_CODE        = 0x2,
 };
+#endif
+
 
 enum PortsMouse {
 
@@ -289,6 +300,28 @@ enum TextModeAttrib {
 enum VideoClearFlag {
     VIDEO_CLEAR_FLAG_TB = 1 << 0,
     VIDEO_CLEAR_FLAG_FB = 1 << 1,
+};
+
+enum VideoROP {
+    VIDEO_CONFIG_ROP_COPY    = 0,
+    VIDEO_CONFIG_ROP_AND     = (VIDEO_ROP0) >> 4,
+    VIDEO_CONFIG_ROP_OR      = (VIDEO_ROP1) >> 4,
+    VIDEO_CONFIG_ROP_XOR     = (VIDEO_ROP1 | VIDEO_ROP0) >> 4,
+    VIDEO_CONFIG_ROP_NOT     = (VIDEO_ROP2) >> 4,
+    VIDEO_CONFIG_ROP_TRANS   = (VIDEO_ROP2 | VIDEO_ROP0) >> 4,
+    VIDEO_CONFIG_ROP_AND_NOT = (VIDEO_ROP2 | VIDEO_ROP1) >> 4,
+    VIDEO_CONFIG_ROP_ADDS    = (VIDEO_ROP2 | VIDEO_ROP1 | VIDEO_ROP0) >> 4,
+};
+
+enum VideoSpriteRotation {
+    VIDEO_ROT_IDENT,
+    VIDEO_ROT_FLIPH,
+    VIDEO_ROT_FLIPV,
+    VIDEO_ROT_90,
+    VIDEO_ROT_180,
+    VIDEO_ROT_270,
+    VIDEO_ROT_TRANS,
+    VIDEO_ROT_ANTITRANS,
 };
 
 enum VideoBatchFlags {
@@ -546,6 +579,7 @@ enum HwDevices {
     DEV_PCM,
     DEV_SERIAL,
     DEV_KEYBOARD,
+    DEV_MOUSE,
     _DEV_NUM,
 };
 
@@ -566,10 +600,17 @@ enum CanonIMode {
     IN_ECHO  = 1U << 1U,
     IN_CRNL  = 1U << 2U,
     IN_BLOCK = 1U << 3U,
+    IN_MIN1  = 1U << 4U,
 };
 
 enum CanonOMode {
-    OUT_NLCR = 1U << 0U,
+    OUT_NLCR     = 1U << 0U,
+    OUT_NOWRAP   = 1U << 1U,
+    OUT_NOSCROLL = 1U << 2U,
+};
+
+enum TermCap {
+    CAP_COLOR = 1U << 0U,
 };
 
 // Common CTL commands
@@ -599,6 +640,33 @@ enum TxtCtl {
     TCTL_SET_CURSOR,
     TCTL_SET_ATTR,
     TCTL_GET_ATTR,
+    TCTL_MAP_TEXTBUFFER,
+};
+
+enum VideoCtlCommon {
+    VCTL_LOAD_PALETTE = 50,
+    VCTL_LOAD_PALETTE_DEFAULT,
+    VCTL_MAP_FRAMEBUFFER,
+    GL_GET_FRAMEBUFFER_PHYS,
+    GL_DO_ROP,
+    GL_DO_BIND,
+    GL_DO_CLEAR,
+    GL_DO_CALL,
+    VCTL_WAIT_VBLANK,
+};
+
+enum SerCtl {
+    SCTL_READ,
+    SCTL_WRITE,
+};
+
+enum MousMode {
+    MOUS_REPORT = 1U << 0U,
+};
+
+enum MousCtl {
+    MCTL_SET_MODE,
+    MCTL_GET_MODE,
 };
 
 enum { RES_NODEV = 0, RES_HW, RES_VDEV, RES_FILE };
@@ -611,6 +679,197 @@ enum { RES_NODEV = 0, RES_HW, RES_VDEV, RES_FILE };
 #define	FA_CREATE_ALWAYS	0x08
 #define	FA_OPEN_ALWAYS		0x10
 #define	FA_OPEN_APPEND		0x30
+
+#ifdef IN_KERNEL
+#include "akai_def.h"
+#include "libsirius/devices.h"
+#endif
+
+/* -----------------------------------------
+   Basic Types
+   ----------------------------------------- */
+
+/* Physical address (GPU requires physical) */
+typedef uptr sgl_phys;
+typedef u8   sgl_color;
+
+/* -----------------------------------------
+   GPU ROPs and Rotations
+   ----------------------------------------- */
+
+typedef enum {
+    sgl_ROP_COPY    = 0,
+    sgl_ROP_AND     = VIDEO_CONFIG_ROP_AND,
+    sgl_ROP_OR      = VIDEO_CONFIG_ROP_OR,
+    sgl_ROP_XOR     = VIDEO_CONFIG_ROP_XOR,
+    sgl_ROP_NOT     = VIDEO_CONFIG_ROP_NOT,
+    sgl_ROP_TRANS   = VIDEO_CONFIG_ROP_TRANS,
+    sgl_ROP_AND_NOT = VIDEO_CONFIG_ROP_AND_NOT,
+    sgl_ROP_ADDS    = VIDEO_CONFIG_ROP_ADDS
+} sgl_rop;
+
+typedef enum {
+    sgl_ROT_IDENT     = VIDEO_ROT_IDENT,
+    sgl_ROT_FLIPH     = VIDEO_ROT_FLIPH,
+    sgl_ROT_FLIPV     = VIDEO_ROT_FLIPV,
+    sgl_ROT_90        = VIDEO_ROT_90,
+    sgl_ROT_180       = VIDEO_ROT_180,
+    sgl_ROT_270       = VIDEO_ROT_270,
+    sgl_ROT_TRANS     = VIDEO_ROT_TRANS,
+    sgl_ROT_ANTITRANS = VIDEO_ROT_ANTITRANS
+} sgl_rotation;
+
+/* -----------------------------------------
+   Surfaces
+   ----------------------------------------- */
+
+typedef struct sglSurface {
+    sgl_phys   phys_addr; /* physical address of pixel data */
+    sgl_color *buff;
+    u16        width;
+    u16        height;
+    u16        pitch; /* bytes per row */
+    u8         bpp;   /* bits per pixel (always 8 for your GPU) */
+    u8         id;    /* GPU descriptor index (0 = framebuffer) */
+} sglSurface;
+
+typedef struct sglContext {
+    sglSurface  F;   /* hardware framebuffer*/
+    sglSurface *T;   /* Target rendering surface */
+    sgl_rop     ROP; /* global ROP */
+    u8          id_bitset[256 / 8];
+    u8          saved_csr;
+} sglContext;
+
+typedef struct sglDrawCall {
+    enum {
+        SGL_LINE,
+        SGL_RECT,
+        SGL_CIRCLE,
+        SGL_TRI,
+        SGL_BLIT,
+        SGL_BLIT_STRETCH,
+        SGL_PATTERN_FILL,
+        SGL_FILL_HSPAN,
+        SGL_FILL_VSPAN
+    } type;
+
+    union {
+        struct {
+            u8        t_id;
+            sgl_color color;
+            u16       x0, y0, x1, y1;
+        } line;
+        struct {
+            u8        t_id;
+            sgl_color color;
+            u16       w, h, dx, dy;
+        } rect;
+        struct {
+            u8        t_id;
+            sgl_color outline;
+            sgl_color interior;
+            u8        mode;
+            u16       xm, ym, r;
+        } circle;
+        struct {
+            u8        t_id;
+            sgl_color color;
+            u16       x0, y0, x1, y1, x2, y2;
+        } tri;
+        struct {
+            u8        t_id;
+            sgl_color color;
+            u16       x0, x1, y;
+        } hspan;
+        struct {
+            u8        t_id;
+            sgl_color color;
+            u16       x, y0, y1;
+        } vspan;
+        struct {
+            u8           t_id;
+            sgl_color   *buff;
+            u16          sw, sh, dx, dy;
+            sgl_rotation rot;
+        } blit;
+        struct {
+            u8           t_id;
+            sgl_color   *buff;
+            u16          sw, sh, dx, dy, dw, dh;
+            sgl_rotation rot;
+        } blit_stretched;
+        struct {
+            u8           t_id;
+            sgl_color   *buff;
+            u8           pw, ph, u, v;
+            u16          dx, dy, dw, dh;
+            sgl_rotation rot;
+        } pattern;
+    } c;
+} sglDrawCall;
+
+#define CLIP(v, m) ((v) = (v) < 0 ? 0 : (v) >= (m) ? (m - 1) : (v))
+
+#ifndef IN_KERNEL
+/* -----------------------------------------
+   Initialization
+   ----------------------------------------- */
+/* false on error */
+bool sgl_init(void);
+
+void sgl_deinit(void);
+
+void sgl_wait_vblank(void);
+
+/* Bind framebuffer (surface 0) as default target
+false on error
+ */
+bool sgl_set_target(sglSurface *surf);
+
+/* -----------------------------------------
+   Frame Control
+   ----------------------------------------- */
+
+void sgl_begin_frame(void); /* queues VIDEO_COMMAND_BEGIN_DRAWING */
+void sgl_end_frame(void);   /* queues VIDEO_COMMAND_END_DRAWING   */
+
+/* -----------------------------------------
+   Surface Management
+   ----------------------------------------- */
+
+/* Create a GPU surface (must allocate physical memory!)
+NULL on error
+*/
+sglSurface *sglSurface_create(u16 width, u16 height);
+sglSurface *sglSurface_temp_target(sgl_color *buff, u16 width, u16 height);
+
+/* Destroy surface (you free memory, GPU just forgets descriptor) */
+void sglSurface_destroy(sglSurface *surf);
+
+/* -----------------------------------------
+   Drawing Primitives (GPU accelerated)
+   ----------------------------------------- */
+
+void sgl_clear(sgl_color color);
+
+void sgl_draw_pixel(sgl_color color, u16 x, u16 y);
+void sgl_draw_line(sgl_color color, u16 x0, u16 y0, u16 x1, u16 y1);
+void sgl_draw_rect(sgl_color color, u16 x, u16 y, u16 w, u16 h);
+void sgl_draw_circle(sgl_color color, u16 x, u16 y, i32 r, int filled);
+void sgl_draw_triangle(sgl_color color, u16 x0, u16 y0, u16 x1, u16 y1, u16 x2, u16 y2);
+
+/* -----------------------------------------
+   Blitting
+   ----------------------------------------- */
+void sgl_blit(sgl_color *buff, u16 dx, u16 dy, u16 w, u16 h, sgl_rop rop, sgl_rotation rot);
+
+void sgl_stretch_blit(sgl_color *buff, i32 sw, i32 sh, u16 dx, u16 dy, u16 dw, u16 dh,
+                      sgl_rotation rot, sgl_rop rop);
+
+void sgl_pattern_fill(sgl_color *buff, u8 pat_w, u8 pat_h, u8 u, u8 v, u16 dx, u16 dy, u16 dw,
+                      u16 dh, sgl_rotation rot, sgl_rop rop);
+#endif
 #define X(serivice, function, args, ret, doc)
 /* BEGIN_SYSCALL_LIST */
 #define SYSCALL_LIST                                                                                       \
@@ -810,11 +1069,9 @@ enum OpenFlags {
     O_APPEND        = 0x30, // FA_OPEN_APPEND,
 };
 
-enum SeekFlags {
-    SEEK_SET,
-    SEEK_CUR,
-    SEEK_END,
-};
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 
 enum TaleaException {
     EXCEPTION_NONE = -1,
@@ -900,8 +1157,7 @@ typedef struct AkaiDirEntry {
     u8 data[AKAI_DIR_ENTRY_SIZE];
 } AkaiDirEntry;
 
-#define MAX_PROCESS     255
-#define PROCESS_NAMELEN 10
+#define PROCESS_NAMELEN 12
 #define MAX_OPEN_FILES  8
 
 /*
@@ -1148,6 +1404,8 @@ typedef enum {
     KEY_KP_EQUAL    = 336  // Key: Keypad =
 } kbd_scancode;
 
+#define AKAI_MAX_SCANCODE 348
+
 #ifdef KEYS_INCLUDE_KEYNAME_MAP
 
 struct KeyMapping {
@@ -1319,6 +1577,7 @@ enum AnsiCmd {
     ANSI_ED  = 'J',
     ANSI_EL  = 'K',
     ANSI_SGR = 'm',
+    ANSI_DSR = 'n',
     ANSI_SU  = 'S',
     ANSI_SD  = 'T',
 
@@ -1360,6 +1619,24 @@ enum AnsiSGR {
 
 #define ANSI_MAX_PARAMS 16
 
+enum AnsiState { ANSI_STATE_GROUND, ANSI_STATE_ESC, ANSI_STATE_CSI };
+
+typedef struct {
+    enum AnsiState state; /* 0:GROUND, 1:ESC, 2:CSI */
+    int            params[ANSI_MAX_PARAMS];
+    int            p_idx;
+    int            current_num;
+    usize          lit_i;
+    bool           is_private;
+} AnsiParser;
+
+typedef struct {
+    enum AnsiCmd type;
+    int          params[ANSI_MAX_PARAMS];
+    int          param_count;
+    u8           chr; /* The actual character if type == ANSI_CHAR */
+    char         lit[32];
+} AnsiToken;
 void ak_exit(int exit_code);
 void ak_yield(void);
 int ak_rfork(u32 flags,u32 heirloom);

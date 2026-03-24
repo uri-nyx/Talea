@@ -205,11 +205,9 @@ enum OpenFlags {
     O_APPEND        = 0x30, // FA_OPEN_APPEND,
 };
 
-enum SeekFlags {
-    SEEK_SET,
-    SEEK_CUR,
-    SEEK_END,
-};
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 
 enum TaleaException {
     EXCEPTION_NONE = -1,

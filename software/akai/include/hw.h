@@ -15,8 +15,12 @@ extern u16   _lhud(u16 addr);
 extern u32   _lwd(u16 addr);
 extern void  _copydm(u16 data_addr_src, void *buff_dest, usize sz);
 extern void  _copymd(void *buff_src, u16 data_addr_dest, usize sz);
+
+/* @AKAI: 10000_HW */
 extern void *_fillw(void *s, u32 c, usize n);
 extern void *_copybck(void *src, void *dest, usize sz);
+/* @AKAI */
+
 extern u32   _disable_interrupts(void);
 #define _restore_interrupts(sreg) _ssreg((sreg))
 

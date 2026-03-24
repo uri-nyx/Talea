@@ -37,7 +37,7 @@ static void panic_puts(const char *str)
 {
     char *p = (char *)str;
     char  c;
-    while (c = *p++) {
+    while ((c = *p++)) {
         panic_putc(c);
     }
 }

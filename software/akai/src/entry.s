@@ -140,11 +140,8 @@ _interrupt:
     swd x5, 0x1004(x0) # store at DATA[0x1004]
 
     lbud x12, 441(x0)   # REG_SYSTEM_INTERRUPT (last interrupt ack)
-    sti
 
     call    akai_interrupt
-
-    cli
 
     restore x0, x0, x0
 

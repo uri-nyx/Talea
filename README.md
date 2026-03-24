@@ -92,12 +92,12 @@ Connecting to the serial port is a bit tricky if you want it to work as expected
 If you want or need to use the serial port as if it were so, follow this steps:
 
 1. Create a emulated serial to serial port bridge. In windows you can use com0com, I haven't tested this on linux.
-2. Create a bridge between one of the emulated ports and Talea's listening socket. In windows you can use com2tcp, or porticulus (this is what I used).
+2. Create a bridge between one of the emulated ports and Talea's listening socket. In windows you can use com2tcp, or ponticulus (this is what I used).
 3. Use a serial terminal, and connect to the emulated serial port.
 
 ```bash
 com0com install - -
-porticulus --com "\\.\COMPORT" 300 n 1  --1on1 --tcp --host 127.0.0.1 4321
+ponticulus --com "\\.\COMPORT" 300 8 n 1  --1on1 --tcp --host 127.0.0.1 4321
 ```
 
 The serial port is opened by default at `localhost:4321`. Connect to it from a network utility like `nc`, `telnet`, or a program like `PuTTY` or `TeraTerm`, following the above instructions. You can even connect from another machine (if you know how to reach your localhost)!

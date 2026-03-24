@@ -6,8 +6,9 @@
 
 #define err A.pr.curr->last_error
 
-static bool kbd_event_push(u32 e)
+bool kbd_event_push(u32 e)
 {
+    u8 character = (e >> 16) & 0xff;
     u8 next_head = (A.kb.events.head + 1);
     /* If the next position is where the tail is, we are full */
     if (next_head == A.kb.events.tail) {
@@ -119,15 +120,12 @@ void kbd_scan_hook(u32 *win, struct IPCMessage *msg_out)
     u8             *wait_queue;
     ProcessPID      kb_owner;
     struct Process *owner;
-    bool            dance;
     u32             event, sreg;
 
-    sreg       = _disable_interrupts();
-    wait_queue = A.kb.wait_queue;
-    kb_owner   = DEED_OWNER(&A.devices[DEV_KEYBOARD].deed);
-    owner      = &A.pr.proc[kb_owner];
-    dance      = false;
-    event      = _lwd(A.info.terminal + TERMINAL_KBD_CSR);
+    sreg     = _disable_interrupts();
+    kb_owner = DEED_OWNER(&A.devices[DEV_KEYBOARD].deed);
+    owner    = &A.pr.proc[kb_owner];
+    event    = _lwd(A.info.terminal + TERMINAL_KBD_CSR);
 
     // KILL SWITCH
     if ((u16)(event & (~0x8000U)) == AKAI_KILL_SWITCH && kb_owner > 1) {
@@ -147,125 +145,141 @@ void kbd_scan_hook(u32 *win, struct IPCMessage *msg_out)
     msg_out->subject = event;
     msg_out->content = NULL;
 
+    kbd_event_push(event);
+    kbd_process_input();
+    _restore_interrupts(sreg);
+}
+
+static void kbd_wake(struct Process *owner, u32 ret)
+{
+    BIT_CLR(A.kb.wait_queue, owner->pid);
+    process_set_ready(owner->pid);
+
+    owner->ctx.regs[10] = ret;
+
     if (A.kb.canonical & IN_CANON) {
-        u8 c;
+        A.kb.line_ready = false;
+        A.kb.pos        = 0;
+    } else if (A.kb.canonical & IN_BLOCK) {
+        A.kb.blocking = false;
+    }
+}
 
-        kbd_event_push(event);
+static void kbd_in_canon(struct Process *owner)
+{
+    bool       dance      = false;
+    ProcessPID owner_pid  = owner->pid;
+    u8        *wait_queue = A.kb.wait_queue;
+
+    u8 c;
+
 get_ansi:
-        c = kbd_event_to_ansi();
+    c = kbd_event_to_ansi();
 
-        _trace(0xDAFB0, 1, c);
-        if (c == 0) {
-            _restore_interrupts(sreg);
-            return;
+    if (c == 0) return;
+
+    switch (c) {
+    case '\n':
+    case '\r':
+        A.kb.line_ready = true;
+        if (A.kb.pos < LINE_BUFFER_LEN) {
+            c = (A.kb.canonical & IN_CRNL) ? '\n' : c;
+
+            A.kb.line[A.kb.pos++] = c;
         }
-
-        switch (c) {
-        case '\n':
-        case '\r':
-            A.kb.line_ready = true;
-            if (A.kb.pos < LINE_BUFFER_LEN) {
-                c = (A.kb.canonical & IN_CRNL) ? '\n' : c;
-
-                A.kb.line[A.kb.pos++] = c;
-            }
-            break;
-        case '\b':
-            if (A.kb.pos > 0) {
-                A.kb.pos--;
-                dance = true;
-            }
-            break;
-        default:
-            if (A.kb.pos < LINE_BUFFER_LEN) {
-                A.kb.line[A.kb.pos++] = c;
-            } else {
-                A.kb.line_ready = true;
-            }
-            break;
+        break;
+    case '\b':
+        if (A.kb.pos > 0) {
+            A.kb.pos--;
+            dance = true;
         }
-
-        _trace(0xDAFB11, A.kb.canonical & IN_ECHO, owner->stdout.res_type == HW,
-               owner->stdout.res.hw->num == DEV_TEXTBUFFER);
-        _trace(0xDAFB11, A.kb.canonical);
-        if ((A.kb.canonical & IN_ECHO) && owner->stdout.res_type == HW &&
-            owner->stdout.res.hw->num == DEV_TEXTBUFFER) {
-            _trace(0xABCD, c);
-            video_emit(c);
-            if (dance) {
-                video_emit(' ');
-                video_emit(c);
-            }
-        }
-
-        // maybe rollong back the syscall is not the worst idea
-        if (A.kb.line_ready && BIT_TEST(wait_queue, kb_owner)) {
-            u8 *buff = (u8 *)owner->ctx.regs[15];
-            u32 len  = owner->ctx.regs[16];
-
-            _trace(0xDAFB0, 2, kb_owner);
-
-            len = len > A.kb.pos ? A.kb.pos : len;
-
-            _trace(0xDAFB0, 3, buff, len);
-            copy_to_user(owner, buff, A.kb.line, len);
-            _trace(0xDAFB0, 4, len);
-
-            BIT_CLR(wait_queue, kb_owner);
-            process_set_ready(kb_owner);
-
-            _trace(0xDAFB12, owner->ctx.pc, owner->ctx.status, owner->ctx.usp);
-            _trace(0xDAFB12, owner->ctx.wp, owner->ctx.regs[1]);
-            _trace(0xDAFB0, 3, kb_owner);
-            owner->ctx.regs[10] = len;
-            A.kb.line_ready     = false;
-            A.kb.pos            = 0;
-            _restore_interrupts(sreg);
-            return;
-        } else if (!A.kb.line_ready && A.kb.ansi_seq != NULL) {
-            goto get_ansi;
-        }
-
-    } else if ((A.kb.canonical & IN_BLOCK) && A.kb.blocking) {
-        u8  c;
-        u8 *out      = (u8 *)owner->ctx.regs[15];
-        u32 expected = owner->ctx.regs[16];
-
-        kbd_event_push(event);
-        c = kbd_event_to_ansi();
-
-        do {
-            if (c == 0) {
-                _restore_interrupts(sreg);
-                return;
-            }
-
-            if (BIT_TEST(wait_queue, kb_owner) && A.kb.next < expected) {
-                copy_to_user(owner, out + A.kb.next++, &c, 1);
-                if (A.kb.next == expected) {
-                    BIT_CLR(wait_queue, kb_owner);
-                    process_set_ready(kb_owner);
-                    owner->ctx.regs[10] = A.kb.next;
-                    A.kb.blocking       = false;
-                    _restore_interrupts(sreg);
-                    return;
-                }
-            }
-        } while ((c = kbd_event_to_ansi()));
-    } else {
-        if (BIT_TEST(wait_queue, kb_owner)) {
-            BIT_CLR(wait_queue, kb_owner);
-            process_set_ready(kb_owner);
-            owner->ctx.regs[10] = event;
-            _restore_interrupts(sreg);
-            return;
+        break;
+    default:
+        if (A.kb.pos < LINE_BUFFER_LEN) {
+            A.kb.line[A.kb.pos++] = c;
         } else {
-            _trace(0xDACA, event);
-            kbd_event_push(event);
+            A.kb.line_ready = true;
+        }
+        break;
+    }
+
+    if ((A.kb.canonical & IN_ECHO) && owner->stdout.res_type == HW &&
+        owner->stdout.res.hw->num == DEV_TEXTBUFFER) {
+        video_emit(c);
+        if (dance) {
+            video_emit(' ');
+            video_emit(c);
         }
     }
 
-    _restore_interrupts(sreg);
+    if (A.kb.line_ready && BIT_TEST(wait_queue, owner_pid)) {
+        u8 *buff = (u8 *)owner->ctx.regs[15];
+        u32 len  = owner->ctx.regs[16];
+        len      = len > A.kb.pos ? A.kb.pos : len;
+
+        copy_to_user(owner, buff, A.kb.line, len);
+        kbd_wake(owner, len);
+
+        return;
+    } else if (!A.kb.line_ready && A.kb.ansi_seq != NULL) {
+        goto get_ansi;
+    }
+}
+
+static void kbd_in_block(struct Process *owner)
+{
+    ProcessPID owner_pid  = owner->pid;
+    u8        *wait_queue = A.kb.wait_queue;
+
+    u8  c;
+    u8 *out      = (u8 *)owner->ctx.regs[15];
+    u32 expected = owner->ctx.regs[16];
+
+    _trace(0x188802, 1);
+
+    while (true) {
+        _trace(0x188802, 2);
+        c = kbd_event_to_ansi();
+        _trace(0x188802, 3, c);
+
+        if (c == 0) {
+            if ((A.kb.canonical & IN_MIN1) && A.kb.next > 0) {
+                kbd_wake(owner, A.kb.next);
+            }
+            return;
+        }
+
+        if (BIT_TEST(wait_queue, owner_pid) && A.kb.next < expected) {
+            _trace(0xdeaf087, out, A.kb.next, out + A.kb.next + 1);
+            copy_to_user(owner, out + A.kb.next++, &c, 1);
+            if (A.kb.next == expected) {
+                kbd_wake(owner, A.kb.next);
+                return;
+            }
+        }
+    }
+}
+
+void kbd_process_input(void)
+{
+    ProcessPID      owner_pid  = DEED_OWNER(&A.devices[DEV_KEYBOARD].deed);
+    struct Process *owner      = &A.pr.proc[owner_pid];
+    u8             *wait_queue = A.kb.wait_queue;
+
+    _trace(0x18880, 5);
+
+    if (!BIT_TEST(wait_queue, owner_pid)) return;
+
+    if (A.kb.canonical & IN_CANON) {
+        _trace(0x188801, 1);
+        kbd_in_canon(owner);
+    } else if ((A.kb.canonical & IN_BLOCK) && A.kb.blocking) {
+        _trace(0x188801, 2);
+        kbd_in_block(owner);
+    } else {
+        _trace(0x188801, 3);
+        kbd_wake(owner, kbd_event_pop());
+    }
 }
 
 u8 kbd_in(u8 port)
@@ -307,7 +321,11 @@ i32 kbd_ctl(u32 command, void *buff, u32 len)
 {
     switch (command) {
     case DEV_RESET: return kbd_reset();
-    case KCTL_GETKEY: return (i32)kbd_event_pop();
+    case KCTL_GETKEY: {
+        u32 e = kbd_event_pop();
+        //miniprint("GETKEY: e = %x (scan = %x, Q %x, <- %x)\n", e, (u16)(e & (~0x8000U)), KEY_Q, KEY_LEFT);
+        return (i32)e;
+    }
     case KCTL_WAITKEY: {
         u32 e = kbd_event_pop();
         if (e == 0) {
@@ -349,7 +367,9 @@ i32 kbd_ctl(u32 command, void *buff, u32 len)
             for (i = 0; i < len; i++) {
                 u8 c = kbd_event_to_ansi();
                 _trace(0xDEFAD01, c, i);
-                if (c == 0) {
+                if (c == 0 && ((A.kb.canonical & IN_MIN1) && i >= 1)) {
+                    break;
+                } else if (c == 0) { // TODO: implement VMIN
                     A.kb.blocking = true;
                     A.kb.next     = i;
                     process_wait(A.pr.curr->pid);

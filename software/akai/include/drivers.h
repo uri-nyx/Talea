@@ -26,7 +26,7 @@ struct DriverKb {
 
 struct DriverTxt {
     u8   x, y, sx, sy;
-    u8   w, h, bpc;
+    u8   w, h, bpc, cw, ch;
     u8   attr[3], default_attr[3], saved_attr[3];
     u8   tabsize;
     u8   canonical;
@@ -35,17 +35,53 @@ struct DriverTxt {
     AnsiParser ansi;
 };
 
-/* KB */
+struct DriverFb {
+    u8 wait_queue[(MAX_PROCESS + 7) / 8];
+};
+
+struct mous_ev {
+    u16  x, y;
+    bool left, right;
+    u8   csr;
+};
+
+struct DriverMouse {
+    struct mous_ev ev_prev, ev_curr;
+    bool           new_ev;
+    u8             cx, cy;
+    u16            px, py;
+    bool           lp, lr, rp, rr;
+    bool           left, right;
+    u8             mode;
+};
+
+u8   ser_in(u8 port);
+i32  ser_out(u8 port, u8 value);
+i32  ser_reset(void);
+i32  ser_ctl(u32 command, void *buff, u32 len);
+void ser_driver_init(void);
 
 void kbd_scan_hook(u32 *win, struct IPCMessage *msg_out);
 u8   kbd_in(u8 port);
 i32  kbd_out(u8 port, u8 value);
 i32  kbd_reset(void);
 i32  kbd_ctl(u32 command, void *buff, u32 len);
+void kbd_driver_init(void);
+void kbd_process_input(void);
 
-u8  txt_in(u8 port);
-i32 txt_out(u8 port, u8 value);
-i32 txt_reset(void);
-i32 txt_ctl(u32 command, void *buff, u32 len);
+u8   txt_in(u8 port);
+i32  txt_out(u8 port, u8 value);
+i32  txt_reset(void);
+i32  txt_ctl(u32 command, void *buff, u32 len);
+void video_driver_init(void);
+void fb_vblank_hook(u32 *win, struct IPCMessage *msg_out);
+
+void mous_poll(u16 *outx, u16 *outy, u8 *csr, bool *left, bool *right);
+u8   mous_in(u8 port);
+i32  mous_out(u8 port, u8 value);
+i32  mous_reset(void);
+i32  mous_ctl(u32 command, void *buff, u32 len);
+void mous_driver_init(void);
+bool mous_inject_event();
 
 #endif /* DRIVERS_H */

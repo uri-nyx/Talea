@@ -246,6 +246,7 @@ static bool initiateConnection(TaleaMachine *m, const char *address, bool need_t
 
     modem->state = TERMINAL_MODEM_STATE_DATA;
     Modem_SendResponse(m, TERMINAL_HAYES_CONNECT);
+    m->terminal.serial.status |= TERMINAL_SER_STATUS_CARRIER_DETECT;
     return true;
 }
 
@@ -397,9 +398,9 @@ void Modem_ProcessCommand(TaleaMachine *m, u8 byte)
         modem->lastWasA = false;
         modem->cmdPos--;
         if (modem->echoEnabled) {
-            Serial_PushByte(m, modem->sRegs[5]);
             Serial_PushByte(m, ' ');
             Serial_PushByte(m, modem->sRegs[5]);
+            // Serial_PushByte(m, modem->sRegs[5]);
         }
     }
 
@@ -604,6 +605,7 @@ skip_ring:
                 } else {
                     // SUCCESS!
                     modem->state = TERMINAL_MODEM_STATE_DATA;
+                    m->terminal.serial.status |= TERMINAL_SER_STATUS_CARRIER_DETECT;
                     Modem_SendResponse(m, TERMINAL_HAYES_CONNECT);
                 }
             }

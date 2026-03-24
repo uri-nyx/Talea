@@ -77,14 +77,16 @@ static inline u32 GET_PC(TaleaMachine *m)
     return (m->cpu.pc);
 }
 
+
+#define NOTRACE
 static inline void trace(TaleaMachine *m, u8 r1, u8 r2, u8 r3, u8 r4)
 {
-    /*
+    #ifndef NOTRACE
     TALEA_LOG_TRACE(
         "[TRACE] R%d: %08x | R%d: %08x | R%d: %08x | R%d: %08x --- at %08x (ra: %08x) (sp: %08x) cwp: %d\n",
         r1, GPR_GET(m, r1), r2, GPR_GET(m, r2), r3, GPR_GET(m, r3), r4, GPR_GET(m, r4), GET_PC(m),
         GPR_GET(m, x1), GPR_GET(m, x2), m->cpu.cwp);
-    */
+    #endif
 }
 
 static inline void SetSupervisor(TaleaMachine *m)
@@ -265,7 +267,7 @@ void MMU_FlushTLB(TaleaMachine *m)
 static inline bool MMU_VerifyPerms(u16 perm, enum MemAccessType access_type, bool is_supervisor)
 {
     if (!is_supervisor && !(perm & PTE_U)) {
-        TALEA_LOG_TRACE("Required supervisor\n");
+        TALEA_LOG_TRACE("Required supervisor (%x)\n", perm);
         return false;
     }
 

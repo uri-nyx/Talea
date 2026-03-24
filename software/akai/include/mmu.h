@@ -15,7 +15,7 @@ usize copy_to_user(struct Process *dest_proc, void *user_dst, void *kernel_src, 
 void map_pdt_entry(u32 pdt_base, u32 id, u32 page, u32 flags);
 void unmap_pdt_entry(u32 pdt_base, u32 id);
 void map_pt_entry(u32 *pt, u32 id, u32 page, u32 flags);
-void chperm_pt_entry(u32 *pt, u32 id, u32 flags);
+void chperm_pt_entry(u32 *pt, u32 vaddr, u32 flags);
 void map_pt_range(u32 *pt, u32 pstart, u32 vstart, usize num_pages, u32 flags);
 void unmap_pt_entry(u32 *pt, u32 id);
 void tlb_flush(void);

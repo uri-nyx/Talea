@@ -498,14 +498,18 @@ static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 
         return;
     }
 
+    // TALEA_LOG_TRACE("Clearing %x\n", flags);
+
     if (flags & VIDEO_CLEAR_FLAG_TB) {
         u32 bePattern = toBe32(pattern);
         Bus_Memset32(m, &v->textbuffer.view, bePattern, v->textbuffer.h * v->textbuffer.w);
+        // TALEA_LOG_TRACE("Clearing tb %x\n", bePattern);
     }
 
     if (flags & VIDEO_CLEAR_FLAG_FB) {
         Bus_Memset(m, &v->framebuffer.view, color,
                    (v->framebuffer.h * v->framebuffer.w * v->framebuffer.stride));
+        // TALEA_LOG_TRACE("Clearing fb %x\n", color);
     }
 
     v->cursorCellIndex = 0;
@@ -592,6 +596,11 @@ static void Video_Blit(TaleaMachine *m, DeviceVideo *vid, struct Buff2D *dest, u
                        enum VideoSpriteRotation rotation)
 {
     // TODO: acquire a view of the context on bind!
+    if (!dest || !dest->view.ptr || dest->view.length == 0) {
+        // invalid view, nothing to draw into
+        TALEA_LOG_ERROR("BAD BLIT DEST\n");
+        return;
+    }
 
     u8 *dest_start = dest->view.ptr;
     u8 *dest_end   = dest_start + dest->view.length;
@@ -601,6 +610,7 @@ static void Video_Blit(TaleaMachine *m, DeviceVideo *vid, struct Buff2D *dest, u
 
     if (src >= dest_start && src < dest_end) {
         // buffers overlap
+        TALEA_LOG_TRACE("Overlap in blit\n");
         temp_src = malloc((size_t)w * h * sizeof(u8));
         if (!temp_src) {
             // panic here?
@@ -641,10 +651,13 @@ static void Video_Blit(TaleaMachine *m, DeviceVideo *vid, struct Buff2D *dest, u
             int base_x = x + (int)(tx * ratio_x);
             int base_y = y + (int)(ty * ratio_y);
 
-            u8 pixel = temp_src[v * w + u];
+            u8 pixel = temp_src[v * w + u]; /*7128*/ /*76800*/
 
-            for (size_t sy = 0; sy < (int)ceil(ratio_y); sy++) {
-                for (size_t sx = 0; sx < (int)ceil(ratio_x); sx++) {
+            int sx_max = (int)ceil(ratio_x);
+            int sy_max = (int)ceil(ratio_y);
+
+            for (size_t sy = 0; sy < sy_max; sy++) {
+                for (size_t sx = 0; sx < sx_max; sx++) {
                     int curr_x = base_x + sx;
                     int curr_y = base_y + sy;
 
@@ -1510,6 +1523,8 @@ static void Video_ProcessBatch(TaleaMachine *m, DeviceVideo *v, struct Buff2D *d
     }
 }
 
+static const char *DEFAULT_FONT;
+
 static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCmd *cmd)
 {
     switch (cmd->op) {
@@ -1578,11 +1593,8 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
                     v->framebuffer.w * v->framebuffer.h * v->framebuffer.stride) {
                 TALEA_LOG_WARNING(
                     "Could not set address for framebuffer at 0x%06x (required %d bytes, %d bpp), dma denied (max mem: 0x%08x)\n",
-                    fb, 
-                    v->framebuffer.w * v->framebuffer.h * v->framebuffer.stride,
-                    v->framebuffer.stride,
-                    TALEA_MAIN_MEM_SZ
-                    );
+                    fb, v->framebuffer.w * v->framebuffer.h * v->framebuffer.stride,
+                    v->framebuffer.stride, TALEA_MAIN_MEM_SZ);
                 v->error = VIDEO_ERROR_DMA;
             }
         }
@@ -1605,7 +1617,8 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the type of load
-        //      0: FONT BASE CP0 2: FONT BASE CP1...ALT FONT CP1 4: PALETTE
+        //      0: FONT BASE CP0 2: FONT BASE CP1...ALT FONT CP1 4: PALETTE 5: DEFAULT PALETTE 6:
+        //      DEFAULT FONT
         //  Takes 1 half word in GPU1-2 for the address of the buffer in DATA MEMORY
         //  Takes 1 byte in GPU3 for the element count (COLORS or GLYPHS) - 1 (range 1 to 256)
         //  Takes 1 byte in GPU4 for the starting element index (range 0 to 255)
@@ -1682,7 +1695,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
                 break;
             }
 
-            for (size_t i = start_idx, k = 0; i < count + start_idx; i++) {
+            for (size_t i = start_idx, k = 0; i < count + start_idx; i++, k++) {
                 v->renderer.shaderPalette[(i * 4)]     = data[(k * 4)];
                 v->renderer.shaderPalette[(i * 4) + 1] = data[(k * 4) + 1];
                 v->renderer.shaderPalette[(i * 4) + 2] = data[(k * 4) + 2];
@@ -1701,6 +1714,29 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
             TALEA_LOG_TRACE("Successfuly loaded %d colors to the pallete\n", count);
 #endif
 
+            break;
+        case 5: // default palette
+            memcpy(&m->video.renderer.shaderPalette, Palette_Default_Aurora,
+                   sizeof(u32) * 4 * (256));
+            Video_BuildShadesTable(&m->video.colorShades, &m->video.renderer.shaderPalette, 256);
+            SetShaderValueV(v->renderer.fbShader, v->renderer.fbPaletteLoc,
+                            v->renderer.shaderPalette, SHADER_UNIFORM_IVEC4, 256);
+            SetShaderValueV(v->renderer.shader, v->renderer.paletteLoc, v->renderer.shaderPalette,
+                            SHADER_UNIFORM_IVEC4, 256);
+            break;
+        case 6: // default font
+            Video_PrepareFont(m, &m->video, VIDEO_FONT_BASE_CP0,
+                              TextFormat("%s%s", FONT_PATH, DEFAULT_FONT)); // put a list
+                                                                            // in toml
+            Video_PrepareFont(m, &m->video, VIDEO_FONT_BASE_CP1,
+                              TextFormat("%s%s", FONT_PATH, DEFAULT_FONT)); // put a list
+                                                                            // in toml
+            Video_PrepareFont(m, &m->video, VIDEO_ALT_FONT_CP0,
+                              TextFormat("%s%s", FONT_PATH, DEFAULT_FONT)); // put a list
+                                                                            // in toml
+            Video_PrepareFont(m, &m->video, VIDEO_ALT_FONT_CP1,
+                              TextFormat("%s%s", FONT_PATH, DEFAULT_FONT)); // put a list
+                                                                            // in toml
             break;
         default:
             TALEA_LOG_TRACE("Unknonw load subcommand\n");
@@ -1756,10 +1792,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
     case VIDEO_COMMAND_STRETCH_BLIT: {
         // TODO: Document
         // Arg 0:
-        //  Takes 1 byte in GPU0:
-        //      3 bits for the rotation mode
-        //      5 bits for the destination context pointer
-        // TODO: document that blits can only be stretched on the first 32 surfaces
+        //  Takes 1 byte in GPU0 for the destination context pointer
         //  Takes 1 sesqui GPU1-3 for the buffer address
         //  Takes 1 half word on GPU4-5 for the buffer width
         //  Takes 1 half word on GPU6-7 for the buffer height
@@ -1768,19 +1801,20 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         //  Takes 1 half word on GPU2-3 for the dest y
         //  Takes 1 half word on GPU4-5 for the dest w
         //  Takes 1 half word on GPU6-7 for the dest h
+        // Arg 2:
+        // Takes 1 byte in GPU0 for the rotation mode
 
-        if (cmd->argc > 2) {
+        if (cmd->argc > 3) {
             goto too_many_args;
             break;
-        } else if (cmd->argc < 2) {
+        } else if (cmd->argc < 3) {
             goto not_enough_args;
             break;
         }
 
-        u8 gpu0 = cmd->args[0] >> 56;
-        u8 ctx  = gpu0 & 0x1f;
+        u8 ctx = cmd->args[0] >> 56;
 
-        enum VideoSpriteRotation rotation = gpu0 >> 5;
+        enum VideoSpriteRotation rotation = cmd->args[2] >> 56;
 
         struct Buff2D *dest = ctx ? &v->ctx[ctx] : &v->framebuffer;
 
@@ -1799,7 +1833,11 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
             TALEA_LOG_ERROR("COMMAND STRETCH BLIT could not acquire a view of the source\n");
             return;
         }
-        u8 *src = &src_view.ptr;
+        u8 *src = src_view.ptr;
+
+        TALEA_LOG_TRACE(
+            "Strecth blit, dest %d (w %d, h %d), from sw %d sh %d, to (%d,%d) dw %d, dh %d\n", ctx,
+            dest->w, dest->h, w, h, x, y, dest_w, dest_h);
 
         Video_Blit(m, v, dest, src, w, h, x, y, dest_w, dest_h, rotation);
 
@@ -1809,10 +1847,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
     case VIDEO_COMMAND_PATTERN_FILL: {
         // TODO: Document
         // Arg 0:
-        //  Takes 1 byte in GPU0:
-        //      3 bits for the rotation mode
-        //      5 bits for the destination context pointer
-        // TODO: document that pattern fills can only be done on the first 32 surfaces
+        //  Takes 1 byte in GPU0 for the destination context pointer
         //  Takes 1 sesqui GPU1-3 for the pattern address
         //  Takes 1 byte on GPU4 for the pattern width (max pattern is 256x256)
         //  Takes 1 byte on GPU5 for the pattern height
@@ -1823,19 +1858,20 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         //  Takes 1 half word on GPU2-3 for the dest y
         //  Takes 1 half word on GPU4-5 for the dest w
         //  Takes 1 half word on GPU6-7 for the dest h
+        // Arg 2:
+        // Takes 1 byte in GPU0 for the rotation mode
 
-        if (cmd->argc > 2) {
+        if (cmd->argc > 3) {
             goto too_many_args;
             break;
-        } else if (cmd->argc < 2) {
+        } else if (cmd->argc < 3) {
             goto not_enough_args;
             break;
         }
 
-        u8 gpu0 = cmd->args[0] >> 56;
-        u8 ctx  = gpu0 & 0x1f;
+        u8 ctx = cmd->args[0] >> 56;
 
-        enum VideoSpriteRotation rotation = gpu0 >> 5;
+        enum VideoSpriteRotation rotation = cmd->args[2] >> 56;
 
         struct Buff2D *dest = ctx ? &v->ctx[ctx] : &v->framebuffer;
 
@@ -1868,7 +1904,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
-        //  Takes 1 byte GPU for the color of the rect
+        //  Takes 1 byte GPU1 for the color of the rect
         //  Takes 1 half word on GPU4-5 for the rect width
         //  Takes 1 half word on GPU6-7 for the rect height
         // Arg 1:
@@ -1880,8 +1916,8 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
 
         u8 color = (cmd->args[0] >> 48) & 0xff;
 
-        u16 h = cmd->args[0] >> 16;
-        u16 w = cmd->args[0];
+        u16 w = cmd->args[0] >> 16;
+        u16 h = cmd->args[0];
 
         u16 x = cmd->args[1] >> 48;
         u16 y = cmd->args[1] >> 32;
@@ -1896,7 +1932,7 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         // TODO: Document
         // Arg 0:
         //  Takes 1 byte in GPU0 for the destination context pointer
-        //  Takes 1 byte GPU2 for the color of the line
+        //  Takes 1 byte GPU1 for the color of the line
         //  Takes 1 half word on GPU4-5 for the line x0
         //  Takes 1 half word on GPU6-7 for the line y0
         // Arg 1:
@@ -2092,6 +2128,8 @@ static void Video_ExecuteCommand(TaleaMachine *m, DeviceVideo *v, struct VideoCm
         // Takes 1 byte on GPU0 for the csr.
         u8 value = cmd->args[0] >> 56;
 
+        // TALEA_LOG_TRACE("Old csr %02x, new %02x\n", v->csr, value);
+
         v->vblankEnable = value & VIDEO_VBLANK_EN;
         v->cursorEnable = (value & VIDEO_CURSOR_EN) >> 2;
         v->cursorBlink  = (value & VIDEO_CURSOR_BLINK) >> 3;
@@ -2248,6 +2286,7 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         v->ctx[slot].h      = h;
         v->ctx[slot].stride = 1;
 
+        TALEA_LOG_TRACE("BOUND slot %d, to %06x, w %d, h %d\n", slot, view.guest_addr, w, h);
         v->lastExecutedCommand = value;
         break;
     }
@@ -2285,21 +2324,23 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
     case VIDEO_COMMAND_FILL_SPAN: {
         // This is very ugly
         u8 ctx = v->currentCmd.args[0] >> 56;
-        if (value == VIDEO_COMMAND_STRETCH_BLIT || value == VIDEO_COMMAND_PATTERN_FILL) ctx &= 0x1f;
 
         // Beware of null pointer dereferences!
         if (ctx != 0) {
             v->currentCmd.op = value;
             if (!v->ctx[ctx].view.ptr) {
                 v->currentCmd.argc = 0;
+                TALEA_LOG_ERROR("ERROR DMA ON surface %d, op %d\n", ctx, value);
                 return VIDEO_ERROR_DMA;
             }
+            // TALEA_LOG_ERROR("EXecuting on surface %d, op %d\n", ctx, value);
             Video_ExecuteCommand(m, v, &v->currentCmd);
         } else {
             if (!v->framebuffer.view.ptr) {
                 v->currentCmd.argc = 0;
                 return VIDEO_ERROR_DMA;
             }
+            // TALEA_LOG_ERROR("Queueing on framebuffer %d, op %d\n", ctx, value);
             Video_PushCommandQueue(m, value, &v->currentCmd);
         }
         break;
@@ -2446,6 +2487,8 @@ void Video_Reset(TaleaMachine *m, TaleaConfig *config, bool is_restart)
                       TextFormat("%s%s", FONT_PATH, config->hardware_font)); // put a list in toml
     Video_PrepareFont(m, &m->video, VIDEO_ALT_FONT_CP1,
                       TextFormat("%s%s", FONT_PATH, config->hardware_font)); // put a list in toml
+
+    DEFAULT_FONT = config->hardware_font;
 
     m->video.framebuffer.view =
         Bus_GetView(m, VIDEO_FRAMEBUFFER_ADDR,

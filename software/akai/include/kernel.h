@@ -66,6 +66,8 @@ struct Akai {
     // Hardware drivers
     struct DriverKb  kb;
     struct DriverTxt txt;
+    struct DriverMouse mous;
+    struct DriverFb fb;
 };
 
 extern struct Akai A;

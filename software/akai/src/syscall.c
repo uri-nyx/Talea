@@ -339,7 +339,8 @@ static i32 ak_exit(u32 *win)
     A.pr.curr->exit_code = exit_code;
 
     _trace(0xD00DA, A.pr.curr->last_error);
-    //miniprint("Process %d (%s) exiting with code %d\n", A.pr.curr->pid, A.pr.curr->name, exit_code);
+    // miniprint("Process %d (%s) exiting with code %d\n", A.pr.curr->pid, A.pr.curr->name,
+    // exit_code);
 
     process_terminate(A.pr.curr->pid, WARRANT_NONE);
 
@@ -969,11 +970,15 @@ static i32 ak_dev_claim(u32 *win)
         return (signed)A_ERROR_INVAL;
     }
 
+    if (DEED_OWNER(&A.devices[devnum].deed) == A.pr.curr->pid) {
+        return (signed)A_OK;
+    }
+
     if (!DEED_UNCLAIMED(&A.devices[devnum].deed)) {
         err = A_ERROR_CLAIM;
         return (signed)A_ERROR_CLAIM;
     }
-    
+
     A.devices[devnum].deed.lineage[0] = A.pr.curr->pid;
     A.devices[devnum].deed.depth++;
 
@@ -1435,7 +1440,7 @@ static i32 ak_opendir(u32 *win)
 static i32 ak_closedir(u32 *win)
 {
     DIR *d     = (DIR *)win[13]; //
-    int  flags = win[14]; // ignored for now
+    int  flags = win[14];        // ignored for now
 
     FRESULT res;
 
@@ -1786,6 +1791,7 @@ static i32 ak_abort(u32 *win)
 {
     (void)win;
     process_terminate(A.pr.curr->pid, WARRANT_ABORT);
+    return (signed)A_ERROR;
 }
 
 static i32 ak_time(u32 *win)

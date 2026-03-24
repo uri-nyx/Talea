@@ -9,7 +9,7 @@
 #include <string.h>
 #include <time.h>
 
-#define VERSION "0.3"
+#define VERSION "0.4"
 #define DATE    __DATE__
 
 #define AKSH_MAX_ARGV 16
@@ -376,19 +376,220 @@ static int cmd_rmdir(int argc, char **argv)
     }
     return 0;
 }
+static int rm_recursive(const char *path)
+{
+    struct AkaiDir      d;
+    struct AkaiDirEntry e;
+    int                 res;
+    char                sub[256];
+
+    if (!is_directory(path)) {
+        return ak_unlink(path);
+    }
+
+    res = ak_opendir(&d, path, 0);
+    if (res != A_OK) return res;
+
+    while (1) {
+        char *name;
+
+        res = ak_readdir(&d, &e, 0);
+        if (res != A_OK) break;
+
+        name = ADIR_FNAME(e.data);
+        if (!*name) break;
+
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+
+        sprintf(sub, "%s/%s", path, name);
+
+        if (ADIR_FATTRIB(e.data) & AK_ATTR_DIR)
+            rm_recursive(sub);
+        else
+            ak_unlink(sub);
+    }
+
+    ak_closedir(&d, 0);
+    return ak_unlink(path);
+}
 
 static int cmd_rm(int argc, char **argv)
 {
-    usize i;
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <file> [more-files...]\n", argv[0]);
-        return 127;
-    };
+    int recursive = 0;
+    int i;
+    int argi;
 
-    for (i = 1; i < argc; i++) {
-        int res = ak_unlink(argv[i]);
-        if (res != A_OK) fprintf(stderr, "Error deleting %s (%d)\n", argv[i], res);
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s [-r] <file> [more-files...]\n", argv[0]);
+        return 127;
     }
+
+    argi = 1;
+
+    /* optional -r */
+    if (strcmp(argv[argi], "-r") == 0) {
+        recursive = 1;
+        argi++;
+        if (argc - argi < 1) {
+            fprintf(stderr, "Usage: %s [-r] <file> [more-files...]\n", argv[0]);
+            return 127;
+        }
+    }
+
+    for (i = argi; i < argc; i++) {
+        const char *path = argv[i];
+
+        if (is_directory(path)) {
+            if (!recursive) {
+                fprintf(stderr, "rm: cannot remove '%s': is a directory\n", path);
+                continue;
+            }
+
+            /* recursive delete */
+            if (rm_recursive(path) != A_OK) {
+                fprintf(stderr, "rm: failed to remove directory '%s'\n", path);
+            }
+        } else {
+            /* delete file */
+            if (ak_unlink(path) != A_OK) {
+                fprintf(stderr, "rm: failed to remove '%s'\n", path);
+            }
+        }
+    }
+
+    return 0;
+}
+
+static int cmd_hexdump(int argc, char **argv)
+{
+    int           fd;
+    unsigned char buf[16];
+    unsigned char prev[16];
+    int           prev_valid = 0;
+    int           compress   = 0;
+    int           n;
+    unsigned long offset       = 0;
+    unsigned long start_offset = 0;
+    unsigned long max_bytes    = 0xFFFFFFFFUL;
+    int           argi         = 1;
+    int           i;
+
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s [-o offset] [-n size] [-s] <file>\n", argv[0]);
+        return 127;
+    }
+
+    /* parse flags */
+    while (argi < argc && argv[argi][0] == '-') {
+        if (strcmp(argv[argi], "-o") == 0) {
+            argi++;
+            if (argi >= argc) {
+                fprintf(stderr, "hexdump: missing offset\n");
+                return 127;
+            }
+            start_offset = (unsigned long)strtoul(argv[argi], 0, 0);
+        } else if (strcmp(argv[argi], "-n") == 0) {
+            argi++;
+            if (argi >= argc) {
+                fprintf(stderr, "hexdump: missing size\n");
+                return 127;
+            }
+            max_bytes = (unsigned long)strtoul(argv[argi], 0, 0);
+        } else if (strcmp(argv[argi], "-s") == 0) {
+            compress = 1;
+        } else {
+            break;
+        }
+        argi++;
+    }
+
+    if (argi >= argc) {
+        fprintf(stderr, "Usage: %s [-o offset] [-n size] [-s] <file>\n", argv[0]);
+        return 127;
+    }
+
+    fd = ak_open(argv[argi], O_READ | O_OPEN_EXISTING);
+    if (fd < 0) {
+        fprintf(stderr, "hexdump: cannot open '%s'\n", argv[argi]);
+        return fd;
+    }
+
+    /* seek to offset */
+    if (start_offset > 0) {
+        if (ak_seek(fd, start_offset, SEEK_SET) < 0) {
+            fprintf(stderr, "hexdump: cannot seek\n");
+            ak_close(fd);
+            return -1;
+        }
+        offset = start_offset;
+    }
+
+    while (max_bytes > 0) {
+        int to_read = 16;
+        if (max_bytes < 16) to_read = (int)max_bytes;
+
+        n = ak_read(fd, buf, to_read);
+        if (n <= 0) break;
+
+        /* zero-line compression */
+        if (compress && prev_valid && n == 16) {
+            int same = 1;
+            for (i = 0; i < 16; i++) {
+                if (buf[i] != prev[i]) {
+                    same = 0;
+                    break;
+                }
+            }
+            if (same) {
+                /* print '*' only once */
+                if (prev_valid == 1) {
+                    printf("*\n");
+                    prev_valid = 2; /* already printed '*' */
+                }
+                offset += n;
+                max_bytes -= n;
+                continue;
+            }
+        }
+
+        /* print offset */
+        printf("%08lX  ", offset);
+
+        /* print hex */
+        for (i = 0; i < 16; i++) {
+            if (i < n)
+                printf("%02X ", buf[i]);
+            else
+                printf("   ");
+            if (i == 7) putchar(' ');
+        }
+
+        putchar(' ');
+
+        /* print ASCII */
+        for (i = 0; i < n; i++) {
+            unsigned char c = buf[i];
+            if (c >= 32 && c <= 126)
+                putchar(c);
+            else
+                putchar('.');
+        }
+
+        putchar('\n');
+
+        /* save for compression */
+        if (n == 16) {
+            for (i = 0; i < 16; i++) prev[i] = buf[i];
+            prev_valid = 1;
+        } else {
+            prev_valid = 0;
+        }
+
+        offset += n;
+        max_bytes -= n;
+    }
+
+    ak_close(fd);
     return 0;
 }
 
@@ -433,6 +634,255 @@ static int cmd_lastexit(int argc, char **argv)
     printf("%d\n", aksh_last_exit_code);
 }
 
+static const char *basename(const char *path)
+{
+    const char *p;
+
+    p = strrchr(path, '/');
+    if (p) return p + 1;
+
+    return path;
+}
+
+static int is_directory(const char *path)
+{
+    struct AkaiDirEntry st;
+    int                 res;
+
+    res = ak_stat(path, &st);
+    if (res != A_OK) return 0;
+
+    return (ADIR_FATTRIB(st.data) & AK_ATTR_DIR) != 0;
+}
+
+static int copy_file(const char *src, const char *dst)
+{
+    char buf[512];
+    int  sfd, dfd;
+    int  n;
+
+    sfd = ak_open(src, O_READ | O_OPEN_EXISTING);
+    if (sfd < 0) {
+        fprintf(stderr, "cp: cannot open '%s'\n", src);
+        return sfd;
+    }
+
+    dfd = ak_open(dst, O_WRITE | O_CREATE_ALWAYS);
+    if (dfd < 0) {
+        fprintf(stderr, "cp: cannot create '%s'\n", dst);
+        ak_close(sfd);
+        return dfd;
+    }
+
+    while ((n = ak_read(sfd, buf, sizeof(buf))) > 0) {
+        int w = ak_write(dfd, buf, n);
+        if (w != n) {
+            fprintf(stderr, "cp: write error '%s'\n", dst);
+            ak_close(sfd);
+            ak_close(dfd);
+            return -1;
+        }
+    }
+
+    ak_close(sfd);
+    ak_close(dfd);
+    return 0;
+}
+
+static int copy_dir(const char *src, const char *dst)
+{
+    struct AkaiDir      d;
+    struct AkaiDirEntry e;
+    int                 res;
+
+    res = ak_mkdir(dst);
+    if (res != A_OK && res != (FS_ERROR | 8)) {
+        fprintf(stderr, "cp: cannot create directory '%s'\n", dst);
+        return res;
+    }
+
+    res = ak_opendir(&d, src, 0);
+    if (res != A_OK) {
+        fprintf(stderr, "cp: cannot open directory '%s'\n", src);
+        return res;
+    }
+
+    while (1) {
+        char *name;
+        char  srcpath[256];
+        char  dstpath[256];
+        bool  isdir;
+
+        res = ak_readdir(&d, &e, 0);
+        if (res != A_OK) break;
+
+        name = ADIR_FNAME(e.data);
+        if (!*name) break; /* end */
+
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+
+        isdir = !!(ADIR_FATTRIB(e.data) & AK_ATTR_DIR);
+
+        /* build full paths */
+        sprintf(srcpath, "%s/%s", src, name);
+        sprintf(dstpath, "%s/%s", dst, name);
+
+        if (isdir) {
+            res = copy_dir(srcpath, dstpath);
+            if (res != 0) return res;
+        } else {
+            res = copy_file(srcpath, dstpath);
+            if (res != 0) return res;
+        }
+    }
+
+    ak_closedir(&d, 0);
+    return 0;
+}
+
+static int cmd_cp(int argc, char **argv)
+{
+    int                 recursive = 0;
+    const char         *src;
+    const char         *dst;
+    char                newdst[256];
+    struct AkaiDirEntry st;
+    int                 res;
+    int                 argi;
+    const char         *base;
+
+    if (argc < 3) {
+        fprintf(stderr, "Usage: cp [-r] SRC DST\n");
+        return 127;
+    }
+
+    argi = 1;
+    if (strcmp(argv[argi], "-r") == 0) {
+        recursive = 1;
+        argi++;
+    }
+
+    if (argc - argi < 2) {
+        fprintf(stderr, "Usage: cp [-r] SRC DST\n");
+        return 127;
+    }
+
+    src = argv[argi];
+    dst = argv[argi + 1];
+
+    /* stat source */
+    res = ak_stat(src, &st);
+    if (res != A_OK) {
+        fprintf(stderr, "cp: cannot stat '%s'\n", src);
+        return res;
+    }
+
+    /* If destination is an existing directory, rewrite dst = dst + "/" + basename(src) */
+    if (is_directory(dst)) {
+        base = basename(src);
+        sprintf(newdst, "%s/%s", dst, base);
+        dst = newdst;
+    }
+
+    /* If destination ends with '/', treat it as a directory path */
+    else {
+        int len = strlen(dst);
+        if (len > 0 && dst[len - 1] == '/') {
+            base = basename(src);
+            sprintf(newdst, "%s%s", dst, base);
+            dst = newdst;
+        }
+    }
+
+    /* Now perform the actual copy */
+    if (ADIR_FATTRIB(st.data) & AK_ATTR_DIR) {
+        if (!recursive) {
+            fprintf(stderr, "cp: '%s' is a directory (use -r)\n", src);
+            return -1;
+        }
+        return copy_dir(src, dst);
+    }
+
+    return copy_file(src, dst);
+}
+
+static int mv_fallback_copy(const char *src, const char *dst, int isdir)
+{
+    if (isdir) return copy_dir(src, dst);
+    return copy_file(src, dst);
+}
+static int cmd_mv(int argc, char **argv)
+{
+    const char         *src;
+    const char         *dst;
+    char                newdst[256];
+    struct AkaiDirEntry st;
+    int                 res;
+    int                 argi;
+    const char         *base;
+    int                 len;
+    int                 isdir;
+
+    if (argc < 3) {
+        fprintf(stderr, "Usage: mv SRC DST\n");
+        return 127;
+    }
+
+    argi = 1;
+    src  = argv[argi];
+    dst  = argv[argi + 1];
+
+    /* stat source */
+    res = ak_stat(src, &st);
+    if (res != A_OK) {
+        fprintf(stderr, "mv: cannot stat '%s'\n", src);
+        return res;
+    }
+
+    isdir = (ADIR_FATTRIB(st.data) & AK_ATTR_DIR) != 0;
+
+    /* Resolve destination path */
+    if (is_directory(dst)) {
+        base = basename(src);
+        sprintf(newdst, "%s/%s", dst, base);
+        dst = newdst;
+    } else {
+        len = strlen(dst);
+        if (len > 0 && dst[len - 1] == '/') {
+            base = basename(src);
+            sprintf(newdst, "%s%s", dst, base);
+            dst = newdst;
+        }
+    }
+
+    /* Try rename only for files */
+    if (!isdir) {
+        res = ak_rename(src, dst);
+        if (res == A_OK) {
+            return 0;
+        }
+    }
+
+    /* Fallback: copy + delete */
+    if (isdir)
+        res = copy_dir(src, dst);
+    else
+        res = copy_file(src, dst);
+
+    if (res != 0) {
+        fprintf(stderr, "mv: copy fallback failed\n");
+        return res;
+    }
+
+    /* Delete original */
+    if (isdir)
+        res = rm_recursive(src);
+    else
+        res = ak_unlink(src);
+
+    return res;
+}
+
 static int cmd_help(int argc, char **argv);
 
 static const struct AkshBuiltin builtins[] = { { "clear", cmd_clear },
@@ -440,10 +890,13 @@ static const struct AkshBuiltin builtins[] = { { "clear", cmd_clear },
                                                { "ls", cmd_ls },
                                                { "cd", cmd_cd },
                                                { "cat", cmd_cat },
+                                               { "hexdump", cmd_hexdump },
                                                { "aksh", run_batch },
                                                { "echo", cmd_echo },
                                                { "touch", cmd_touch },
                                                { "rm", cmd_rm },
+                                               { "cp", cmd_cp },
+                                               { "mv", cmd_mv },
                                                { "help", cmd_help },
                                                { "mkdir", cmd_mkdir },
                                                { "rmdir", cmd_rmdir },
@@ -454,13 +907,7 @@ static const struct AkshBuiltin builtins[] = { { "clear", cmd_clear },
                                                { NULL, NULL } };
 
 /*
-cp
-
-mv
-
 hexdump
-
-cmp
 */
 
 static int cmd_help(int argc, char **argv)

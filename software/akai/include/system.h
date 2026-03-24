@@ -24,6 +24,7 @@
 #define AKAI_TPSA_SECTOR           (0x1400U)
 #define AKAI_TPSB_SECTOR           (0x1600U)
 #define AKAI_HCS_SECTOR            (0x1800U)
+#define AKAI_PALETTE               (0X2000u) // UP TO 0X2400U
 
 /* AKAI MEMORY MAP */
 #define AKAI_KERNEL_BASE         (0X000000U)

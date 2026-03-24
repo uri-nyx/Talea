@@ -61,6 +61,10 @@ enum KeyboardCSR {
                          // //TODO: Document this
 };
 
+/* @AKAI */
+#define _IN_KERNEL
+
+#ifdef _IN_KERNEL
 enum PortsTerminal {
     TERMINAL_SERIAL_DATA     = 0x0,
     TERMINAL_SERIAL_STATUS   = 0x1,
@@ -74,6 +78,31 @@ enum PortsTerminal {
     TERMINAL_KBD_CHAR        = 0xd,
     TERMINAL_KBD_CODE        = 0xe,
 };
+#endif
+
+/* @AKAI: 101_DEVICES_1 */
+
+#ifndef _IN_KERNEL
+enum PortsTerminal {
+    TERMINAL_SERIAL_DATA     = 0x0,
+    TERMINAL_SERIAL_STATUS   = 0x1,
+    TERMINAL_SERIAL_CTRL     = 0x2,
+    TERMINAL_SERIAL_RXCOUNT  = 0x3,
+    TERMINAL_TIMER_TIMEOUT   = 0x0,
+    TERMINAL_TIMER_INTERVAL  = 0x2,
+    TERMINAL_TIMER_PRESCALER = 0x4,
+    TERMINAL_TIMER_CSR       = 0x5,
+    TERMINAL_KBD_CSR         = 0x0,
+    TERMINAL_KBD_CHAR        = 0x1,
+    TERMINAL_KBD_CODE        = 0x2,
+};
+#endif
+
+/* @AKAI */
+
+#undef _IN_KERNEL
+
+/* @AKAI: 101_DEVICES_2 */
 
 enum PortsMouse {
 
@@ -185,6 +214,28 @@ enum TextModeAttrib {
 enum VideoClearFlag {
     VIDEO_CLEAR_FLAG_TB = 1 << 0,
     VIDEO_CLEAR_FLAG_FB = 1 << 1,
+};
+
+enum VideoROP {
+    VIDEO_CONFIG_ROP_COPY    = 0,
+    VIDEO_CONFIG_ROP_AND     = (VIDEO_ROP0) >> 4,
+    VIDEO_CONFIG_ROP_OR      = (VIDEO_ROP1) >> 4,
+    VIDEO_CONFIG_ROP_XOR     = (VIDEO_ROP1 | VIDEO_ROP0) >> 4,
+    VIDEO_CONFIG_ROP_NOT     = (VIDEO_ROP2) >> 4,
+    VIDEO_CONFIG_ROP_TRANS   = (VIDEO_ROP2 | VIDEO_ROP0) >> 4,
+    VIDEO_CONFIG_ROP_AND_NOT = (VIDEO_ROP2 | VIDEO_ROP1) >> 4,
+    VIDEO_CONFIG_ROP_ADDS    = (VIDEO_ROP2 | VIDEO_ROP1 | VIDEO_ROP0) >> 4,
+};
+
+enum VideoSpriteRotation {
+    VIDEO_ROT_IDENT,
+    VIDEO_ROT_FLIPH,
+    VIDEO_ROT_FLIPV,
+    VIDEO_ROT_90,
+    VIDEO_ROT_180,
+    VIDEO_ROT_270,
+    VIDEO_ROT_TRANS,
+    VIDEO_ROT_ANTITRANS,
 };
 
 enum VideoBatchFlags {

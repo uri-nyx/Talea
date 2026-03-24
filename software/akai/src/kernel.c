@@ -51,7 +51,7 @@ void puts(const char *str)
 {
     char *p = (char *)str;
     char  c;
-    while (c = *p++) {
+    while ((c = *p++)) {
         emit(c);
     }
 }
@@ -341,12 +341,19 @@ static u32 uptime(void)
 
 void timer_interval_hook(u32 *win, struct IPCMessage *msg_out)
 {
-    u32 status;
+    u32          status;
+    static usize ticks = 0;
 
     status = _lwd(AKAI_KERNEL_STATUS_SAVE);
 
+    ticks++;
     A.uptime = uptime() - A.time_start;
     _trace(0x1888, 2);
+
+    if (ticks % 2 && (A.mous.mode & MOUS_REPORT)) {
+        _trace(0x18880, 1);
+        mous_inject_event();
+    }
 
     // TODO: IPC message out
     if (!(status & CPU_STATUS_SUPERVISOR)) {
@@ -451,11 +458,20 @@ void kmain(u16 sys_info_data_addr)
     miniprint("[KERNEL] [%09d]    PMM initialized        [OK]\n", uptime());
 
     lineages_init();
+    miniprint("[KERNEL] [%09d]    Lineages initialized   [OK]\n", uptime());
+
     video_driver_init();
     miniprint("[KERNEL] [%09d]    Video initialized      [OK]\n", uptime());
 
     kbd_driver_init();
     miniprint("[KERNEL] [%09d]    Keyboard initialized   [OK]\n", uptime());
+
+    ser_driver_init();
+    miniprint("[KERNEL] [%09d]    Serial initialized     [OK]\n", uptime());
+
+    mous_driver_init();
+    miniprint("[KERNEL] [%09d]    Mous   initialized     [OK]\n", uptime());
+
     // init the process manager
     process_init(AKAI_IDLE_BASE);
     miniprint("[KERNEL] [%09d]    Scheduler initialized  [OK]\n", uptime());
@@ -465,6 +481,7 @@ void kmain(u16 sys_info_data_addr)
     interrupt_init();
     kernel_hook_interrupt(INT_KBD_SCAN, kbd_scan_hook);
     kernel_hook_interrupt(INT_TIMER_INTERVAL, timer_interval_hook);
+    kernel_hook_interrupt(INT_VIDEO_VBLANK, fb_vblank_hook);
     miniprint("[KERNEL] [%09d]    Interrupts initialized [OK]\n", uptime());
 
     // mount filesystems

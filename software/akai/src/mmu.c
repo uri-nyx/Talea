@@ -219,11 +219,12 @@ usize copy_to_user(struct Process *dest_proc, void *user_dst, void *kernel_src, 
     return copied;
 }
 
-void chperm_pt_entry(u32 *pt, u32 id, u32 flags)
+void chperm_pt_entry(u32 *pt, u32 vaddr, u32 flags)
 {
-    pt[id & 0x3FF] &= ~0x1fU;
-    pt[id & 0x3FF] |= flags;
-    _trace(0x666, pt[id & 0x3FF], (u32)pt, id);
+    u32 vpn = (vaddr >> 12) & 0x3FF;
+    pt[vpn] &= ~0x1fU;
+    pt[vpn] |= flags;
+    _trace(0x666, pt[vpn], (u32)pt, vaddr);
 }
 
 void map_pt_range(u32 *pt, u32 pstart, u32 vstart, usize num_pages, u32 flags)

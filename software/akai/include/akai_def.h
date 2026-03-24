@@ -4,7 +4,7 @@
 #include "libsirius/types.h"
 
 /* @AKAI: 002_DEF */
-#define MAX_PROCESS     255
+#define MAX_PROCESS 255
 
 typedef u8 ProcessPID;
 typedef int (*ProcessEntry)(int, char **);
@@ -25,6 +25,7 @@ typedef int (*ProcessEntry)(int, char **);
 #define A_ERROR_UNREACHEABLE 0xDEADBEEFU
 
 #define FS_ERROR 0x80000000U // flag for FatFs errors
+#define V_ERROR  0x90000000U // flag for video errors
 
 // Process error
 enum {

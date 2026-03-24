@@ -8,9 +8,10 @@ _init:
 
     #1
     li x12, 15 # SYSCALL_DEV_CLAIM
-    li x13, 0  # framebuffer
-    syscall x0, 0x40
-    bne x0, x10, _exit
+
+    # li x13, 0  # framebuffer
+    # syscall x0, 0x40
+    # bne x0, x10, _exit
 
     #2
     addi x5, x5, 1
@@ -18,11 +19,11 @@ _init:
     syscall x0, 0x40
     bne x0, x10, _exit
     
-    #3
-    addi x5, x5, 1
-    li x13, 4  # serial
-    syscall x0, 0x40
-    bne x0, x10, _exit
+    # #3
+    # addi x5, x5, 1
+    # li x13, 4  # serial
+    # syscall x0, 0x40
+    # bne x0, x10, _exit
 
     #4
     addi x5, x5, 1

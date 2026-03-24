@@ -26,7 +26,9 @@ typedef i8 bool;
 #define true  1
 #define false 0
 
+#ifndef NULL
 #define NULL ((void *)0)
+#endif
 
 struct akai_ringbuffer {
     u8   *data;

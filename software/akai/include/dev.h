@@ -31,6 +31,7 @@ enum HwDevices {
     DEV_PCM,
     DEV_SERIAL,
     DEV_KEYBOARD,
+    DEV_MOUSE,
     _DEV_NUM,
 };
 
@@ -51,10 +52,17 @@ enum CanonIMode {
     IN_ECHO  = 1U << 1U,
     IN_CRNL  = 1U << 2U,
     IN_BLOCK = 1U << 3U,
+    IN_MIN1  = 1U << 4U,
 };
 
 enum CanonOMode {
-    OUT_NLCR = 1U << 0U,
+    OUT_NLCR     = 1U << 0U,
+    OUT_NOWRAP   = 1U << 1U,
+    OUT_NOSCROLL = 1U << 2U,
+};
+
+enum TermCap {
+    CAP_COLOR = 1U << 0U,
 };
 
 // Common CTL commands
@@ -84,6 +92,33 @@ enum TxtCtl {
     TCTL_SET_CURSOR,
     TCTL_SET_ATTR,
     TCTL_GET_ATTR,
+    TCTL_MAP_TEXTBUFFER,
+};
+
+enum VideoCtlCommon {
+    VCTL_LOAD_PALETTE = 50,
+    VCTL_LOAD_PALETTE_DEFAULT,
+    VCTL_MAP_FRAMEBUFFER,
+    GL_GET_FRAMEBUFFER_PHYS,
+    GL_DO_ROP,
+    GL_DO_BIND,
+    GL_DO_CLEAR,
+    GL_DO_CALL,
+    VCTL_WAIT_VBLANK,
+};
+
+enum SerCtl {
+    SCTL_READ,
+    SCTL_WRITE,
+};
+
+enum MousMode {
+    MOUS_REPORT = 1U << 0U,
+};
+
+enum MousCtl {
+    MCTL_SET_MODE,
+    MCTL_GET_MODE,
 };
 
 enum { RES_NODEV = 0, RES_HW, RES_VDEV, RES_FILE };
@@ -126,7 +161,7 @@ i32 proxy_out(u32 devnum, u8 port, u8 val);
 
 struct DeviceDeed *get_deed(ProcessPID pid, u32 devnum);
 
-bool is_in_lineage(ProcessPID pid, struct DeviceDeed*deed);
+bool is_in_lineage(ProcessPID pid, struct DeviceDeed *deed);
 
 bool dev_lease(ProcessPID lessor, ProcessPID receiver, u32 devnum);
 bool dev_return(ProcessPID owner, u32 devnum);

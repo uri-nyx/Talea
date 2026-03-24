@@ -25,6 +25,7 @@ sdk/akai.h: $(HEADERS)
 		| sort -k1,1 -k2,2n | cut -f3- >> $@
 	@cp sdk/_crt0.s sdk/crt0.s
 	@sed -n '/BEGIN_SYSCALL_LIST/,/END_SYSCALL_LIST/p' $@ | python3 gen_syscall_wrappers.py $@ sdk/crt0.s
+	@cat src/hw_user.s >> sdk/crt0.s
 	@printf "\n#endif /* AKAI_H */\n" >> $@
 
 img:
@@ -32,8 +33,8 @@ img:
 	mkfs.fat -F 12 build/akai.img -f2 -s2 -n "AKAI" -S512 -M 0xf0 -r 16
 
 utils:
-	dd if=/dev/zero of=build/test.img bs=512 count=2048
-	mkfs.fat -F 12 build/test.img -f2 -s2 -n "UTILS" -S512 -M 0xf0 -r 16
+	dd if=/dev/zero of=build/akai_utils.img bs=512 count=2048
+	mkfs.fat -F 12 build/akai_utils.img -f2 -s2 -n "UTILS" -S512 -M 0xf0 -r 16
 
 format-hcs:
 	dd if=/dev/zero of=build/hcs.img bs=512 count=65536
@@ -46,17 +47,17 @@ init: src/init.s
 	$(AS) -o init.out src/init.s && $(LD) -o init.bin -rc 524288 -h init.out && xxd -i init.bin > include/init_code.h
 	rm init.out init.bin
 
-kernel: src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c img init
-	$(CC) $(CPPFLAGS) -Iinclude/ -c src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c
-	$(LD) -h -ra -o build/kernel.bin -m build/kernel.map entry.o hw.o kernel.o mmu.o mem.o process.o exception.o syscall.o interrupt.o storage.o ff.o diskio.o kstring.o proxy.o kb.o video.o asm.o
-	rm entry.o kernel.o mmu.o hw.o mem.o process.o exception.o syscall.o interrupt.o storage.o ff.o diskio.o kstring.o proxy.o kb.o video.o asm.o
+kernel: src/entry.s src/hw.s src/hw_user.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c src/serial.c src/mouse.c img init
+	$(CC) $(CPPFLAGS) -Iinclude/ -c src/entry.s src/hw.s src/hw_user.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c src/serial.c src/mouse.c 
+	$(LD) -h -ra -o build/kernel.bin -m build/kernel.map entry.o hw.o hw_user.o kernel.o mmu.o mem.o process.o exception.o syscall.o interrupt.o storage.o ff.o diskio.o kstring.o proxy.o kb.o video.o asm.o serial.o mouse.o
+	rm entry.o kernel.o mmu.o hw.o hw_user.o mem.o process.o exception.o syscall.o interrupt.o storage.o ff.o diskio.o kstring.o proxy.o kb.o video.o asm.o serial.o mouse.o
 	mcopy -i build/akai.img build/kernel.bin "::KERNEL"
 
 check:
-	clang -nostdinc -nobuiltininc -H -Iinclude/ -fsyntax-only -std=c89 -Wall -Wextra -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c
+	clang -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast  -nostdinc -nobuiltininc -H -Iinclude/ -fsyntax-only -std=c89 -Wall -Wextra -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c
 
 check-errors:
-	clang -nostdinc -nobuiltininc -H -Iinclude/ -fsyntax-only -std=c89 -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c
+	clang -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast  -nostdinc -nobuiltininc -H -Iinclude/ -fsyntax-only -std=c89 -Wno-comment src/entry.s src/hw.s src/kernel.c src/mmu.c src/mem.c src/process.c src/exception.c src/syscall.c src/interrupt.c src/storage.c src/ff.c src/diskio.c src/kstring.c src/proxy.c src/kb.c src/video.c src/asm.c
 
 compiler-test:
 	$(CC) -v -S t.c
@@ -82,6 +83,6 @@ tps: naimen
 	python3 $(TOOLS)/tpstools/tps_wrap.py build/akai.img FAT12 1M --bootable build/kernel.map _kstart KERNEL 1024
 
 load: tps
-	python3 $(TOOLS)/tpstools/tps_wrap.py build/test.img FAT12 1M 
+	python3 $(TOOLS)/tpstools/tps_wrap.py build/akai_utils.img FAT12 1M 
 	cp akai.tps ../../resources/tps_images/akai.tps 
-	cp test.tps ../../resources/tps_images/
+	cp akai_utils.tps ../../resources/tps_images/

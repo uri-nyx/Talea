@@ -115,6 +115,8 @@ typedef enum {
     KEY_KP_EQUAL    = 336  // Key: Keypad =
 } kbd_scancode;
 
+#define AKAI_MAX_SCANCODE 348
+
 #ifdef KEYS_INCLUDE_KEYNAME_MAP
 
 struct KeyMapping {

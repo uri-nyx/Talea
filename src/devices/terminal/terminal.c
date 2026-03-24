@@ -12,7 +12,7 @@ u8 Terminal_Read(TaleaMachine *m, u8 port)
     switch (port & 0xf) {
     case P_TERMINAL_SERIAL_DATA: {
         u8 c = Serial_PopByte(&m->terminal.serial);
-        TALEA_LOG_TRACE("CHARACTER: %d, %c\n", c, c);
+        //TALEA_LOG_TRACE("CHARACTER: %d, %c\n", c, c);
         return c;
     }
     case P_TERMINAL_SERIAL_STATUS: return m->terminal.serial.status;

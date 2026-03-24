@@ -1,6 +1,8 @@
 #include "ansi.h"
 #include "hw.h"
 #include "kernel.h"
+#include "mmu.h"
+#include "sgl.h"
 
 #define err A.pr.curr->last_error
 
@@ -20,13 +22,15 @@ static void get_cursor(u8 *outx, u8 *outy)
     *outy = _lbud(A.devices[DEV_TEXTBUFFER].base + VIDEO_CUR_Y);
 }
 
-static void get_info(u8 *w, u8 *h, u8 *bpc)
+static void get_info(u8 *w, u8 *h, u8 *bpc, u8 *cw, u8 *ch)
 {
     _sbd(A.devices[DEV_TEXTBUFFER].base + VIDEO_COMMAND, VIDEO_COMMAND_SYS_INFO);
 
     *bpc = _lbud(A.devices[DEV_TEXTBUFFER].base + VIDEO_GPU3);
     *w   = _lbud(A.devices[DEV_TEXTBUFFER].base + VIDEO_GPU4);
     *h   = _lbud(A.devices[DEV_TEXTBUFFER].base + VIDEO_GPU5);
+    *cw  = _lbud(A.devices[DEV_TEXTBUFFER].base + VIDEO_GPU0);
+    *ch  = _lbud(A.devices[DEV_TEXTBUFFER].base + VIDEO_GPU1);
 }
 
 static void display(char c)
@@ -181,6 +185,7 @@ static void emit(char c)
 
     /* Automatic Wrapping */
     if (A.txt.x >= A.txt.w) {
+        if (A.txt.canonical & OUT_NOWRAP) goto sync_hw;
         A.txt.x = 0;
         A.txt.y++;
     }
@@ -188,7 +193,10 @@ static void emit(char c)
 check_bounds:
     /* Automatic Scrolling */
     _trace(0xDAFA, 6, A.txt.y, A.txt.h);
-    if (A.txt.y >= A.txt.h) scroll_up();
+    if (A.txt.y >= A.txt.h) {
+        if (A.txt.canonical & OUT_NOSCROLL) goto sync_hw;
+        scroll_up();
+    }
 
     if (c >= ' ') {
         _trace(0xDAFA1);
@@ -384,6 +392,23 @@ static void ansi_execute(AnsiToken *cmd)
         break;
     }
 
+    case ANSI_DSR: {
+        if (p[0] == 6) {
+            u16 row = A.txt.x + 1; // 1‑based row
+            u16 col = A.txt.y + 1; // 1‑based column
+
+            inject_byte('\x1b');
+            inject_byte('[');
+            inject_uint(row);
+            inject_byte(';');
+            inject_uint(col);
+            inject_byte('R');
+
+            kbd_process_input();
+        }
+        break;
+    }
+
     case ANSI_SGR: {
         usize i;
         if (A.txt.bpc != 4) break;
@@ -498,6 +523,7 @@ static void ansi_execute(AnsiToken *cmd)
         A.txt.sy    = A.txt.y;
         A.txt.saved = true;
         memcpy(A.txt.saved_attr, A.txt.attr, sizeof(A.txt.saved_attr));
+        //miniprint("SCP: %d,%d\n", A.txt.x, A.txt.y);
         break;
     case ANSI_RCP:
         if (!A.txt.saved) break;
@@ -505,6 +531,7 @@ static void ansi_execute(AnsiToken *cmd)
         A.txt.y = A.txt.sy;
         memcpy(A.txt.attr, A.txt.saved_attr, sizeof(A.txt.attr));
         set_xy(A.txt.x, A.txt.y);
+        //miniprint("RCP: %d,%d\n", A.txt.x, A.txt.y);
         break;
 
     /* Private modes*/
@@ -513,6 +540,7 @@ static void ansi_execute(AnsiToken *cmd)
         switch (p[0]) {
         case 25: /* Show Cursor */ csr |= VIDEO_CURSOR_EN; break;
         case 12: /* Start blink cursor */ csr |= VIDEO_CURSOR_BLINK; break;
+        case 1006: /*Enable Mouse Report*/ A.mous.mode |= MOUS_REPORT; break;
         }
         _sbd(A.devices[DEV_TEXTBUFFER].base + VIDEO_CSR, csr);
         break;
@@ -523,10 +551,12 @@ static void ansi_execute(AnsiToken *cmd)
         switch (p[0]) {
         case 25: /* Hide Cursor */ csr &= ~VIDEO_CURSOR_EN; break;
         case 12: /* static cursor */ csr &= ~VIDEO_CURSOR_BLINK; break;
+        case 1006: /*Disable Mouse Report*/ A.mous.mode &= ~MOUS_REPORT; break;
         }
         _sbd(A.devices[DEV_TEXTBUFFER].base + VIDEO_CSR, csr);
         break;
     }
+
         /* NOT PLANNED: HVP */
     default: break;
     }
@@ -552,10 +582,10 @@ static void ansi_putc(char c)
 
 i32 txt_reset(void)
 {
-    u8 w, h, bpc;
+    u8 w, h, cw, ch, bpc;
 
     memset(&A.txt, 0, sizeof(A.txt));
-    get_info(&w, &h, &bpc);
+    get_info(&w, &h, &bpc, &cw, &ch);
 
     _trace(0xEF, w, h, bpc);
 
@@ -574,6 +604,8 @@ i32 txt_reset(void)
     A.txt.y         = 0;
     A.txt.w         = w;
     A.txt.h         = h;
+    A.txt.cw        = cw;
+    A.txt.ch        = ch;
     A.txt.bpc       = bpc;
     A.txt.canonical = 0;
     A.txt.tabsize   = 4;
@@ -668,6 +700,45 @@ i32 txt_ctl(u32 command, void *buff, u32 len)
             return (signed)A_ERROR_CTL;
         }
     }
+
+    case TCTL_MAP_TEXTBUFFER: {
+        usize i;
+        usize tbsz = 128 * 1024;
+
+        usize tb_pages = (tbsz + (PAGE_SIZE - 1)) >> 12;
+
+        u32 *pde_phys  = A.pr.curr->page_tables[3];
+        u32 *active_pt = (u32 *)(AKAI_PROCESS_PAGE_TABLES + 3 * PAGE_SIZE);
+        if (pde_phys == NULL) return (signed)A_ERROR_CTL;
+        // must be mapped
+
+        for (i = 0; i < tb_pages; i++) {
+            chperm_pt_entry(active_pt, AKAI_TEXTBUFFER + i * PAGE_SIZE, PTE_U | PTE_RW);
+        }
+
+        tlb_flush();
+        return (signed)A_OK;
+    }
+
+    case VCTL_MAP_FRAMEBUFFER: {
+        usize i;
+        usize fbsz = A.info.framebuffer.h * A.info.framebuffer.w;
+
+        usize fb_pages = (fbsz + (PAGE_SIZE - 1)) >> 12;
+
+        u32 *pde_phys  = A.pr.curr->page_tables[3];
+        u32 *active_pt = (u32 *)(AKAI_PROCESS_PAGE_TABLES + 3 * PAGE_SIZE);
+        if (pde_phys == NULL) return (signed)A_ERROR_CTL;
+        // must be mapped
+
+        for (i = 0; i < fb_pages; i++) {
+            chperm_pt_entry(active_pt, AKAI_FRAMEBUFFER + i * PAGE_SIZE, PTE_U | PTE_RW);
+        }
+
+        tlb_flush();
+        return (signed)A_OK;
+    }
+
     case PX_WRITE: {
         usize i;
         u8   *s = (u8 *)buff;
@@ -681,6 +752,56 @@ i32 txt_ctl(u32 command, void *buff, u32 len)
         }
 
         return len;
+    }
+
+    case VCTL_LOAD_PALETTE: {
+        int verror;
+        if (len != 1024) {
+            err = A_ERROR_INVAL;
+            return (signed)A_ERROR_CTL;
+        }
+
+        _copymd(buff, AKAI_PALETTE, len);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_BEGIN_DRAWING);
+        _sbd(A.info.video + VIDEO_ERR, 0); // clear video error
+        _sbd(A.info.video + VIDEO_GPU0, 4);
+        _shd(A.info.video + VIDEO_GPU1, AKAI_PALETTE);
+        _sbd(A.info.video + VIDEO_GPU3, (len / 4) - 1);
+        _sbd(A.info.video + VIDEO_GPU4, 0);
+        _sbd(A.info.video + VIDEO_GPU7, 0); // latch
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_LOAD);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_END_DRAWING);
+        verror = _lbud(A.info.video + VIDEO_ERR); // read video error
+
+        if (verror) {
+            err = V_ERROR | verror;
+            return (signed)A_ERROR_CTL;
+        }
+
+        return A_OK;
+    }
+
+    case VCTL_LOAD_PALETTE_DEFAULT: {
+        int verror;
+
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_BEGIN_DRAWING);
+        _sbd(A.info.video + VIDEO_ERR, 0); // clear video error
+        _sbd(A.info.video + VIDEO_GPU0, 5);
+        _shd(A.info.video + VIDEO_GPU1, AKAI_PALETTE);
+        _sbd(A.info.video + VIDEO_GPU3, 255);
+        _sbd(A.info.video + VIDEO_GPU4, 0);
+        _sbd(A.info.video + VIDEO_GPU7, 0); // latch
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_LOAD);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_END_DRAWING);
+
+        verror = _lbud(A.info.video + VIDEO_ERR); // read video error
+
+        if (verror) {
+            err = V_ERROR | verror;
+            return (signed)A_ERROR_CTL;
+        }
+
+        return A_OK;
     }
 
     case PX_FLUSH: return (signed)A_OK;
@@ -705,6 +826,338 @@ i32 txt_ctl(u32 command, void *buff, u32 len)
     }
 }
 
+i32 fb_reset(void)
+{
+    return (signed)A_OK;
+}
+
+u8 fb_in(u8 port)
+{
+    if (port > A.devices[DEV_FRAMEBUFFER].ports) {
+        err = P_ERROR_NO_PORT;
+        return 0;
+    }
+
+    return _lbud(A.devices[DEV_FRAMEBUFFER].base + port);
+}
+
+i32 fb_out(u8 port, u8 value)
+{
+    if (port > A.devices[DEV_FRAMEBUFFER].ports) {
+        err = P_ERROR_NO_PORT;
+        return (signed)A_ERROR;
+    }
+
+    _sbd(A.devices[DEV_FRAMEBUFFER].base + port, value);
+    return (signed)A_OK;
+}
+
+i32 fb_ctl(u32 command, void *buff, u32 len)
+{
+    _trace(0xDAFE, command);
+    switch (command) {
+    case DEV_RESET: return fb_reset();
+    case VCTL_MAP_FRAMEBUFFER: {
+        usize i;
+        usize fbsz = A.info.framebuffer.h * A.info.framebuffer.w;
+
+        usize fb_pages = (fbsz + (PAGE_SIZE - 1)) >> 12;
+
+        u32 *pde_phys  = A.pr.curr->page_tables[3];
+        u32 *active_pt = (u32 *)(AKAI_PROCESS_PAGE_TABLES + 3 * PAGE_SIZE);
+        if (pde_phys == NULL) return (signed)A_ERROR_CTL;
+        // must be mapped
+
+        for (i = 0; i < fb_pages; i++) {
+            chperm_pt_entry(active_pt, AKAI_FRAMEBUFFER + i * PAGE_SIZE, PTE_U | PTE_RW);
+        }
+
+        tlb_flush();
+        return (signed)A_OK;
+    }
+    case VCTL_LOAD_PALETTE: {
+        int verror;
+        if (len != 1024) {
+            err = A_ERROR_INVAL;
+            return (signed)A_ERROR_CTL;
+        }
+
+        _copymd(buff, AKAI_PALETTE, len);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_BEGIN_DRAWING);
+        _sbd(A.info.video + VIDEO_ERR, 0); // clear video error
+        _sbd(A.info.video + VIDEO_GPU0, 4);
+        _shd(A.info.video + VIDEO_GPU1, AKAI_PALETTE);
+        _sbd(A.info.video + VIDEO_GPU3, (len / 4) - 1);
+        _sbd(A.info.video + VIDEO_GPU4, 0);
+        _sbd(A.info.video + VIDEO_GPU7, 0); // latch
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_LOAD);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_END_DRAWING);
+        verror = _lbud(A.info.video + VIDEO_ERR); // read video error
+
+        if (verror) {
+            err = V_ERROR | verror;
+            return (signed)A_ERROR_CTL;
+        }
+
+        return A_OK;
+    }
+
+    case VCTL_LOAD_PALETTE_DEFAULT: {
+        int verror;
+
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_BEGIN_DRAWING);
+        _sbd(A.info.video + VIDEO_ERR, 0); // clear video error
+        _sbd(A.info.video + VIDEO_GPU0, 5);
+        _shd(A.info.video + VIDEO_GPU1, AKAI_PALETTE);
+        _sbd(A.info.video + VIDEO_GPU3, 255);
+        _sbd(A.info.video + VIDEO_GPU4, 0);
+        _sbd(A.info.video + VIDEO_GPU7, 0); // latch
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_LOAD);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_END_DRAWING);
+
+        verror = _lbud(A.info.video + VIDEO_ERR); // read video error
+
+        if (verror) {
+            err = V_ERROR | verror;
+            return (signed)A_ERROR_CTL;
+        }
+
+        return A_OK;
+    }
+
+    case GL_GET_FRAMEBUFFER_PHYS: return (i32)active_phys_from_v(AKAI_FRAMEBUFFER);
+    case GL_DO_ROP: {
+        u8 rop = *(u8 *)buff;
+        u8 csr = _lbud(A.info.video + VIDEO_CSR);
+        csr &= ~(0x7 << 4);
+        csr |= (rop & 0x7) << 4;
+
+        _sbd(A.info.video + VIDEO_GPU0, csr);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_SET_CSR);
+        return (signed)A_OK;
+    }
+    case GL_DO_BIND: {
+        sglSurface *surf = (sglSurface *)buff;
+        u32         buf  = (u32)surf->buff;
+        void       *phys;
+
+        if (len != sizeof(sglSurface)) {
+            err = P_ERROR_BAD_POINTER;
+            return (signed)A_ERROR_CTL;
+        }
+
+        phys = active_phys_from_v(buf + (buf & 0xFFF));
+
+        if (!phys) {
+            err = P_ERROR_BAD_POINTER;
+            return (signed)A_ERROR_CTL;
+        }
+
+        surf->phys_addr = (sgl_phys)phys;
+
+        // miniprint("BINDING surface %d, phys %x, w %d, h %d\n", surf->id, (sgl_phys)phys,
+        // surf->width, surf->height);
+
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_BEGIN_DRAWING);
+        _swd(A.info.video + VIDEO_GPU0, (sgl_phys)phys);
+        _sbd(A.info.video + VIDEO_GPU0, surf->id);
+        _shd(A.info.video + VIDEO_GPU4, surf->width);
+        _shd(A.info.video + VIDEO_GPU6, surf->height);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_BIND_CTX);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_END_DRAWING);
+        return (signed)A_OK;
+    }
+
+    case GL_DO_CLEAR: {
+        sgl_color color = *(sgl_color *)buff;
+
+        _swd(A.info.video + VIDEO_GPU0,
+             (u32)(' ' << 24) | 0U << 16 | 0U << 8 | (TEXTMODE_ATT_TRANSPARENT));
+        _sbd(A.info.video + VIDEO_GPU4, color);
+        _sbd(A.info.video + VIDEO_GPU5, 0x3);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_CLEAR);
+        return (signed)A_OK;
+    }
+
+    case GL_DO_CALL: {
+        sglDrawCall *call = (sglDrawCall *)buff;
+        if (len != sizeof(sglDrawCall)) {
+            err = P_ERROR_BAD_POINTER;
+            return (signed)A_ERROR_CTL;
+        }
+
+        return video_do_call(call);
+    }
+
+    case VCTL_WAIT_VBLANK: {
+        u8 csr = _lbud(A.info.video + VIDEO_CSR);
+        if (!(csr & VIDEO_VBLANK_EN)) return A_ERROR;
+
+        // miniprint("sending %d to sleep\n", A.pr.curr->pid);
+        BIT_SET(A.fb.wait_queue, A.pr.curr->pid);
+        process_wait(A.pr.curr->pid);
+        process_yield();
+
+        return (signed)A_OK;
+    }
+
+    default: err = P_ERROR_NO_CTL_COMMAND; return (signed)A_ERROR_CTL;
+    }
+}
+
+i32 video_do_call(sglDrawCall *call)
+{
+    switch (call->type) {
+    case SGL_LINE:
+        _sbd(A.info.video + VIDEO_GPU0, call->c.line.t_id);
+        _sbd(A.info.video + VIDEO_GPU1, call->c.line.color);
+        _shd(A.info.video + VIDEO_GPU4, call->c.line.x0);
+        _shd(A.info.video + VIDEO_GPU6, call->c.line.y0);
+        _shd(A.info.video + VIDEO_GPU0, call->c.line.x1);
+        _shd(A.info.video + VIDEO_GPU2, call->c.line.y1);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_DRAW_LINE);
+        break;
+    case SGL_RECT:
+        _sbd(A.info.video + VIDEO_GPU0, call->c.rect.t_id);
+        _sbd(A.info.video + VIDEO_GPU1, call->c.rect.color);
+        _shd(A.info.video + VIDEO_GPU4, call->c.rect.w);
+        _shd(A.info.video + VIDEO_GPU6, call->c.rect.h);
+        _shd(A.info.video + VIDEO_GPU0, call->c.rect.dx);
+        _shd(A.info.video + VIDEO_GPU2, call->c.rect.dy);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_DRAW_RECT);
+        break;
+    case SGL_CIRCLE:
+        _sbd(A.info.video + VIDEO_GPU0, call->c.circle.t_id);
+        _sbd(A.info.video + VIDEO_GPU1, call->c.circle.outline);
+        _sbd(A.info.video + VIDEO_GPU2, call->c.circle.interior);
+        _sbd(A.info.video + VIDEO_GPU3, call->c.circle.mode);
+        _shd(A.info.video + VIDEO_GPU4, call->c.circle.xm);
+        _shd(A.info.video + VIDEO_GPU6, call->c.circle.ym);
+        _shd(A.info.video + VIDEO_GPU0, call->c.circle.r);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_DRAW_CIRCLE);
+        break;
+    case SGL_TRI:
+        _sbd(A.info.video + VIDEO_GPU0, call->c.tri.t_id);
+        _sbd(A.info.video + VIDEO_GPU1, call->c.tri.color);
+        _shd(A.info.video + VIDEO_GPU4, call->c.tri.x0);
+        _shd(A.info.video + VIDEO_GPU6, call->c.tri.y0);
+        _shd(A.info.video + VIDEO_GPU0, call->c.tri.x1);
+        _shd(A.info.video + VIDEO_GPU2, call->c.tri.y1);
+        _shd(A.info.video + VIDEO_GPU4, call->c.tri.x2);
+        _shd(A.info.video + VIDEO_GPU6, call->c.tri.y2);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_DRAW_TRI);
+        break;
+    case SGL_BLIT: {
+        u32 buff      = (u32)call->c.blit.buff;
+        u32 phys_addr = ((u32)active_phys_from_v(buff) + (buff & 0xFFF)) & 0xFFFFFF;
+        if (!phys_addr) {
+            err = P_ERROR_BAD_POINTER;
+            return (signed)A_ERROR_INVAL;
+        }
+        _swd(A.info.video + VIDEO_GPU0, ((u32)call->c.blit.t_id << 24) | phys_addr);
+        _shd(A.info.video + VIDEO_GPU4, call->c.blit.sw);
+        _shd(A.info.video + VIDEO_GPU6, call->c.blit.sh);
+        _shd(A.info.video + VIDEO_GPU0, call->c.blit.dx);
+        _shd(A.info.video + VIDEO_GPU2, call->c.blit.dy);
+        _sbd(A.info.video + VIDEO_GPU4, call->c.blit.rot);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_BLIT);
+        break;
+    }
+    case SGL_BLIT_STRETCH: {
+        u32 buff      = (u32)call->c.blit_stretched.buff;
+        u32 phys_addr = (((u32)active_phys_from_v(buff) + (buff & 0xFFF))) & 0xFFFFFF;
+        if (!phys_addr) {
+            err = P_ERROR_BAD_POINTER;
+            return (signed)A_ERROR_INVAL;
+        }
+        _swd(A.info.video + VIDEO_GPU0, ((u32)call->c.blit_stretched.t_id << 24) | phys_addr);
+        _shd(A.info.video + VIDEO_GPU4, call->c.blit_stretched.sw);
+        _shd(A.info.video + VIDEO_GPU6, call->c.blit_stretched.sh);
+        _shd(A.info.video + VIDEO_GPU0, call->c.blit_stretched.dx);
+        _shd(A.info.video + VIDEO_GPU2, call->c.blit_stretched.dy);
+        _shd(A.info.video + VIDEO_GPU4, call->c.blit_stretched.dw);
+        _shd(A.info.video + VIDEO_GPU6, call->c.blit_stretched.dh);
+        _sbd(A.info.video + VIDEO_GPU0, call->c.blit_stretched.rot);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_STRETCH_BLIT);
+        break;
+    }
+    case SGL_PATTERN_FILL: {
+        u32 buff      = (u32)call->c.pattern.buff;
+        u32 phys_addr = ((u32)active_phys_from_v(buff + (buff & 0xFFF))) & 0xFFFFFF;
+        if (!phys_addr) {
+            err = P_ERROR_BAD_POINTER;
+            return (signed)A_ERROR_INVAL;
+        }
+        _swd(A.info.video + VIDEO_GPU0, ((u32)call->c.pattern.t_id << 24) | phys_addr);
+        _sbd(A.info.video + VIDEO_GPU4, call->c.pattern.pw);
+        _sbd(A.info.video + VIDEO_GPU5, call->c.pattern.ph);
+        _sbd(A.info.video + VIDEO_GPU6, call->c.pattern.u);
+        _sbd(A.info.video + VIDEO_GPU7, call->c.pattern.v);
+        _shd(A.info.video + VIDEO_GPU0, call->c.pattern.dx);
+        _shd(A.info.video + VIDEO_GPU2, call->c.pattern.dy);
+        _sbd(A.info.video + VIDEO_GPU4, call->c.pattern.dw);
+        _sbd(A.info.video + VIDEO_GPU6, call->c.pattern.dh);
+        _sbd(A.info.video + VIDEO_GPU0, call->c.pattern.rot);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_PATTERN_FILL);
+        break;
+    }
+    case SGL_FILL_HSPAN:
+        _sbd(A.info.video + VIDEO_GPU0, call->c.hspan.t_id);
+        _sbd(A.info.video + VIDEO_GPU1, call->c.hspan.color);
+        _shd(A.info.video + VIDEO_GPU2, call->c.hspan.x0);
+        _shd(A.info.video + VIDEO_GPU4, call->c.hspan.x1);
+        _shd(A.info.video + VIDEO_GPU6, call->c.hspan.y);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_FILL_SPAN);
+        break;
+    case SGL_FILL_VSPAN:
+        _sbd(A.info.video + VIDEO_GPU0, call->c.vspan.t_id);
+        _sbd(A.info.video + VIDEO_GPU1, call->c.vspan.color);
+        _shd(A.info.video + VIDEO_GPU2, call->c.vspan.x);
+        _shd(A.info.video + VIDEO_GPU4, call->c.vspan.y0);
+        _shd(A.info.video + VIDEO_GPU6, call->c.vspan.y1);
+        _sbd(A.info.video + VIDEO_GPU7, 0);
+        _sbd(A.info.video + VIDEO_COMMAND, VIDEO_COMMAND_FILL_VSPAN);
+        break;
+    default: err = A_ERROR_INVAL; return (signed)A_ERROR_CTL;
+    }
+
+    (signed)A_OK;
+}
+
+void fb_vblank_hook(u32 *win, struct IPCMessage *msg_out)
+{
+    usize i;
+    u8   *wait_queue;
+    u32   sreg;
+
+    sreg = _disable_interrupts();
+
+    // TODO: define messages internal protocol for interrupts
+    msg_out->sender  = KERNEL_PID;
+    msg_out->type    = 1; // I dont know, KB, or something
+    msg_out->msgid   = 0;
+    msg_out->subject = 0; // vblank
+    msg_out->content = NULL;
+
+    for (i = 0; i < MAX_PROCESS; i++) {
+        if (BIT_TEST(A.fb.wait_queue, i)) {
+            // miniprint("VBLANK waking %d\n", i);
+            process_set_ready(i); // maybe prioritize schedulen for owner
+            BIT_CLR(A.fb.wait_queue, i);
+        }
+    }
+    _restore_interrupts(sreg);
+}
+
 // Wrapper if we ever implement terminal emulator in graphic mode
 void video_emit(char c)
 {
@@ -722,4 +1175,14 @@ void video_driver_init(void)
     A.devices[DEV_TEXTBUFFER].out   = txt_out;
     A.devices[DEV_TEXTBUFFER].ctl   = txt_ctl;
     txt_reset();
+
+    A.devices[DEV_FRAMEBUFFER].base  = A.info.video;
+    A.devices[DEV_FRAMEBUFFER].ports = 15;
+    A.devices[DEV_FRAMEBUFFER].id    = 'V';
+    A.devices[DEV_FRAMEBUFFER].num   = DEV_FRAMEBUFFER;
+    A.devices[DEV_FRAMEBUFFER].reset = fb_reset;
+    A.devices[DEV_FRAMEBUFFER].in    = fb_in;
+    A.devices[DEV_FRAMEBUFFER].out   = fb_out;
+    A.devices[DEV_FRAMEBUFFER].ctl   = fb_ctl;
+    fb_reset();
 }

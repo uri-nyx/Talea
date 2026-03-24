@@ -26,7 +26,7 @@ img:
 	@echo "Populating TPS A..."
 	cd tps_a && mcopy -m -o -i ../../build/akai.img -s * ::/ && cd ..
 	@echo "Populating TPS B..."
-	cd tps_b && mcopy -m -o -i ../../build/test.img -s * ::/ && cd ..
+	cd tps_b && mcopy -m -o -i ../../build/akai_utils.img -s * ::/ && cd ..
 
 clean:
 	@for dir in $(ALL_DIRS); do $(MAKE) -C $$dir clean; done
