@@ -63,30 +63,30 @@ static void clear_line(u8 line)
 
 static void scroll_up(void)
 {
-    u8   *src   = (u8 *)AKAI_TEXTBUFFER + (A.txt.w * A.txt.bpc);
-    usize count = (A.txt.h - 1) * A.txt.w * A.txt.bpc;
+    u8   *src   = (u8 *)AKAI_TEXTBUFFER + ((1 + A.txt.top) * A.txt.w * A.txt.bpc);
+    usize count = (A.txt.h - A.txt.bot - 1) * A.txt.w * A.txt.bpc;
 
-    memcpy((u8 *)AKAI_TEXTBUFFER, src, count);
-    clear_line(A.txt.h - 1);
+    memcpy((u8 *)AKAI_TEXTBUFFER + (A.txt.top * A.txt.w * A.txt.bpc), src, count);
+    clear_line(A.txt.h - A.txt.bot - 1);
 
-    if (A.txt.y > 0)
+    if (A.txt.y > A.txt.top)
         A.txt.y--;
     else
-        A.txt.y = 0;
+        A.txt.y = A.txt.top;
 }
 
 static void scroll_down(void)
 {
-    u8   *dst   = (u8 *)AKAI_TEXTBUFFER + (A.txt.w * A.txt.bpc);
-    usize count = (A.txt.h - 1) * A.txt.w * A.txt.bpc;
+    u8   *dst   = (u8 *)AKAI_TEXTBUFFER + ((1 + A.txt.top) * A.txt.w * A.txt.bpc);
+    usize count = (A.txt.h - A.txt.bot - 1) * A.txt.w * A.txt.bpc;
 
-    _copybck((u8 *)AKAI_TEXTBUFFER, dst, count);
-    clear_line(0);
+    _copybck((u8 *)AKAI_TEXTBUFFER + (A.txt.top * A.txt.w * A.txt.bpc), dst, count);
+    clear_line(0 + A.txt.top);
 
-    if (A.txt.y < A.txt.h - 1)
+    if (A.txt.y < A.txt.h - A.txt.bot - 1)
         A.txt.y++;
     else
-        A.txt.y = A.txt.h - 1;
+        A.txt.y = A.txt.h - A.txt.bot - 1;
 }
 
 static void tab(void)
@@ -114,7 +114,7 @@ static void tab(void)
         A.txt.x += spaces;
     }
 
-    if (A.txt.y >= A.txt.h) scroll_up();
+    if (A.txt.y >= A.txt.h - A.txt.bot) scroll_up();
 }
 
 static void clear_txt(void)
@@ -123,13 +123,16 @@ static void clear_txt(void)
     A.txt.y = 0;
 
     if (A.txt.bpc == 4) {
-        _fillw((u8 *)AKAI_TEXTBUFFER,
+        _fillw((u8 *)AKAI_TEXTBUFFER + (A.txt.top * A.txt.w * A.txt.bpc),
                (u32)' ' << 24 | (u32)A.txt.attr[FG] << 16 | (u32)A.txt.attr[BG] << 8 |
                    A.txt.attr[AT],
-               A.txt.w * A.txt.h);
+               A.txt.w * (A.txt.h - A.txt.bot));
     } else {
-        memset((u8 *)AKAI_TEXTBUFFER, ' ', (A.txt.w * A.txt.h) * A.txt.bpc);
+        memset((u8 *)AKAI_TEXTBUFFER + (A.txt.top * A.txt.w * A.txt.bpc), ' ',
+               (A.txt.w * (A.txt.h - A.txt.bot)) * A.txt.bpc);
     }
+
+    set_xy(0, 0);
 }
 
 static void update_cursor(void)
@@ -141,9 +144,9 @@ static void set_xy(int x, int y)
 {
     /* Clamp to screen boundaries */
     if (x < 0) x = 0;
-    if (x >= A.txt.w) x = A.txt.w - 1;
-    if (y < 0) y = 0;
-    if (y >= A.txt.h) y = A.txt.h - 1;
+    if (x >= A.txt.w) x = (A.txt.w) - 1;
+    if (y < 0 + A.txt.top) y = 0 + A.txt.top;
+    if (y >= A.txt.h - A.txt.bot) y = (A.txt.h - A.txt.bot) - 1;
 
     A.txt.x = x;
     A.txt.y = y;
@@ -193,7 +196,7 @@ static void emit(char c)
 check_bounds:
     /* Automatic Scrolling */
     _trace(0xDAFA, 6, A.txt.y, A.txt.h);
-    if (A.txt.y >= A.txt.h) {
+    if (A.txt.y >= A.txt.h - A.txt.bot) {
         if (A.txt.canonical & OUT_NOSCROLL) goto sync_hw;
         scroll_up();
     }
@@ -201,12 +204,12 @@ check_bounds:
     if (c >= ' ') {
         _trace(0xDAFA1);
         /* Trigger output ONLY if within defined bounds */
-        if ((A.txt.x < A.txt.w) && (A.txt.y < A.txt.h)) {
+        if ((A.txt.x < A.txt.w) && (A.txt.y < A.txt.h - A.txt.bot)) {
             display(c);
         }
         A.txt.x++;
     } else if (control) {
-        if ((A.txt.x + 1 < A.txt.w) && (A.txt.y + 1 < A.txt.h)) {
+        if ((A.txt.x + 1 < A.txt.w) && (A.txt.y + 1 < A.txt.h - A.txt.bot)) {
             display('^');
             A.txt.x++;
             display(c + 0x40);
@@ -310,10 +313,10 @@ static void ansi_execute(AnsiToken *cmd)
     usize x = A.txt.x;
     usize y = A.txt.y;
     usize w = A.txt.w;
-    usize h = A.txt.h;
+    usize h = A.txt.h - A.txt.bot;
 
-    if (x >= A.txt.w) x = A.txt.w - 1;
-    if (y >= A.txt.h) y = A.txt.h - 1;
+    if (x >= A.txt.w) x = A.txt.w - -1;
+    if (y >= A.txt.h - A.txt.bot) y = A.txt.h - A.txt.bot - 1;
 
     switch (cmd->type) {
     case ANSI_CUU: set_xy(x, y - n); break;
@@ -416,7 +419,15 @@ static void ansi_execute(AnsiToken *cmd)
         for (i = 0; i < cmd->param_count; i++) {
             int p = cmd->params[i];
             switch (p) {
-            case ANSI_SGR_RESET: A.txt.attr[AT] = 0; break;
+            case ANSI_SGR_RESET:
+                A.txt.attr[AT] = A.txt.default_attr[AT];
+                if (A.txt.reversed) {
+                    u8 tmp         = A.txt.attr[FG];
+                    A.txt.attr[FG] = A.txt.attr[BG];
+                    A.txt.attr[BG] = tmp;
+                    A.txt.reversed = false;
+                }
+                break;
             case ANSI_SGR_BOLD: A.txt.attr[AT] |= TEXTMODE_ATT_BOLD; break;
             case ANSI_SGR_DIM: A.txt.attr[AT] |= TEXTMODE_ATT_DIM; break;
             case ANSI_SGR_ITALIC: A.txt.attr[AT] |= TEXTMODE_ATT_OBLIQUE; break;
@@ -424,10 +435,12 @@ static void ansi_execute(AnsiToken *cmd)
             case ANSI_SGR_BLINK: A.txt.attr[AT] |= TEXTMODE_ATT_BLINK; break;
             case ANSI_SGR_TRANSPARENT: A.txt.attr[AT] |= TEXTMODE_ATT_TRANSPARENT; break;
             case ANSI_SGR_REVERSE: {
-                u8 tmp         = A.txt.attr[FG];
-                A.txt.attr[FG] = A.txt.attr[BG];
-                A.txt.attr[BG] = tmp;
-                A.txt.reversed = true;
+                if (!A.txt.reversed) {
+                    u8 tmp         = A.txt.attr[FG];
+                    A.txt.attr[FG] = A.txt.attr[BG];
+                    A.txt.attr[BG] = tmp;
+                    A.txt.reversed = true;
+                }
                 break;
             }
             case ANSI_SGR_FONT_0:
@@ -523,7 +536,7 @@ static void ansi_execute(AnsiToken *cmd)
         A.txt.sy    = A.txt.y;
         A.txt.saved = true;
         memcpy(A.txt.saved_attr, A.txt.attr, sizeof(A.txt.saved_attr));
-        //miniprint("SCP: %d,%d\n", A.txt.x, A.txt.y);
+        // miniprint("SCP: %d,%d\n", A.txt.x, A.txt.y);
         break;
     case ANSI_RCP:
         if (!A.txt.saved) break;
@@ -531,7 +544,7 @@ static void ansi_execute(AnsiToken *cmd)
         A.txt.y = A.txt.sy;
         memcpy(A.txt.attr, A.txt.saved_attr, sizeof(A.txt.attr));
         set_xy(A.txt.x, A.txt.y);
-        //miniprint("RCP: %d,%d\n", A.txt.x, A.txt.y);
+        // miniprint("RCP: %d,%d\n", A.txt.x, A.txt.y);
         break;
 
     /* Private modes*/
@@ -604,6 +617,8 @@ i32 txt_reset(void)
     A.txt.y         = 0;
     A.txt.w         = w;
     A.txt.h         = h;
+    A.txt.top       = 0;
+    A.txt.bot       = 0;
     A.txt.cw        = cw;
     A.txt.ch        = ch;
     A.txt.bpc       = bpc;
@@ -821,6 +836,41 @@ i32 txt_ctl(u32 command, void *buff, u32 len)
     }
 
     case PX_GETCANON: return (signed)A.txt.canonical;
+
+    case PX_GET_MARGINS:
+        return (signed)((u32)A.txt.top << 24 | (u32)A.txt.bot << 16 | (u32)A.txt.left << 8 |
+                        (u32)A.txt.right);
+    case PX_SET_MARGINS: {
+        u8 *margins = (u8 *)buff;
+
+        if (len != 4) {
+inval:
+            err = A_ERROR_INVAL;
+            return (signed)A_ERROR_CTL;
+        }
+
+        if (margins[T_MARGIN_TOP] != 0xFF) {
+            if (margins[T_MARGIN_TOP] > A.txt.h) goto inval;
+            A.txt.top = margins[T_MARGIN_TOP];
+        }
+
+        if (margins[T_MARGIN_BOT] != 0xFF) {
+            if (margins[T_MARGIN_BOT] > A.txt.h) goto inval;
+            A.txt.bot = margins[T_MARGIN_BOT];
+        }
+
+        if (margins[T_MARGIN_LEFT] != 0xFF) {
+            if (margins[T_MARGIN_LEFT] > A.txt.w) goto inval;
+            A.txt.left = margins[T_MARGIN_LEFT];
+        }
+
+        if (margins[T_MARGIN_RIGTH] != 0xFF) {
+            if (margins[T_MARGIN_RIGTH] > A.txt.w) goto inval;
+            A.txt.right = margins[T_MARGIN_RIGTH];
+        }
+
+        return (signed)A_OK;
+    }
 
     default: err = P_ERROR_NO_CTL_COMMAND; return (signed)A_ERROR_CTL;
     }

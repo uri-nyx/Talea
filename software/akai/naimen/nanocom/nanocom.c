@@ -323,9 +323,10 @@ static void on_update(void *s)
 {
     int   n;
     char  ss[80];
-    char *con  = serial_is_connected() ? "CONNECTED" : "NO CARRIER";
-    char *host = nano_ops.host ? nano_ops.host : "unknown";
-    int   hs   = strlen(host);
+    bool  is_connected = serial_is_connected();
+    char *con          = is_connected ? "CONNECTED" : "NO CARRIER";
+    char *host         = !is_connected ? "disconnected" : nano_ops.host ? nano_ops.host : "unknown";
+    int   hs           = strlen(host);
 
     cursor_hide();
     n = sprintf(ss, STATUS_NORMAL_B, hs, host, nano_ops.port, con, rates[nano_ops.baud]);
@@ -409,19 +410,23 @@ static bool m_quit(int c)
     return quit;
 }
 
+static char dial_host[81];
 static void do_dial(void)
 {
-    static char host[81];
-    usize       pos = 0;
-    int         c;
+    usize pos = 0;
+    int   c;
 
-    memset(host, 0, sizeof(host));
+    memset(dial_host, 0, sizeof(dial_host));
 
     menu_printf(STATUS_DIAL_A);
     cursor_show();
 
     while ((c = ak_dev_in(PDEV_STDIN, 0)) != '\r') {
-        if (c == '\b') pos += pos ? -1 : 0;
+        if (c == '\b' && pos) {
+            dial_host[pos--] = 0;
+            menu_printf(STATUS_DIAL_A "%s\b \b", dial_host);
+            continue;
+        }
         if (c == CTRL('A')) {
             nano_mode = NANO_MODE_MODEM;
             MENU_ENTER(STATUS_MODEM);
@@ -429,24 +434,25 @@ static void do_dial(void)
         }
 
         if (c <= 0 || !isprint(c) || pos > 79) continue;
-        host[pos++] = c;
-        menu_printf(STATUS_DIAL_A "%s", host);
+        dial_host[pos++] = c;
+        menu_printf(STATUS_DIAL_A "%s", dial_host);
     }
 
-    host[pos]     = 0;
-    nano_ops.host = host;
+    dial_host[pos]     = 0;
+    nano_ops.host = dial_host;
     cursor_hide();
 
     send_modem_escape();
     send_modem("ATH", true);
     send_modem("ATDT ", false);
-    send_modem(host, true);
+    send_modem(nano_ops.host, true);
+
     if (result_modem(MODE_UNKNOWN) != HAYES_CONNECT) {
         menu_printf("ERROR DIALING! [C-a to continue]");
+    } else {
+        menu_deactivate(on_update, NULL);
+        nano_mode = NANO_MODE_NORMAL;
     }
-
-    menu_deactivate(on_update, NULL);
-    nano_mode = NANO_MODE_NORMAL;
 }
 
 static void m_modem(int c)
@@ -670,7 +676,7 @@ static void modem(void)
     bool    timeout;
 
     // clear screen
-    ak_dev_ctl(PDEV_STDOUT, PX_WRITE, "\x1b[2J\x1b[2H", 8);
+    ak_dev_ctl(PDEV_STDOUT, PX_WRITE, "\x1b[2J\x1b[H", 7);
     menu_update(on_update, NULL);
 
     while (!quit) {

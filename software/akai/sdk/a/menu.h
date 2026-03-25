@@ -61,7 +61,8 @@ struct AkaiMenu {
     bool      active;
     sgl_color bg;
 
-    u8 old_imode, old_omode;
+    u8  old_imode, old_omode;
+    u32 old_margins;
 };
 
 bool menu_init(u8 term_w, u8 term_h, sgl_color bg);
@@ -93,6 +94,27 @@ static void clear_lines(usize start, usize count)
     for (i = 0; i < count; i++) printf("\x1b[%d;1H\x1b[2K", start + i + 1);
 }
 
+static void set_margins(void)
+{
+    u8 margins[4];
+    m.old_margins = ak_dev_ctl(PDEV_STDOUT, PX_GET_MARGINS, NULL, 0);
+    memset(margins, 0xFF, sizeof(margins));
+    margins[T_MARGIN_TOP] = 1;
+
+    ak_dev_ctl(PDEV_STDOUT, PX_SET_MARGINS, &margins, sizeof(margins));
+}
+
+static void reset_margins(void)
+{
+    u8 margins[4];
+    margins[T_MARGIN_TOP]   = m.old_margins >> 24;
+    margins[T_MARGIN_BOT]   = m.old_margins >> 16;
+    margins[T_MARGIN_LEFT]  = m.old_margins >> 8;
+    margins[T_MARGIN_RIGTH] = m.old_margins;
+
+    ak_dev_ctl(PDEV_STDOUT, PX_SET_MARGINS, &margins, sizeof(margins));
+}
+
 bool menu_init(u8 term_w, u8 term_h, sgl_color bg)
 {
     memset(&m, 0, sizeof(m));
@@ -103,6 +125,7 @@ bool menu_init(u8 term_w, u8 term_h, sgl_color bg)
 
     if (term_h < 2) return false;
 
+    set_margins();
     m.w      = term_w;
     m.h      = term_h;
     m.active = false;
@@ -114,6 +137,7 @@ bool menu_init(u8 term_w, u8 term_h, sgl_color bg)
 
 void menu_deinit(void)
 {
+    reset_margins();
     printf("\x1b[49m\x1b[0m\x1b[2J");
     fflush(stdout);
     ak_dev_ctl(PDEV_STDOUT, PX_SETCANON, &m.old_omode, 1);
@@ -127,6 +151,7 @@ void menu_activate(void (*on_activation)(void *), void *user)
 
     m.active = true;
 
+    reset_margins();
     timode = ak_dev_ctl(PDEV_STDIN, PX_GETCANON, NULL, 0);
     nimode |= OUT_NOSCROLL | OUT_NOWRAP;
     ak_dev_ctl(PDEV_STDIN, PX_SETCANON, &nimode, 1);
@@ -135,11 +160,14 @@ void menu_activate(void (*on_activation)(void *), void *user)
     if (on_activation) on_activation(user);
     fflush(stdout);
     ak_dev_ctl(PDEV_STDIN, PX_SETCANON, &timode, 1);
+    set_margins();
 }
 
 void menu_update(void (*on_update)(void *), void *user)
 {
     u8 timode, nimode;
+
+    reset_margins();
     timode = ak_dev_ctl(PDEV_STDIN, PX_GETCANON, NULL, 0);
     nimode |= OUT_NOSCROLL | OUT_NOWRAP;
     ak_dev_ctl(PDEV_STDIN, PX_SETCANON, &nimode, 1);
@@ -151,14 +179,18 @@ void menu_update(void (*on_update)(void *), void *user)
 
     if (on_update) on_update(user);
     ak_dev_ctl(PDEV_STDIN, PX_SETCANON, &timode, 1);
-    
+
     if (!m.active) printf("\x1b[27m\x1b[u");
     fflush(stdout);
+
+    set_margins();
 }
 
 void menu_deactivate(void (*on_deactivation)(void *), void *user)
 {
     u8 timode, nimode;
+
+    reset_margins();
     timode = ak_dev_ctl(PDEV_STDIN, PX_GETCANON, NULL, 0);
     nimode |= OUT_NOSCROLL | OUT_NOWRAP;
     ak_dev_ctl(PDEV_STDIN, PX_SETCANON, &nimode, 1);
@@ -172,12 +204,15 @@ void menu_deactivate(void (*on_deactivation)(void *), void *user)
     m.active = false;
     fflush(stdout);
     ak_dev_ctl(PDEV_STDIN, PX_SETCANON, &timode, 1);
+    set_margins();
 }
 
 void menu_printf(const char *fmt, ...)
 {
     va_list ap;
     u8      timode, nimode;
+
+    reset_margins();
     timode = ak_dev_ctl(PDEV_STDIN, PX_GETCANON, NULL, 0);
     nimode |= OUT_NOSCROLL | OUT_NOWRAP;
     ak_dev_ctl(PDEV_STDIN, PX_SETCANON, &nimode, 1);
@@ -194,6 +229,7 @@ void menu_printf(const char *fmt, ...)
     va_end(ap);
     fflush(stdout);
     ak_dev_ctl(PDEV_STDIN, PX_SETCANON, &timode, 1);
+    set_margins();
 }
 
 #endif

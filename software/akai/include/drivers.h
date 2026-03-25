@@ -27,6 +27,7 @@ struct DriverKb {
 struct DriverTxt {
     u8   x, y, sx, sy;
     u8   w, h, bpc, cw, ch;
+    u8   top, bot, left, right;
     u8   attr[3], default_attr[3], saved_attr[3];
     u8   tabsize;
     u8   canonical;

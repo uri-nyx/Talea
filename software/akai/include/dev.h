@@ -77,7 +77,14 @@ enum CtlCommand {
     PX_SETCANON,
     PX_GETCANON,
     PX_GET_DEV,
+    PX_SET_MARGINS,
+    PX_GET_MARGINS,
 };
+
+#define T_MARGIN_TOP   0
+#define T_MARGIN_BOT   1
+#define T_MARGIN_LEFT  2
+#define T_MARGIN_RIGTH 3
 
 enum KbCtl {
     KCTL_GETKEY,      // Non blocking key read
