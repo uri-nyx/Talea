@@ -6,6 +6,10 @@
 #include "talea.h"
 #include "storage.h"
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 /*----------------------------------------------------------------------------*/
 /* STATIC GLOBALS                                                             */
 /*----------------------------------------------------------------------------*/
@@ -189,7 +193,7 @@ void Tps_ProcessCommand(TaleaMachine *m, u8 command)
 
 // Callbacks for Raylib's AudioStream
 
-bool Storage_InsertTps(enum TpsId tps_id, const char *path)
+bool Storage_InsertTps(int tps_id, const char *path)
 {
     extern StorageTps *TpsDrives;
     if (mtx_lock(&tpsMutex) == thrd_success) {
@@ -229,7 +233,7 @@ bool Storage_InsertTps(enum TpsId tps_id, const char *path)
     return false;
 }
 
-bool Storage_EjectTps(enum TpsId tps_id)
+bool Storage_EjectTps(int tps_id)
 {
     extern StorageTps *TpsDrives;
     if (mtx_lock(&tpsMutex) == thrd_success) {

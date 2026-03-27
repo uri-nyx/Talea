@@ -163,7 +163,7 @@ typedef struct {
 
 typedef struct {
     // --- Internal State Machine ---
-    enum ModemState state;
+    int state;
 
     char   cmdBuffer[TERMINAL_MODEM_CMD_BUFFER_SIZE];
     char   lastValidCommand[TERMINAL_MODEM_CMD_BUFFER_SIZE];
@@ -259,5 +259,13 @@ void Timer_Update(struct TaleaMachine *m, u32 cycles);
 // DEVICE PORT IO HANDLERS
 u8   Terminal_Read(struct TaleaMachine *m, u8 port);
 void Terminal_Write(struct TaleaMachine *m, u8 port, u8 value);
+
+void Serial_CloseSockets(struct TaleaMachine *m);
+void Modem_ProcessCommand(struct TaleaMachine *m, u8 byte);
+void Modem_ProcessData(struct TaleaMachine *m, u8 byte);
+
+void Serial_Update(struct TaleaMachine *m);
+bool NetworkInit(void);
+bool NetworkDeinit(void);
 
 #endif

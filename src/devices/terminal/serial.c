@@ -44,9 +44,9 @@ static inline int Serial_GetFifoSpace(TerminalSerial *dev)
 
 void Serial_CloseSockets(TaleaMachine *m)
 {
-    if (m->terminal.serial.hostSocket != INVALID_SOCKET) {
+    if (m->terminal.serial.hostSocket != T_INVALID_SOCKET) {
         net_close(m->terminal.serial.hostSocket);
-        m->terminal.serial.hostSocket = INVALID_SOCKET;
+        m->terminal.serial.hostSocket = T_INVALID_SOCKET;
         m->terminal.serial.status &= ~TERMINAL_SER_STATUS_CARRIER_DETECT;
     }
 }

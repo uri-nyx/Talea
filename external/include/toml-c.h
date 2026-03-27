@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef struct toml_table_t     toml_table_t;
 typedef struct toml_array_t     toml_array_t;
@@ -865,9 +866,10 @@ static int parse_inline_table(context_t* ctx, toml_table_t* tab) {
 
 static int valtype(const char* val) {
 	toml_timestamp_t ts;
+	bool dummy;
 	if (*val == '\'' || *val == '"')
 		return 's';
-	if (toml_value_bool(val, false) == 0)
+	if (toml_value_bool(val, &dummy) == 0)
 		return 'b';
 	if (toml_value_int(val, 0) == 0)
 		return 'i';

@@ -15,6 +15,7 @@
 import time
 import pathlib
 import struct
+from os import remove
 from sys import argv, stderr
 from typing import Tuple
 
@@ -86,19 +87,34 @@ def main(argv):
         print(f"\t<image>: path to image file")
         print(f"\t<fs>: image filesystem. Only FAT16 for now")
         print(f"\t<format>: TPS format (32M, 64M, 128M)")
+        print("\t[fresh]: make fresh image")
         exit(1)
     
     image = argv[1]
     fs = argv[2]
     hcs_format =argv[3]
+    fresh = False
     
     if  hcs_format not in Header.hcs_formats:
         print(f"Format {hcs_format} is not recognized. Use 128K, 512K or 1M")
         exit(1)
-    
+
+    if len(argv) >= 4:
+        if (argv[4] == "fresh"):
+           fresh = True
+           with open(image, "wb") as img:
+               blank = bytes([0] * Header.hcs_formats[hcs_format]["sector-size"])
+               for i in range(0, Header.hcs_formats[hcs_format]["sectors"]):
+                   img.write(blank)           
+        else:
+           printf(f"wrong argument: {argv[4]}, expected 'fresh'")
+           exit(1)
+        
     hcs = Header(path=image, fs=fs)
     hcs.wrap(hcs.path.stem, hcs_format=hcs_format)
-    
+
+    if fresh:
+        remove(image)
     
 if __name__ == "__main__":
     main(argv)

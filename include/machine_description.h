@@ -1,5 +1,3 @@
-#ifndef C3B7CF5D_94B6_4D22_8C31_96A68EFF4AD8
-#define C3B7CF5D_94B6_4D22_8C31_96A68EFF4AD8
 #ifndef MACHINE_DESCRIPTION_H
 #define MACHINE_DESCRIPTION_H
 
@@ -35,7 +33,7 @@
 #define TALEA_RESET_ADDRESS         TALEA_FIRMWARE_ADDRESS // Starts executing code at this addr
 #define TALEA_FIRMWARE_DATA_ADDRESS (32 * KB) // Data section of firmware is mapped to this addr
 
-static_assert(TALEA_MAIN_MEM_SZ % (1U << 16) == 0, "Main memory size must be a multiple of 64Kb");
+static_assert((TALEA_MAIN_MEM_SZ % (1U << 16)) == 0, "Main memory size must be a multiple of 64Kb");
 static_assert(TALEA_MAIN_MEM_SZ < TALEA_ADDRESS_SPACE_SIZE,
               "Main memory size must be lower than the address space");
 
@@ -180,4 +178,3 @@ enum TaleaInterrupt {
 
 #endif
 
-#endif /* C3B7CF5D_94B6_4D22_8C31_96A68EFF4AD8 */

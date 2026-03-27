@@ -354,7 +354,7 @@ void  Frontend_SetupFrame(TaleaMachine *m, TaleaConfig *config)
 
 static void RenderGUI(TaleaMachine *m, TaleaConfig *config)
 {
-    static enum TpsId tpsToLoad;
+    static int tpsToLoad;
     // the directory path buffer and file name buffers in GuiWindowFileDialog are 1024 each, so this
     // should be safe. a few bytes extra even (for the / and whatever that happens)
     static char tps_file_path[2100];

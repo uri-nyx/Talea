@@ -265,11 +265,13 @@ void Storage_Deinit(struct TaleaMachine *m);
 // DEVICE RENDER
 
 // And this? it hooks up to the frontend. Maybe implement some declarative UI bits?
-bool Storage_InsertTps(enum TpsId tps_id, const char *path);
-bool Storage_EjectTps(enum TpsId tps_id);
+bool Storage_InsertTps(int tps_id, const char *path);
+bool Storage_EjectTps(int tps_id);
 
 // DEVICE PORT IO HANDLERS
 void Storage_Write(struct TaleaMachine *m, u8 port, u8 value);
 u8   Storage_Read(struct TaleaMachine *m, u8 port);
 
+void Tps_ProcessCommand(struct TaleaMachine *m, u8 command);
+void Hcs_ProcessCommand(struct TaleaMachine *m, u8 command);
 #endif

@@ -259,6 +259,8 @@ static bool CheckInterrupts(TaleaMachine *m)
 
 #if TALEA_WITH_MMU
 
+static u32 MMU_WalkPageTable(TaleaMachine *m, u32 vaddr, enum MemAccessType access_type);
+
 void MMU_FlushTLB(TaleaMachine *m)
 {
     memset(m->cpu.tlb, 0, sizeof(m->cpu.tlb));

@@ -12,6 +12,9 @@
 #include "talea.h"
 #endif
 
+#include <ctype.h>
+#include <stdlib.h>
+
 /*----------------------------------------------------------------------------*/
 /* STATIC GLOBALS                                                             */
 /*----------------------------------------------------------------------------*/
@@ -74,10 +77,10 @@ static inline void sendStr(TaleaMachine *m, const char *s)
     }
 }
 
-static inline enum HayesResponse executeATCommand(TaleaMachine *m, char cmd, u8 value)
+static inline int executeATCommand(TaleaMachine *m, char cmd, u8 value)
 {
     TerminalHayesModem *modem    = &m->terminal.serial.modem;
-    enum HayesResponse  response = TERMINAL_HAYES_OK;
+    int  response = TERMINAL_HAYES_OK;
 
     // TODO: implement some cool easter eggs on ATI
 
@@ -292,7 +295,7 @@ static bool dial(TaleaMachine *m, char *address)
 static inline void parseATCommand(TaleaMachine *m, char *cmd_buff)
 {
     TerminalHayesModem *modem    = &m->terminal.serial.modem;
-    enum HayesResponse  response = TERMINAL_HAYES_DEFER;
+    int  response = TERMINAL_HAYES_DEFER;
 
     if (!(cmd_buff[0] == 'A' && cmd_buff[1] == 'T')) {
         response = TERMINAL_HAYES_ERROR;
@@ -419,7 +422,7 @@ void Modem_ProcessCommand(TaleaMachine *m, u8 byte)
 
 void Modem_ProcessData(TaleaMachine *m, u8 byte)
 {
-    if (m->terminal.serial.hostSocket != INVALID_SOCKET) {
+    if (m->terminal.serial.hostSocket != T_INVALID_SOCKET) {
         send(m->terminal.serial.hostSocket, &byte, 1, 0);
     }
 }
@@ -533,7 +536,7 @@ void Modem_Update(TaleaMachine *m)
         int  connected = recv(*pending, buf, 1, MSG_PEEK);
 
         if (!connected) {
-            closesocket(*pending);
+            net_close(*pending);
             *pending         = T_INVALID_SOCKET;
             modem->isRinging = false;
             modem->ringCount = 0;

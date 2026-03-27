@@ -13,7 +13,7 @@
     (((v)->queueFull << 7) | ((v)->rop << 4) | ((v)->cursorBlink << 3) | \
      ((v)->cursorEnable << 2) | 0 | (v)->vblankEnable)
 
-static inline getBitXY(const u8 *bitmap, u8 charIndex, u8 x, u8 y, u8 charW, u8 charH)
+static inline u8 getBitXY(const u8 *bitmap, u8 charIndex, u8 x, u8 y, u8 charW, u8 charH)
 {
     size_t bytesPerRow = (charW + 7) / 8;
     size_t glyphStart  = charIndex * (bytesPerRow * charH);
@@ -494,7 +494,7 @@ static inline void Video_Clear(TaleaMachine *m, DeviceVideo *v, u32 pattern, u8 
     // TODO: should acquire a view of the text and framebuffers on initialization AND on every
     // VIDEO_COMMAND_SET_ADDR
     if (v->mode == VIDEO_MODE_TEXT_MONO) {
-        Bus_Memset(m, &v->textbuffer.view, ' ', &v->textbuffer.view);
+        Bus_Memset(m, &v->textbuffer.view, ' ', v->textbuffer.h*v->textbuffer.w);
         return;
     }
 
@@ -2263,11 +2263,11 @@ static enum VideoError Video_ProcessCommand(TaleaMachine *m, u8 value)
         // Takes 1 halfword in GPU6-7 for the buffer h
         // Cannot bind slot 0!
 
-        if (v->error == VIDEO_ERROR_BIND || v->error == VIDEO_ERROR_DMA) return;
+        if (v->error == VIDEO_ERROR_BIND || v->error == VIDEO_ERROR_DMA) return v->error;
 
         u8 slot = v->currentCmd.args[0] >> 56;
 
-        if (slot == 0) return;
+        if (slot == 0) return VIDEO_ERROR_BIND;
 
         u32 addr = (v->currentCmd.args[0] >> 32) & 0x00ffffff;
 

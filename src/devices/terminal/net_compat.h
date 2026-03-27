@@ -31,9 +31,12 @@ inline void net_close(talea_net_t s)
 }
 
 #else
+#define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netdb.h>
 #include <sys/socket.h>
 #include <unistd.h>
 typedef int talea_net_t;

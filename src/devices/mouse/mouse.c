@@ -15,7 +15,7 @@
 #define ASSEMBLE_CSR(mouse) \
     (mouse->csr | (mouse->visible ? MOUSE_VISIBLE : 0) | (mouse->custom ? MOUSE_CUSTOM : 0))
 
-static inline loadSprite(TaleaMachine *m)
+static inline void loadSprite(TaleaMachine *m)
 {
     DeviceMouse *mouse                     = &m->mouse;
     u8           sprite2bit[(16 * 16) / 4] = { 0 };

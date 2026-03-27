@@ -1,9 +1,10 @@
 #include <stdio.h>
 
+#include "toml-c.h"
+
 #include "config.h"
 #include "raylib.h"
 #include "talea.h"
-#include "toml-c.h"
 
 TaleaConfig Config_Load(const char *config_path)
 {
