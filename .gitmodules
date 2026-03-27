@@ -4,3 +4,6 @@
 [submodule "software/akai/naimen/libeui"]
 	path = software/akai/naimen/libeui
 	url = https://github.com/erysdren/eui.git
+[submodule "software/akai/naimen/fe"]
+	path = software/akai/naimen/fe
+	url = https://github.com/ooichu/fe.git
