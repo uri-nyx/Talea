@@ -19,19 +19,19 @@ _init:
     syscall x0, 0x40
     bne x0, x10, _exit
     
-    # #3
+    # #3 not anymore
     # addi x5, x5, 1
     # li x13, 4  # serial
     # syscall x0, 0x40
     # bne x0, x10, _exit
 
-    #4
+    #3
     addi x5, x5, 1
     li x13, 5  # kb
     syscall x0, 0x40
     bne x0, x10, _exit
 
-    #5
+    #4
     addi x5, x5, 1
     # attach textbuffer and keyboard to stdin, stderr, and stdout
     li x12, 14   # SYSCALL_DEV_CTL
@@ -42,7 +42,7 @@ _init:
     syscall x0, 0x40
     bne x0, x10, _exit
 
-    #6
+    #5
     addi x5, x5, 1
     li x13, 256  # STDOUT
     li x14, 1000 # ATTACH
@@ -51,7 +51,7 @@ _init:
     syscall x0, 0x40
     bne x0, x10, _exit
 
-    #7
+    #6
     addi x5, x5, 1
     li x13, 257  # STDERR
     li x14, 1000 # ATTACH
@@ -61,14 +61,14 @@ _init:
     bne x0, x10, _exit
 
 
-    #8
+    #7
     addi x5, x5, 1
     # exec the terminal
     li x12, 3 	    # SYSCALL_EXEC
 	la x13, shell
 	li x14, 2      # argc
 	la x15, argv   # argv
-	li x16, 1       # EXEC_AOUT_FLAT
+	li x16, 1      # EXEC_AOUT_FLAT
 	syscall x0, 0x40
     trace x0, x31, x7, x9
 
@@ -78,6 +78,7 @@ _exit:
     trace x5, x10, x5, x31
     mv x13, x5
     mv x12, x0 # SYSCALL_EXIT
+    .word 0
     syscall x0, 0x40
 
 .data
@@ -88,7 +89,7 @@ kb:
 .align 4
 tb:
     .word 1 # hardware
-    .word 1 # kb
+    .word 1 # tb
 .align 4
 shell:
     .ascii "/A/BIN/SH"

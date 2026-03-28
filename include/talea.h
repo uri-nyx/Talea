@@ -38,6 +38,7 @@
 #if defined(PLATFORM_DESKTOP)
 #define GLSL_VERSION 330
 #else // PLATFORM_ANDROID, PLATFORM_WEB
+#error "Non desktop versions are not supported"
 #define GLSL_VERSION 130
 #endif
 

@@ -42,8 +42,8 @@ const char *results_numeric[] = {
 #undef STR_HELPER
 
 const char *results_verbose[] = {
-    "OK\n\r",    "CONNECT\n\r",     "RING\n\r", "NO_CARRIER\n\r",
-    "ERROR\n\r", "NO_DIALTONE\n\r", "BUSY\n\r", "NO_ANSWER\n\r",
+    "\nOK\n\r",    "\nCONNECT\n\r",     "\nRING\n\r", "\nNO CARRIER\n\r",
+    "\nERROR\n\r", "\nNO DIALTONE\n\r", "\”BUSY\n\r", "NO ANSWER\n\r",
 };
 
 static const u32 rates[] = { 300, 1200, 2400, 9600, 19200, 38400, 57600 };
@@ -222,6 +222,13 @@ static int result_modem(int mode)
     char buf[64];
     int  len, i;
 
+    /*  
+    FILE *result_log = fopen("/B/SHARE/NANOCOM/RLOG.LOG", "w");
+
+    if (!result_log) result_log = stderr;
+    fputs("---\n", result_log);
+    */
+    
     for (i = 0; i < 3; i++) {
         /* read one line */
         len = 0;
@@ -233,31 +240,35 @@ static int result_modem(int mode)
             if (r < 0) return -2;
 
             buf[len++] = (char)r;
+	    //	    fprintf(result_log, "%c (%x)\n", r >= ' ' ? r : ' ', r);             
             if (r == '\r') break;
         }
-        buf[len] = '\0';
 
+        buf[len] = '\0';
+	//fprintf(result_log, "<%s>\n", buf);         
+        
+        
         /* try numeric first */
         if (mode == MODE_UNKNOWN || mode == MODE_NUMERIC) {
-            int i;
-            for (i = 0; i < 8; i++) {
-                if (strcmp(buf, results_numeric[i]) == 0) return i;
+            int j;
+            for (j = 0; j < 8; j++) {
+                if (strcmp(buf, results_numeric[j]) == 0) return j;
             }
-            if (mode == MODE_NUMERIC) continue; /* numeric mode only → skip non-matching lines */
+            if (mode == MODE_NUMERIC) continue; 
         }
 
         /* try verbose */
         {
-            int i;
-            for (i = 0; i < 8; i++) {
-                if (strncmp(buf, "CONNECT", 7) == 0) return HAYES_CONNECT;
-                if (strcmp(buf, results_verbose[i]) == 0) return i;
+            int j;
+            for (j = 0; j < 8; j++) {
+	        if (strncmp(buf, "\nCONNECT", 8) == 0) return HAYES_CONNECT;
+                if (strcmp(buf, results_verbose[j]) == 0) return j;
             }
+	    continue;            
         }
-
-        /* not a result → echo or noise → read next line */
     }
 
+    //fprintf(result_log, "Bad result code: '%s'\n", buf);    
     return -1;
 }
 
@@ -308,7 +319,10 @@ static void serial_deinit(void)
 
     res = ak_dev_ctl(PDEV_STDIN, PX_SETCANON, imode, 1);
     res = ak_dev_ctl(PDEV_STDOUT, PX_SETCANON, omode, 1);
-    fputs("\x1b[0m\x1b[H", stderr);
+    fputs("\x1b[0m\x1b[H", stdout);
+    cursor_show();    
+    clearerr(stdout);
+    fflush(stdout);
 }
 
 static void status_line(char *a, int n, char *b)
@@ -415,6 +429,7 @@ static void do_dial(void)
 {
     usize pos = 0;
     int   c;
+    int result = 0;
 
     memset(dial_host, 0, sizeof(dial_host));
 
@@ -441,14 +456,19 @@ static void do_dial(void)
     dial_host[pos]     = 0;
     nano_ops.host = dial_host;
     cursor_hide();
-
+    
     send_modem_escape();
+    //result_modem(MODE_UNKNOWN);
     send_modem("ATH", true);
+    result = result_modem(MODE_UNKNOWN);
+    menu_printf("ATH -> %d", result);
+    
     send_modem("ATDT ", false);
     send_modem(nano_ops.host, true);
 
-    if (result_modem(MODE_UNKNOWN) != HAYES_CONNECT) {
-        menu_printf("ERROR DIALING! [C-a to continue]");
+    if ((result = result_modem(MODE_UNKNOWN)) != HAYES_CONNECT) {
+      menu_printf("ERROR DIALING! [C-a to continue]");
+      fprintf(stderr, " Result: %d\n", result);
     } else {
         menu_deactivate(on_update, NULL);
         nano_mode = NANO_MODE_NORMAL;
@@ -662,7 +682,6 @@ static bool command(void)
 
     ak_dev_ctl(PDEV_STDIN, PX_SETCANON, &nano_ops.imode, 1);
     ak_dev_ctl(PDEV_STDOUT, PX_SETCANON, &nano_ops.omode, 1);
-
     return quit;
 }
 
@@ -674,11 +693,14 @@ static void modem(void)
     int     tx_ptr     = 0;
     clock_t timer      = clock();
     bool    timeout;
+    usize i = 0;
 
     // clear screen
-    ak_dev_ctl(PDEV_STDOUT, PX_WRITE, "\x1b[2J\x1b[H", 7);
-    menu_update(on_update, NULL);
+    ak_dev_ctl(PDEV_STDOUT, PX_WRITE, "\x1b[2J\x1b[2H", 8);
+    if (!serial_is_connected()) menu_update(on_update, NULL);
 
+    //    for (i = 0; i<8; i++) fprintf(stderr, "Result %d) %s\n\r", i, results_verbose[i]);
+    
     while (!quit) {
         if (nano_mode == NANO_MODE_NORMAL) {
             int n   = ak_dev_ctl(PDEV_STDIN, PX_READ, tx_buf + tx_ptr, 16 - tx_ptr);
@@ -723,7 +745,7 @@ static void modem(void)
             int res;
             if ((res = ak_dev_ctl(DEV_SERIAL, SCTL_READ, rx_buf, count)) == count) {
                 ak_dev_ctl(PDEV_STDOUT, PX_WRITE, rx_buf, count);
-                menu_update(on_update, NULL);
+                if (!serial_is_connected()) menu_update(on_update, NULL);
             } else {
                 menu_printf("Error receiving data: %d\r\n", res);
             }

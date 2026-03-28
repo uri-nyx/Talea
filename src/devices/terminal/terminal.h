@@ -266,6 +266,6 @@ void Modem_ProcessData(struct TaleaMachine *m, u8 byte);
 
 void Serial_Update(struct TaleaMachine *m);
 bool NetworkInit(void);
-bool NetworkDeinit(void);
+void NetworkDeinit(void);
 
 #endif

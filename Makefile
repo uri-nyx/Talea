@@ -1,6 +1,6 @@
 # Compiler and Flags
 CC      := gcc
-CFLAGS  := -Wall -Wextra -Wno-unused-parameter -Wno-incompatible-pointer-types -std=gnu23 -O2 -Iinclude -Iexternal/include -Isrc
+CFLAGS  := -Wall -Wextra -Wno-unused-parameter -Wno-incompatible-pointer-types -std=gnu23 -O2 -DPLATFORM_DESKTOP -Iinclude -Iexternal/include -Isrc
 LDFLAGS := -Lexternal/lib -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 # Directories

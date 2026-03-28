@@ -235,11 +235,13 @@ static bool initiateConnection(TaleaMachine *m, const char *address, bool need_t
 
     if (result == T_NET_ERROR) {
         if (net_would_block()) {
+	  TALEA_LOG_TRACE("DIALING!\n");
             modem->state     = TERMINAL_MODEM_STATE_DIALING;
             modem->dialStart = GetTime();
             return true;
         } else {
             // Network unreachable
+	  TALEA_LOG_TRACE("Network unreacheable!\n");
             net_close(m->terminal.serial.hostSocket);
             m->terminal.serial.hostSocket = T_INVALID_SOCKET;
             Modem_SendResponse(m, TERMINAL_HAYES_NO_CARRIER);
@@ -565,6 +567,7 @@ skip_ring:
         break;
     case TERMINAL_MODEM_STATE_DIALING: {
         if (sock == T_INVALID_SOCKET) {
+	  TALEA_LOG_TRACE("CANCELLED DIALING!\n");
             modem->state = TERMINAL_MODEM_STATE_COMMAND;
             Modem_SendResponse(m, TERMINAL_HAYES_NO_CARRIER);
             return;
@@ -592,6 +595,7 @@ skip_ring:
         if (res > 0) {
             if (FD_ISSET(sock, &efds)) {
                 // Connection Refused (Windows)
+	      TALEA_LOG_TRACE("CONNECTION REFUSED (WINDOWS)\n");
                 Serial_CloseSockets(m);
                 modem->state = TERMINAL_MODEM_STATE_COMMAND;
                 Modem_SendResponse(m, TERMINAL_HAYES_NO_CARRIER);
@@ -602,11 +606,13 @@ skip_ring:
 
                 // Double check the error state (Required for POSIX)
                 if (getsockopt(sock, SOL_SOCKET, SO_ERROR, (char *)&err, &len) < 0 || err != 0) {
+		  TALEA_LOG_TRACE("CONNECTION REFUSED (POSIX)\n");
                     Serial_CloseSockets(m);
                     modem->state = TERMINAL_MODEM_STATE_COMMAND;
                     Modem_SendResponse(m, TERMINAL_HAYES_NO_CARRIER);
                 } else {
                     // SUCCESS!
+		  TALEA_LOG_TRACE("CONNECTED!\n");
                     modem->state = TERMINAL_MODEM_STATE_DATA;
                     m->terminal.serial.status |= TERMINAL_SER_STATUS_CARRIER_DETECT;
                     Modem_SendResponse(m, TERMINAL_HAYES_CONNECT);

@@ -100,4 +100,4 @@ void Mouse_UpdateCoordinates(struct TaleaMachine *m, int buttons, int scaledX, i
 void Mouse_Write(struct TaleaMachine *m, u8 port, u8 value);
 u8   Mouse_Read(struct TaleaMachine *m, u8 port);
 
-#endif MOUSE_H
+#endif 

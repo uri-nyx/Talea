@@ -147,7 +147,7 @@ static inline u8 Serial_PeekByte(TerminalSerial *s)
 
 // DEVICE INITIALIZATION
 
-bool NetworkInit()
+bool NetworkInit(void)
 {
 #ifdef _WIN32
     WSADATA wsaData;
@@ -160,7 +160,7 @@ bool NetworkInit()
 #endif
 }
 
-void NetworkDeinit()
+void NetworkDeinit(void)
 {
 #ifdef _WIN32
     WSACleanup();

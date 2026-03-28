@@ -37,6 +37,7 @@ inline void net_close(talea_net_t s)
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
+#include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
 typedef int talea_net_t;
@@ -47,7 +48,8 @@ typedef int talea_net_t;
 
 inline bool net_would_block()
 {
-    return errno == EAGAIN || errno == EWOULDBLOCK;
+  //TALEA_LOG_TRACE("NET WOULD BLOCK POSIX (must be %d or %d); %d\n", EAGAIN, EWOULDBLOCK, errno);
+    return errno == EAGAIN || errno == EWOULDBLOCK || EINPROGRESS;
 }
 inline void net_close(talea_net_t s)
 {
